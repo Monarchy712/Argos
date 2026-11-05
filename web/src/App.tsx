@@ -3,11 +3,13 @@ import { TransportPill } from "./components/common.tsx";
 import { MonitoredScreen, useArkiv, useManifest } from "./screens/Monitored.tsx";
 import { CheckTxScreen } from "./screens/CheckTx.tsx";
 import { NymDiagnosticsScreen } from "./screens/NymDiagnostics.tsx";
+import { BrowseMirrorScreen } from "./screens/BrowseMirror.tsx";
 
-type Tab = "monitored" | "check" | "nym";
+type Tab = "monitored" | "check" | "browse" | "nym";
 const TABS: { id: Tab; label: string }[] = [
   { id: "monitored", label: "Monitored contracts" },
   { id: "check", label: "Check a transaction" },
+  { id: "browse", label: "Browse mirror" },
   { id: "nym", label: "Nym diagnostics" },
 ];
 
@@ -36,6 +38,7 @@ export function App() {
       <main>
         {tab === "monitored" && <MonitoredScreen arkiv={arkiv} manifest={manifest} />}
         {tab === "check" && <CheckTxScreen snap={arkiv.snap} manifest={manifest} />}
+        {tab === "browse" && <BrowseMirrorScreen manifest={manifest} />}
         {tab === "nym" && <NymDiagnosticsScreen />}
       </main>
       <footer className="foot">

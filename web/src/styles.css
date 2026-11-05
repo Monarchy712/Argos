@@ -146,3 +146,7 @@ label { font-weight: 600; font-size: 13px; color: var(--text-2); display: block;
 footer.foot { margin-top: 32px; color: var(--text-3); font-size: 12.5px; }
 .kind-warn { background: var(--warn-soft); color: var(--warn-fg); }
 .popover { position: absolute; right: 0; top: calc(100% + 8px); width: 340px; z-index: 10; box-shadow: 0 10px 30px rgba(15, 23, 42, 0.15); }
+.filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) auto auto; gap: 12px; align-items: end; }
+@media (max-width: 1000px) { .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.filters select { font-family: var(--sans); }
+label.check { display: flex; align-items: center; gap: 6px; margin: 0 0 10px; white-space: nowrap; }
