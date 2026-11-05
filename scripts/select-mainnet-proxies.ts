@@ -10,9 +10,9 @@
 import { readdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join, basename, dirname, relative } from "node:path";
 import { execFileSync } from "node:child_process";
-import { createPublicClient, http, getAddress, parseAbi, zeroAddress, type Address } from "viem";
+import { createPublicClient, http, getAddress, zeroAddress, type Address } from "viem";
 import { mainnet } from "viem/chains";
-import { readAddressSlot, IMPLEMENTATION_SLOT, BEACON_SLOT, ADMIN_SLOT, SAFE_SINGLETON_SLOT, type ProxyKind } from "@driftguard/core";
+import { classifyContract } from "@driftguard/core";
 
 const root = process.argv[2];
 if (!root || !existsSync(join(root, "registry"))) throw new Error("usage: select-mainnet-proxies.ts <registry checkout>");
@@ -52,31 +52,8 @@ console.log(`registry ${commit.slice(0, 7)}: ${files.length} calldata descriptor
 
 // ---- 2. classify on-chain -------------------------------------------------------------------
 const client = createPublicClient({ chain: mainnet, transport: http(process.env.MAINNET_RPC_URL, { retryCount: 3 }) });
-const loupe = parseAbi(["function facets() view returns ((address facetAddress, bytes4[] functionSelectors)[])"]);
-const beaconAbi = parseAbi(["function implementation() view returns (address)"]);
 const block = (await client.getBlockNumber()) - 2n;
-
-async function classify(a: Address): Promise<{ kind: ProxyKind | "no-code"; implementation: Address }> {
-  const code = await client.getCode({ address: a, blockNumber: block });
-  if (!code || code === "0x") return { kind: "no-code", implementation: zeroAddress };
-  const impl = await readAddressSlot(client, a, IMPLEMENTATION_SLOT, block);
-  if (impl !== zeroAddress) return { kind: "eip1967", implementation: impl };
-  const beacon = await readAddressSlot(client, a, BEACON_SLOT, block);
-  if (beacon !== zeroAddress) {
-    const bi = await client.readContract({ address: beacon, abi: beaconAbi, functionName: "implementation", blockNumber: block }).catch(() => zeroAddress);
-    return { kind: "beacon", implementation: bi };
-  }
-  const facets = await client.readContract({ address: a, abi: loupe, functionName: "facets", blockNumber: block }).catch(() => null);
-  if (facets && facets.length > 0) return { kind: "diamond", implementation: zeroAddress };
-  // Safe proxy: tiny bytecode that delegates to the singleton stored in slot 0.
-  if ((code.length - 2) / 2 < 400) {
-    const s0 = await readAddressSlot(client, a, SAFE_SINGLETON_SLOT, block);
-    const s0code = s0 !== zeroAddress ? await client.getCode({ address: s0, blockNumber: block }) : undefined;
-    if (s0code && s0code !== "0x") return { kind: "safe", implementation: s0 };
-  }
-  void ADMIN_SLOT;
-  return { kind: "none", implementation: zeroAddress };
-}
+const classify = (a: Address) => classifyContract(client, a, block);
 
 const results: (Candidate & { kind: string; implementation: Address })[] = [];
 const queue = [...candidates];
