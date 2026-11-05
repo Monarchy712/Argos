@@ -1,0 +1,30 @@
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+keystore/
+wallets/
+
+# Node
+node_modules/
+dist/
+.vite/
+*.log
+npm-debug.log*
+
+# Foundry
+contracts/out/
+contracts/cache/
+contracts/broadcast/*/31337/
+contracts/broadcast/**/dry-run/
+
+# Watcher local state (cursor files may contain nothing secret, but are machine-local)
+watcher/state/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
