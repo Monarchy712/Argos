@@ -34,3 +34,6 @@ contracts/broadcast/
 
 # Local caches (registry checkout etc.)
 .cache/
+
+# Importer local caches
+importer/state/
