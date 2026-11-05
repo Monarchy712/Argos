@@ -141,3 +141,13 @@ export async function anonAwareFetch(input: RequestInfo | URL, init?: RequestIni
 export function routeLabel(mode: Mode): string {
   return mode === "nym" ? "via Anon-RPC (Nym mixnet)" : "direct RPC, not anonymized";
 }
+
+/**
+ * Always through Nym, whatever the selected mode: used by the diagnostics screen (Test 4), whose
+ * whole point is measuring the anonymized path. Fails if Nym can't boot.
+ */
+export async function nymOnlyFetch(url: string, init?: RequestInit): Promise<Response> {
+  await startNym();
+  if (!worker) throw new Error("Nym worker unavailable");
+  return withTimeout(worker.fetch(url, plainInit(init)), REQUEST_TIMEOUT_MS, `Nym request timed out after ${REQUEST_TIMEOUT_MS / 1000} s`);
+}

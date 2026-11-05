@@ -2,6 +2,7 @@ import { useState } from "react";
 import { TransportPill } from "./components/common.tsx";
 import { MonitoredScreen, useArkiv, useManifest } from "./screens/Monitored.tsx";
 import { CheckTxScreen } from "./screens/CheckTx.tsx";
+import { NymDiagnosticsScreen } from "./screens/NymDiagnostics.tsx";
 
 type Tab = "monitored" | "check" | "nym";
 const TABS: { id: Tab; label: string }[] = [
@@ -35,7 +36,7 @@ export function App() {
       <main>
         {tab === "monitored" && <MonitoredScreen arkiv={arkiv} manifest={manifest} />}
         {tab === "check" && <CheckTxScreen snap={arkiv.snap} manifest={manifest} />}
-        {tab === "nym" && <p className="muted">Coming next.</p>}
+        {tab === "nym" && <NymDiagnosticsScreen />}
       </main>
       <footer className="foot">
         DriftGuard detects, verifies and warns. It does not block transactions or guarantee safety, and an upgrade is not a
