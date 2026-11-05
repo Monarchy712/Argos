@@ -75,3 +75,20 @@ way. Times are IST. Each entry points at the commits it covers.
   deployed yet.
 - Built the Arkiv sink (one batch per cycle; create+delete on rebaseline; retry when an expired
   row is found), the `renew` script, and a cleanup script for test rows.
+
+### Watcher → Arkiv works end to end; mainnet monitoring set chosen
+- **Test 3 passes on Sepolia (10/10).** Problems along the way: Sepolia charges ~6x more gas to
+  create contracts than Foundry's local EVM simulates, and a PublicNode backend lagged
+  (`block not found`). Both are now handled in the test script.
+- **Test 2 passes with the access key (9/9, 0×429).** Reads take ~226 ms; writes take ~6 s to
+  receipt.
+- **E2E passes.** The watcher with the Arkiv sink tracked A→B→A on the Sepolia demo proxy, and
+  every step was read back from Arkiv. After the watcher was killed, its `current_state` expired
+  and the contract showed NOT VERIFIED.
+- Classified all 652 mainnet contracts in the ERC-7730 registry: **48% are upgradeable proxies**.
+  Selected 30 across 19 protocols, attested first, for the watcher to monitor. Without a cap,
+  ~20 Kiln vaults behind one shared beacon would have filled the list.
+- Watcher hardening: a failed read for one contract no longer fails the cycle. That contract goes
+  stale (NOT VERIFIED) and its events are replayed later.
+- README now has the problem statement, wallets, setup and a runnable Arkiv query.
+  `arkiv/schema.md` is filled in.

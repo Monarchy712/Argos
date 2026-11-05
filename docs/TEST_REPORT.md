@@ -7,6 +7,7 @@ output is committed under `docs/test-runs/`.
 | --- | --- | --- |
 | 3 — proxy detection | **PASS** on Sepolia (10/10) and local anvil | [sepolia](test-runs/test3-sepolia.txt) · [sepolia phase 2](test-runs/test3-sepolia-phase2.txt) · [local](test-runs/test3-local.txt) |
 | 2 — Arkiv records | **PASS** (9/9, keyed run: 0×429; keyless run found the 429 cost limit) | [keyed](test-runs/test2-rabdi-keyed.txt) · [keyless](test-runs/test2-rabdi.txt) |
+| E2E — watcher → Arkiv (Sepolia) | **PASS** (5/5 + expiry) | [e2e-arkiv-sepolia.txt](test-runs/e2e-arkiv-sepolia.txt) |
 | 4 — Nym reads | not started (by plan: needs a real browser on venue Wi-Fi) | — |
 | 1 — Swarm | not started (by plan: postage depends on the Swarm booth) | — |
 
@@ -155,3 +156,24 @@ VERIFIED, 20 keyless reads, p50/p95 per operation, 429 count.
   - The SDK documents `key` as "a reference to another entity", so hashes are stored as `str`
     (66 bytes, under the 128-byte limit).
   - All `dg_*` attribute names pass the SDK's runtime name grammar (`defineSchema` validates on load).
+
+---
+
+## E2E — watcher with the Arkiv sink on the Sepolia demo proxy — PASS
+
+**How to run:** `bash scripts/e2e-arkiv.sh`. Everything is read back through `scripts/show-arkiv.ts`, which
+trusts only the writer/watcher creators, exactly as a client would.
+
+Run 2026-11-06 ~03:45–04:00 IST, watcher poll 15 s / write 60 s:
+
+| Step | Read back from Arkiv |
+| --- | --- |
+| Baseline written by the writer (entity `0x074baf80…`, block 12072369) | impl = ImplA |
+| Watcher's first cycle | current_state `matches_baseline: true`, expires in ~570 s |
+| Upgrade A→B (tx `0xb5228d10…`, block 12072376) | `matches_baseline: false`, `ever_changed: true`; latest_change A→B `by: event` with tx |
+| Upgrade B→A (tx `0xbd555949…`, block 12072383) | `matches_baseline: true`, **`ever_changed: true`**; latest_change B→A |
+| Watcher killed, checked 11 min later | **no current_state → NOT VERIFIED**; baseline and latest_change still present |
+
+Each change showed up on Arkiv within one watcher cycle plus one Arkiv write (~6 s) of the upgrade
+passing the 2-block confirmation depth.
+
