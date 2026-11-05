@@ -86,8 +86,8 @@ Local: Node v24.12.0, Foundry 1.5.1.
 | Names | On-chain `Ident32` grammar; cannot start with `$`; `arkiv.schema` reserved. We use lowercase snake_case and call `validateAttributeName` in a unit test. | VERIFIED (SDK source comments); exact grammar ASSUMED |
 | Named schema | `defineSchema("name", {...})` tags entities with indexed `arkiv.schema`; queries through it filter by tag | VERIFIED (SDK README) |
 | Writes | `createEntity`, `patchEntity`, `extendEntity`, `deleteEntity`, `changeOwnership` | VERIFIED (SDK `.d.ts`) |
-| Batch writes | Spike did batches of 50; the batch method name in 1.0.1 is not yet confirmed | ASSUMED → Test 2 |
-| Whether `patchEntity` can also set a new expiry | unknown; fallback = `patchEntity` then `extendEntity`, or delete+create | ASSUMED → Test 2 |
+| Batch writes | `executeBatch({ creates, patches, deletes, extensions, ownershipChanges })`, one tx | VERIFIED (SDK types; Test 2) |
+| Whether `patchEntity` can also set a new expiry | **No**: "a patch never moves … the expiry". Pair it with an extension in one `executeBatch` | VERIFIED (SDK types; Test 2) |
 | Expiry helpers | `ExpirationTime.fromSeconds/Minutes/Hours/Days/Blocks` | VERIFIED (SDK) |
 | Block time | 2 s | VERIFIED (SDK `BLOCK_TIME`) |
 | Max lifetime | **7,884,000 blocks ≈ 182.5 days** from the create/extend block; longer reverts `ExpiryBeyondMaxLifetime` | VERIFIED (SDK `MAX_LIFETIME` doc comment) |
@@ -434,13 +434,13 @@ step for jobs).
 
 | # | Assumption | Closed by |
 | --- | --- | --- |
-| A1 | OZ 5.x `TransparentUpgradeableProxy` deploys its own `ProxyAdmin` and upgrades go through `ProxyAdmin.upgradeAndCall` (no plain `upgradeTo` in v5); constructor emits `Upgraded` + `AdminChanged` | Test 3 (read the installed lib source) |
-| A2 | Sepolia RPC (from `.env`) supports `eth_getLogs` over 2k-block ranges | Test 3 |
+| A1 | ~~OZ 5.x proxy deploys its own ProxyAdmin; upgrades via `ProxyAdmin.upgradeAndCall`~~ **CLOSED: VERIFIED** in OZ v5.6.1 source. New: 5.6 refuses empty init data | Test 3 |
+| A2 | ~~Sepolia RPC supports `eth_getLogs` over 2k-block ranges~~ **CLOSED: VERIFIED** with an address filter (PublicNode rejects unfiltered calls, -32001 on lagging backends is retried) | Test 3 |
 | A3 | A Sepolia RPC endpoint answers requests from the Nym exit; ≥18/20 and p95 < ~10 s through harness 0.4.0 | Test 4 |
 | A4 | Swarm gateway answers through Nym | Test 4 add-on |
-| A5 | Arkiv batch-write method name in 1.0.1; `patchEntity` vs expiry; re-create after expiry; `key` type holds 32 bytes | Test 2 |
-| A6 | Keyless browser reads still un-throttled at our volume (≈3–5 queries/load) | Test 2 |
-| A7 | Expired entity disappears from queries promptly (spike: yes at 2 min) | Test 2 |
+| A5 | ~~Arkiv batch write / patch vs expiry / `key` type~~ **CLOSED: VERIFIED** `executeBatch({creates,patches,deletes,extensions})` in one tx; a patch never moves expiry (pair with an extension); hashes stored as `str` | Test 2 |
+| A6 | ~~Keyless browser reads un-throttled~~ **CLOSED, partly FALSE:** keyless reads have a cost budget (429 `ANON_COST_LIMITED`, limit 10000, reset ~217 s). A single bulk read per page load is fine; the watcher and importer use an access key | Test 2 |
+| A7 | ~~Expired entities leave queries promptly~~ **CLOSED: VERIFIED** 2-minute entity gone after ~94–102 s of polling; 10-minute watcher row gone after the watcher stopped | Test 2, E2E |
 | A8 | Swarm upload path: own Bee light node vs gateway vs hackathon-provided batch; stamp cost | Test 1 |
 | A9 | `resolveCalldataDescriptor` resolves `includes` for a registry file loaded from disk; our `canonicalize` output hashes equal to `computeDescriptorHash` | Test 1 |
 | A10 | Largest registry descriptor (spike: 1 file > 128 KiB) uploads and round-trips | Test 1 |
