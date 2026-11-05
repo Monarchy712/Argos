@@ -38,5 +38,9 @@ export const DEMO_PROXY = {
 export const ARKIV_EXPLORER = "https://rabdi.explorer.arkiv.network";
 /** Arkiv block time in seconds (SDK BLOCK_TIME), to turn $expiresAt blocks into wall time. */
 export const ARKIV_BLOCK_SECONDS = 2;
-/** Keyless Arkiv reads have a cost budget (Test 2), so the bulk read refreshes at most this often. */
-export const ARKIV_REFRESH_MS = 120_000;
+/**
+ * Keyless Arkiv reads have a cost budget (Test 2), so the table's bulk read refreshes every 90 s.
+ * Worst-case record age shown = watcher write interval (120 s) + poll (60 s) + this, which keeps
+ * a healthy watcher under the 5-minute staleness line. "Check" always reads fresh.
+ */
+export const ARKIV_REFRESH_MS = 90_000;

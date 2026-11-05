@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { computeStatus, riskyCalldataFlags, PROXY_KINDS, type ProxyKind, type LiveEvidence, type RiskFlag, type StatusResult } from "@driftguard/core";
 import { format, type DisplayModel } from "@ethereum-sourcify/clear-signing";
 import { encodeFunctionData, getAddress, isAddress, isHex, parseAbi, parseTransaction, serializeTransaction, type Hex } from "viem";
-import { idOf, type ArkivSnapshot } from "../lib/arkiv.ts";
+import { idOf, readArkiv, type ArkivSnapshot } from "../lib/arkiv.ts";
 import { clientFor, liveIdentity } from "../lib/chain.ts";
 import { CHAINS, DEMO_PROXY } from "../lib/config.ts";
 import { RegistryFallbackSource, descriptorFor, makeResolver, type FetchRecord, type RegistryManifest } from "../lib/descriptors.ts";
@@ -74,7 +74,7 @@ interface Result {
   baselineDescriptorHash: string | null;
 }
 
-export function CheckTxScreen({ snap, manifest }: { snap: ArkivSnapshot | null; manifest: RegistryManifest | null }) {
+export function CheckTxScreen({ snap: snapshot, manifest }: { snap: ArkivSnapshot | null; manifest: RegistryManifest | null }) {
   const transport = useTransport();
   const [input, setInput] = useState(EXAMPLES[0]!.value);
   const [busy, setBusy] = useState(false);
@@ -99,6 +99,9 @@ export function CheckTxScreen({ snap, manifest }: { snap: ArkivSnapshot | null; 
       return;
     }
     setBusy(true);
+    // Read Arkiv fresh for the check (one bulk read, same as the table), so the verdict uses the
+    // newest watcher record; fall back to the page's snapshot if Arkiv is unreachable.
+    const snap = await readArkiv().catch(() => snapshot);
     const flags = riskyCalldataFlags(tx.data);
     const id = idOf(tx.chainId, tx.to);
     const baseline = snap?.baselines.find((b) => idOf(b.chainId, b.address) === id) ?? null;
@@ -207,7 +210,7 @@ export function CheckTxScreen({ snap, manifest }: { snap: ArkivSnapshot | null; 
             </select>
           </div>
           {error && <div className="callout callout-red">{error}</div>}
-          {!snap && <div className="callout">Arkiv data is still loading; monitored status will show as Not verified until it arrives.</div>}
+          {!snapshot && <div className="callout">Arkiv data is still loading; monitored status will show as Not verified until it arrives.</div>}
         </div>
 
         <div className="card card-pad stack">
