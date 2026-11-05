@@ -11,5 +11,5 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["packages/*/src", "packages/*/test", "watcher/src", "watcher/test"]
+  "include": ["packages/*/src", "packages/*/test", "watcher/src", "watcher/test", "scripts/*.ts"]
 }
