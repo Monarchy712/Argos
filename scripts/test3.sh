@@ -13,10 +13,13 @@ NET="${1:-local}"
 set -a; [ -f .env ] && . ./.env; set +a
 
 if [ "$NET" = local ]; then
-  RPC="${LOCAL_RPC_URL:-http://127.0.0.1:8545}"; CHAIN=31337; POLL=3000; WAIT=8
+  RPC="${LOCAL_RPC_URL:-http://127.0.0.1:8545}"; CHAIN=31337; POLL=3000; WAIT=8; FORGE_FLAGS=""
   export DEPLOYER_PRIVATE_KEY="$(cast wallet private-key "test test test test test test test test test test test junk" 0)"
 else
-  RPC="$SEPOLIA_RPC_URL"; CHAIN=11155111; POLL=15000; WAIT=60
+  # Current Sepolia (blocks carry blockAccessListHash) charges ~6x more gas for contract creation
+  # than Foundry 1.5.1's local EVM simulates (node estimate 966k vs ~158k for DemoImplA), so
+  # simulated limits run out of gas. Skip local simulation: gas then comes from the node.
+  RPC="$SEPOLIA_RPC_URL"; CHAIN=11155111; POLL=15000; WAIT=60; FORGE_FLAGS="--skip-simulation --gas-estimate-multiplier 130"
   export DEPLOYER_PRIVATE_KEY="$SEPOLIA_DEPLOYER_PRIVATE_KEY"
 fi
 
@@ -26,9 +29,24 @@ rm -rf "$STATE"; mkdir -p "$STATE"; : > "$LOG"
 say() { echo "[$(date -u +%H:%M:%S)] $*" | tee -a "$LOG"; }
 export WATCHER_SINK=file WATCHER_STATE_DIR="$STATE" WATCHER_POLL_MS=$POLL WATCHER_WRITE_EVERY_MS=$((POLL * 2))
 
+# Runs a forge script, keeps its full output, fails the test if forge fails, and waits until the
+# last mined tx is past the watcher's confirmation depth (so slot reads at head-2 see it).
+forge_run() {
+  # usage: forge_run <label> <script path> [VAR=value ...]
+  local name="$1" path="$2"; shift 2
+  local out="$STATE/forge-$name.txt"
+  if ! (cd contracts && env "$@" forge script "$path" $FORGE_FLAGS --rpc-url "$RPC" --broadcast --slow > "../$out" 2>&1); then
+    say "FORGE FAILED ($name):"; grep -E 'Error|revert|Failure' "$out" | tee -a "$LOG"; exit 1
+  fi
+  grep -E '^\s+(proxy|implA|implB|proxyAdmin|to implementation) ' "$out" | tee -a "$LOG" || true
+  local script="${path#script/}"
+  local mined; mined=$(node -p "Math.max(...require('./contracts/broadcast/$script/$CHAIN/run-latest.json').receipts.map(r => parseInt(r.blockNumber)))")
+  until [ $(( $(cast block-number --rpc-url "$RPC") - 2 )) -ge "$mined" ]; do sleep 3; done
+}
+
 say "== Test 3 on $NET (chain $CHAIN)"
 say "deploy ImplA, ImplB, TransparentUpgradeableProxy(ImplA)"
-(cd contracts && forge script script/DeployDemo.s.sol --rpc-url "$RPC" --broadcast --slow 2>&1 | grep -E '^\s+(proxy|implA|implB|proxyAdmin) ' | tee -a "../$LOG")
+forge_run deploy script/DeployDemo.s.sol
 DEP="contracts/deployments/$CHAIN.json"
 PROXY=$(node -p "require('./$DEP').proxy"); IMPL_A=$(node -p "require('./$DEP').implA"); IMPL_B=$(node -p "require('./$DEP').implB")
 
@@ -40,7 +58,7 @@ start_watcher
 sleep "$WAIT"
 
 say "upgrade A→B"
-(cd contracts && TARGET=B forge script script/UpgradeDemo.s.sol --rpc-url "$RPC" --broadcast --slow 2>&1 | grep -E 'to implementation' | tee -a "../$LOG")
+forge_run upgradeB script/UpgradeDemo.s.sol TARGET=B
 sleep "$WAIT"
 
 say "hard-kill watcher (no graceful shutdown)"
@@ -49,7 +67,7 @@ CURSOR_AT_KILL=$(node -p "require('./$STATE/cursor-file.json').chains['$CHAIN']"
 say "cursor at kill: block $CURSOR_AT_KILL"
 
 say "upgrade B→A while the watcher is down"
-(cd contracts && TARGET=A forge script script/UpgradeDemo.s.sol --rpc-url "$RPC" --broadcast --slow 2>&1 | grep -E 'to implementation' | tee -a "../$LOG")
+forge_run upgradeA script/UpgradeDemo.s.sol TARGET=A
 
 start_watcher
 sleep "$WAIT"
@@ -91,7 +109,7 @@ WATCHER_STATE_DIR="$STATE2" node watcher/src/rebaseline.ts --chain $CHAIN --addr
 WATCHER_STATE_DIR="$STATE2" WATCHER_DISABLE_EVENTS=1 node watcher/src/main.ts >> "$STATE2/watcher.log" 2>&1 & WPID=$!
 sleep "$WAIT"
 say "upgrade A→B (watcher can only see it through slot reads)"
-(cd contracts && TARGET=B forge script script/UpgradeDemo.s.sol --rpc-url "$RPC" --broadcast --slow 2>&1 | grep -E 'to implementation' | tee -a "../$LOG")
+forge_run upgradeB2 script/UpgradeDemo.s.sol TARGET=B
 sleep "$WAIT"
 kill -9 "$WPID" 2>/dev/null || taskkill //F //PID "$WPID" >/dev/null 2>&1 || true
 grep -E '"msg":"change"' "$STATE2/watcher.log" | tee -a "$LOG"
