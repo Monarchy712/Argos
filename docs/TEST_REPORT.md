@@ -6,7 +6,7 @@ output is committed under `docs/test-runs/`.
 | Test | Status | Run output |
 | --- | --- | --- |
 | 3 — proxy detection | **PASS** on Sepolia (10/10) and local anvil | [sepolia](test-runs/test3-sepolia.txt) · [sepolia phase 2](test-runs/test3-sepolia-phase2.txt) · [local](test-runs/test3-local.txt) |
-| 2 — Arkiv records | **PASS** (9/9 functional); keyless reads hit a 429 cost limit, keyed re-run pending | [test2-rabdi.txt](test-runs/test2-rabdi.txt) |
+| 2 — Arkiv records | **PASS** (9/9, keyed run: 0×429; keyless run found the 429 cost limit) | [keyed](test-runs/test2-rabdi-keyed.txt) · [keyless](test-runs/test2-rabdi.txt) |
 | 4 — Nym reads | not started (by plan: needs a real browser on venue Wi-Fi) | — |
 | 1 — Swarm | not started (by plan: postage depends on the Swarm booth) | — |
 
@@ -86,10 +86,27 @@ Watcher poll 15 s, PublicNode Sepolia RPC.
 
 ---
 
-## Test 2 — Arkiv records — functional PASS (9/9), keyless rate limit found
+## Test 2 — Arkiv records — PASS
 
 **How to run:** `node --env-file=.env scripts/test2.ts` (≈4 min, mostly waiting for the 2-minute
 expiry), then `node --env-file=.env scripts/cleanup-test-rows.ts`.
+
+### Run 2 — Rabdi, with access key, 2026-11-06 ~03:45 IST — PASS (9/9, 0×429)
+
+Output: [test2-rabdi-keyed.txt](test-runs/test2-rabdi-keyed.txt). Same 9 checks as run 1, all pass, and
+the 2-minute current_state was gone after ~102 s. Cleanup confirmed no test rows left.
+
+| Operation | n | p50 | p95 |
+| --- | --- | --- | --- |
+| create (incl. waiting for the receipt) | 4 | 6.2 s | 6.6 s |
+| executeBatch (patch + extend) | 2 | 5.9 s | 5.9 s |
+| extendEntity | 1 | 6.1 s | — |
+| query, keyed | 13 | 226 ms | 304 ms |
+| query, keyless | 20 | 222 ms | 478 ms |
+
+429 responses: **0**. Writes take ~3 Arkiv blocks (2 s each) from send to receipt, which is
+fine for a 120 s write cadence. One batched write per cycle keeps the watcher at ~6 s of Arkiv time
+per cycle regardless of contract count (20 contracts per batch).
 
 ### Run 1 — Rabdi, keyless, 2026-11-06 ~03:25 IST — 9/9 functional checks PASS
 
@@ -119,7 +136,7 @@ hang. Consequences:
 - The test now runs keyless reads with `retryCount: 0`, logs the 429 header, and always cleans up.
   Leftover rows from run 1 were deleted with `scripts/cleanup-test-rows.ts` (writer tx `0x876c3242…`,
   watcher tx `0x5819925e…`).
-- Re-run with an access key pending, for clean keyed timings (p50/p95).
+- Re-run with an access key: see run 2 above.
 
 **What the script checks:** create baseline (writer) + 2× current_state + latest_change (watcher),
 query back filtered by `$creator`, confirm the wrong creator gets 0 rows, update current_state +
