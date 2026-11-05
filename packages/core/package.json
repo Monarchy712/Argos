@@ -1,0 +1,12 @@
+{
+  "name": "@driftguard/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": {
+    "@arkiv-network/sdk": "1.0.1",
+    "viem": "2.56.3"
+  }
+}

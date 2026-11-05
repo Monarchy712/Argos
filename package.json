@@ -1,0 +1,16 @@
+{
+  "name": "driftguard",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": { "node": ">=22.10" },
+  "workspaces": ["packages/core", "watcher"],
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test \"packages/*/test/*.test.ts\" \"watcher/test/*.test.ts\""
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "typescript": "6.0.3"
+  }
+}

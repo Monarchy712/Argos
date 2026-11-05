@@ -1,0 +1,17 @@
+{
+  "name": "@driftguard/watcher",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "start": "node --env-file=../.env src/main.ts",
+    "rebaseline": "node --env-file=../.env src/rebaseline.ts",
+    "renew": "node --env-file=../.env src/renew.ts"
+  },
+  "dependencies": {
+    "@driftguard/core": "0.1.0",
+    "@arkiv-network/sdk": "1.0.1",
+    "viem": "2.56.3"
+  }
+}
