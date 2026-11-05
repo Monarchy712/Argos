@@ -28,7 +28,11 @@ function walk(d: string) {
     if (e.isDirectory()) {
       if (!/^(tests|testsv2|sigs)$/.test(e.name)) walk(p);
     } else if (e.name.endsWith(".json") && !e.name.endsWith(".tests.json")) {
-      files[rel(p)] = keccak256(toHex(readFileSync(p)));
+      const bytes = readFileSync(p);
+      // Hashes must match the bytes GitHub serves. A Windows checkout with core.autocrlf=true
+      // rewrites LF to CRLF and silently changes every hash; refuse it.
+      if (bytes.includes(13)) throw new Error(`${rel(p)} contains CR bytes: re-checkout the registry with core.autocrlf=false`);
+      files[rel(p)] = keccak256(toHex(bytes));
       if (e.name.startsWith("calldata-")) calldataFiles.push(p);
     }
   }
