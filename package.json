@@ -9,11 +9,12 @@
   "workspaces": [
     "packages/core",
     "watcher",
+    "importer",
     "web"
   ],
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test \"packages/*/test/*.test.ts\" \"watcher/test/*.test.ts\"",
+    "test": "node --test \"packages/*/test/*.test.ts\" \"watcher/test/*.test.ts\" \"importer/test/*.test.ts\"",
     "dev": "npm run dev -w web",
     "build": "npm run build -w web"
   },

@@ -75,6 +75,9 @@ export const DescriptorSchema = defineSchema("dg_descriptor", {
   file_sha: str(),
   schema_version: str(),
   owner_name: str(),
+  /** "valid": an auditor attestation in sigs/ signs exactly this descriptor_hash; "stale": the
+   *  registry has an attestation but for different content; "none": no attestation. */
+  attestation: str().indexed(),
   imported_at: u64(),
 });
 
