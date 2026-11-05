@@ -3,11 +3,19 @@
   "private": true,
   "type": "module",
   "license": "MIT",
-  "engines": { "node": ">=22.10" },
-  "workspaces": ["packages/core", "watcher"],
+  "engines": {
+    "node": ">=22.10"
+  },
+  "workspaces": [
+    "packages/core",
+    "watcher",
+    "web"
+  ],
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test \"packages/*/test/*.test.ts\" \"watcher/test/*.test.ts\""
+    "test": "node --test \"packages/*/test/*.test.ts\" \"watcher/test/*.test.ts\"",
+    "dev": "npm run dev -w web",
+    "build": "npm run build -w web"
   },
   "devDependencies": {
     "@types/node": "24.19.2",
