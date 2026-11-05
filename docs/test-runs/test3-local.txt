@@ -1,28 +1,28 @@
-[21:34:06] == Test 3 on local (chain 31337)
-[21:34:06] deploy ImplA, ImplB, TransparentUpgradeableProxy(ImplA)
-  proxy 0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE
-  implA 0x0B306BF915C4d645ff596e518fAf3F9669b97016
-  implB 0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1
-  proxyAdmin 0x2b961E3959b79326A8e7F64Ef0d2d825707669b5
-[21:34:15] baseline (rebaseline CLI)
-  "block": "672",
-    "implementation": "0x0B306BF915C4d645ff596e518fAf3F9669b97016",
-[21:34:16] watcher started (pid 1900)
-[21:34:25] upgrade A→B
-  to implementation 0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1
-[21:34:36] hard-kill watcher (no graceful shutdown)
-[21:34:37] cursor at kill: block 692
-[21:34:37] upgrade B→A while the watcher is down
-  to implementation 0x0B306BF915C4d645ff596e518fAf3F9669b97016
-[21:34:41] watcher started (pid 1927)
-[21:34:49] == watcher log
-{"t":"2026-11-05T21:34:18.525Z","msg":"start","sink":"file","pollMs":3000,"writeEveryMs":6000,"resumeFrom":{}}
-{"t":"2026-11-05T21:34:30.582Z","msg":"change","contract":"31337:0x9a9f2ccfde556a7e9ff0848998aa4a0cfd8863ae","field":"implementation","from":"0x0b306bf915c4d645ff596e518faf3f9669b97016","to":"0x959922be3caee4b8cd9a407cc3ac1c251c2007b1","block":"686","by":"event","tx":"0x5f49ba3dba93eb32e41aed34129f73f3443cafd15cfecf9d2361167c8b80362e"}
-{"t":"2026-11-05T21:34:43.323Z","msg":"start","sink":"file","pollMs":3000,"writeEveryMs":6000,"resumeFrom":{"31337":"692"}}
-{"t":"2026-11-05T21:34:49.370Z","msg":"change","contract":"31337:0x9a9f2ccfde556a7e9ff0848998aa4a0cfd8863ae","field":"implementation","from":"0x959922be3caee4b8cd9a407cc3ac1c251c2007b1","to":"0x0b306bf915c4d645ff596e518faf3f9669b97016","block":"699","by":"event","tx":"0x25cc38ce59e11f21212715bb65c4c9101a22153718d9c5d88220f56821e467c7"}
-[21:34:50] == independent slot read (cast)
-0x0000000000000000000000000b306bf915c4d645ff596e518faf3f9669b97016
-[21:34:50] == checks
+[21:58:11] == Test 3 on local (chain 31337)
+[21:58:11] deploy ImplA, ImplB, TransparentUpgradeableProxy(ImplA)
+  proxy 0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
+  implA 0x5FbDB2315678afecb367f032d93F642f64180aa3
+  implB 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+  proxyAdmin 0x75537828f2ce51be7289709686A69CbFDbB714F1
+[21:58:24] baseline (rebaseline CLI)
+  "block": "14",
+    "implementation": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+[21:58:27] watcher started (pid 2428)
+[21:58:35] upgrade A→B
+  to implementation 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+[21:58:51] hard-kill watcher (no graceful shutdown)
+[21:58:51] cursor at kill: block 34
+[21:58:51] upgrade B→A while the watcher is down
+  to implementation 0x5FbDB2315678afecb367f032d93F642f64180aa3
+[21:59:00] watcher started (pid 2463)
+[21:59:08] == watcher log
+{"t":"2026-11-05T21:58:29.473Z","msg":"start","sink":"file","pollMs":3000,"writeEveryMs":6000,"resumeFrom":{}}
+{"t":"2026-11-05T21:58:47.535Z","msg":"change","contract":"31337:0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0","field":"implementation","from":"0x5fbdb2315678afecb367f032d93f642f64180aa3","to":"0xe7f1725e7734ce288f8367e1bb143e90bb3f0512","block":"29","by":"event","tx":"0x14e353c57e5a497d06475a78a6ef1e2a2441fe322965ff7fcb662ad9cda6e246"}
+{"t":"2026-11-05T21:59:02.268Z","msg":"start","sink":"file","pollMs":3000,"writeEveryMs":6000,"resumeFrom":{"31337":"34"}}
+{"t":"2026-11-05T21:59:02.329Z","msg":"change","contract":"31337:0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0","field":"implementation","from":"0xe7f1725e7734ce288f8367e1bb143e90bb3f0512","to":"0x5fbdb2315678afecb367f032d93f642f64180aa3","block":"45","by":"event","tx":"0x9d8d18531f325c682c2ac9272b02a5cf2f9815ef64070064b4674cbe761f0817"}
+[21:59:08] == independent slot read (cast)
+0x0000000000000000000000005fbdb2315678afecb367f032d93f642f64180aa3
+[21:59:08] == checks
 PASS A→B detected by event
 PASS B→A (while down) detected by event after restart
 PASS restart resumed from saved cursor
@@ -31,12 +31,12 @@ PASS matches_baseline = true after B→A
 PASS ever_changed_since_baseline stays true
 PASS latest_change = B→A with tx hash
 PHASE 1 (events + restart): PASS
-[21:34:50] == phase 2: slot-read detection alone (event scanning disabled)
-[21:35:00] upgrade A→B (watcher can only see it through slot reads)
-  to implementation 0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1
-{"t":"2026-11-05T21:35:11.990Z","msg":"change","contract":"31337:0x9a9f2ccfde556a7e9ff0848998aa4a0cfd8863ae","field":"implementation","from":"0x0b306bf915c4d645ff596e518faf3f9669b97016","to":"0x959922be3caee4b8cd9a407cc3ac1c251c2007b1","block":"727","by":"slot","tx":""}
+[21:59:08] == phase 2: slot-read detection alone (event scanning disabled)
+[21:59:19] upgrade A→B (watcher can only see it through slot reads)
+  to implementation 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+{"t":"2026-11-05T21:59:25.769Z","msg":"change","contract":"31337:0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0","field":"implementation","from":"0x5fbdb2315678afecb367f032d93f642f64180aa3","to":"0xe7f1725e7734ce288f8367e1bb143e90bb3f0512","block":"72","by":"slot","tx":""}
 PASS slot read detected the implementation change
 PASS current_state.implementation is B
 PASS matches_baseline = false
 PHASE 2 (slot-only): PASS
-[21:35:13] TEST 3 (local): PASS
+[21:59:35] TEST 3 (local): PASS

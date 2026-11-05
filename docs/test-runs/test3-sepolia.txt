@@ -1,0 +1,37 @@
+[22:01:15] == Test 3 on sepolia (chain 11155111)
+[22:01:15] deploy ImplA, ImplB, TransparentUpgradeableProxy(ImplA)
+  proxy 0xb8E5525eF80cEEC29Bf8598e303F71077361BFF5
+  implA 0xcEa0520134a8C0fCAdc139Bcd9fAf5D3F712910F
+  implB 0x1F31ab6fE4C931Ab7413523f75D490E1e0b63B4B
+  proxyAdmin 0x26c64D91f0d2e8AE6449Adf774f5Abe610e80d13
+[22:02:29] baseline (rebaseline CLI)
+  "block": "12072305",
+    "implementation": "0xcEa0520134a8C0fCAdc139Bcd9fAf5D3F712910F",
+[22:02:33] watcher started (pid 2644)
+[22:03:33] upgrade A→B
+  to implementation 0x1F31ab6fE4C931Ab7413523f75D490E1e0b63B4B
+[22:05:16] hard-kill watcher (no graceful shutdown)
+[22:05:16] cursor at kill: block 12072318
+[22:05:16] upgrade B→A while the watcher is down
+  to implementation 0xcEa0520134a8C0fCAdc139Bcd9fAf5D3F712910F
+[22:05:52] watcher started (pid 2752)
+[22:06:52] == watcher log
+{"t":"2026-11-05T22:02:35.922Z","msg":"start","sink":"file","pollMs":15000,"writeEveryMs":30000,"resumeFrom":{}}
+{"t":"2026-11-05T22:04:22.125Z","msg":"change","contract":"11155111:0xb8e5525ef80ceec29bf8598e303f71077361bff5","field":"implementation","from":"0xcea0520134a8c0fcadc139bcd9faf5d3f712910f","to":"0x1f31ab6fe4c931ab7413523f75d490e1e0b63b4b","block":"12072314","by":"event","tx":"0x226acb3ba43a22d59202984fbc1a25b6d13f64713a342be3c9863babdc73c452"}
+{"t":"2026-11-05T22:05:54.173Z","msg":"start","sink":"file","pollMs":15000,"writeEveryMs":30000,"resumeFrom":{"11155111":"12072318"}}
+{"t":"2026-11-05T22:05:55.519Z","msg":"change","contract":"11155111:0xb8e5525ef80ceec29bf8598e303f71077361bff5","field":"implementation","from":"0x1f31ab6fe4c931ab7413523f75d490e1e0b63b4b","to":"0xcea0520134a8c0fcadc139bcd9faf5d3f712910f","block":"12072322","by":"event","tx":"0x26b5b849dee00734f5f9a36aa4afdbe837840602db59f257113127793cbfb0a6"}
+[22:06:52] == independent slot read (cast)
+0x000000000000000000000000cea0520134a8c0fcadc139bcd9faf5d3f712910f
+[22:06:52] == checks
+PASS A→B detected by event
+PASS B→A (while down) detected by event after restart
+PASS restart resumed from saved cursor
+PASS current_state.implementation is A (slot read)
+PASS matches_baseline = true after B→A
+PASS ever_changed_since_baseline stays true
+PASS latest_change = B→A with tx hash
+PHASE 1 (events + restart): PASS
+[22:06:53] == phase 2: slot-read detection alone (event scanning disabled)
+[22:07:56] upgrade A→B (watcher can only see it through slot reads)
+[22:08:01] FORGE FAILED (upgradeB2):
+Error: EVM error
