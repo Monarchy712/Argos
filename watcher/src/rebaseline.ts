@@ -38,6 +38,18 @@ const kind = values.kind as ProxyKind;
 const client = clientFor(chainId);
 const block = (await client.getBlockNumber()) - config.confirmations;
 const identity = await readIdentity(client, address, kind, block);
+
+// Refuse an empty baseline: it would make every later read look like a change (or hide one).
+const empty =
+  (kind === "eip1967" || kind === "beacon" || kind === "safe") && /^0x0{40}$/i.test(identity.implementation);
+const noCode = /^0x0{64}$/i.test(identity.implementationCodehash) && kind !== "diamond";
+if (empty || noCode) {
+  console.error(
+    `refusing baseline: ${address} on chain ${chainId} has no ${kind} implementation/code at block ${block}. ` +
+      `Is it deployed, and at least ${config.confirmations} blocks old?`,
+  );
+  process.exit(1);
+}
 const sink = await makeSink(config);
 
 const key = await sink.writeBaseline({

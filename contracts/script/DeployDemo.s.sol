@@ -8,8 +8,9 @@ import {DemoImplA} from "../src/DemoImplA.sol";
 import {DemoImplB} from "../src/DemoImplB.sol";
 
 /// Deploys ImplA, ImplB and a TransparentUpgradeableProxy pointing at ImplA, then records the
-/// addresses (and the deploy block, which becomes the watcher's baseline block) in
-/// deployments/<chainId>.json.
+/// addresses in deployments/<chainId>.json. (No block number: inside a script `block.number` is
+/// the simulation block, not the block the transactions land in. The baseline block comes from
+/// `rebaseline`, which reads on-chain state.)
 ///
 /// Usage: DEPLOYER_PRIVATE_KEY=... forge script script/DeployDemo.s.sol --rpc-url <url> --broadcast
 contract DeployDemo is Script {
@@ -31,7 +32,6 @@ contract DeployDemo is Script {
 
         string memory k = "deployment";
         vm.serializeUint(k, "chainId", block.chainid);
-        vm.serializeUint(k, "deployBlock", block.number);
         vm.serializeAddress(k, "owner", owner);
         vm.serializeAddress(k, "implA", address(implA));
         vm.serializeAddress(k, "implB", address(implB));
