@@ -118,7 +118,8 @@ export function readRegistry(root: string): RegistrySnapshot {
     const meta = (file.json.metadata ?? {}) as { owner?: unknown };
     const base = {
       registryPath: path,
-      entityDir: path.split("/")[1] ?? "",
+      // registry/<protocol>/file.json → "<protocol>"; ercs/file.json → "ercs"
+      entityDir: path.startsWith("registry/") ? (path.split("/")[1] ?? "") : (path.split("/")[0] ?? ""),
       kind,
       fileSha,
       schemaVersion: truncateBytes(String(file.json.$schema ?? "")),

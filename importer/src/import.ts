@@ -94,7 +94,7 @@ async function pageAll<T>(fetchPage: (offset: number) => Promise<{ entities: rea
 }
 const [existingDesc, existingDep, baselines] = await Promise.all([
   pageAll((o) =>
-    pub.select({ $key: true, registry_path: true, file_sha: true, descriptor_hash: true, registry_commit: true, attestation: true })
+    pub.select({ $key: true, registry_path: true, file_sha: true, descriptor_hash: true, registry_commit: true, attestation: true, entity_dir: true })
       .from(DescriptorSchema).createdBy(TRUSTED_CREATORS.writer).orderBy(asc("$key")).limit(100).offset(o).fetch(),
   ),
   pageAll((o) =>
@@ -138,8 +138,8 @@ let unchanged = 0;
 for (const d of snap.descriptors) {
   const ex = descOnChain.get(descKey(d.registryPath, d.fileSha, d.descriptorHash));
   if (!ex) ops.push({ kind: "create", schema: DescriptorSchema, values: descValues(d) });
-  else if (ex.registry_commit.value !== snap.commit || ex.attestation.value !== d.attestation) {
-    ops.push({ kind: "patch", schema: DescriptorSchema, entityKey: ex.$key, set: { registry_commit: snap.commit, attestation: d.attestation } });
+  else if (ex.registry_commit.value !== snap.commit || ex.attestation.value !== d.attestation || ex.entity_dir.value !== d.entityDir) {
+    ops.push({ kind: "patch", schema: DescriptorSchema, entityKey: ex.$key, set: { registry_commit: snap.commit, attestation: d.attestation, entity_dir: d.entityDir } });
   } else unchanged++;
 }
 for (const d of snap.deployments) {
