@@ -104,3 +104,23 @@ way. Times are IST. Each entry points at the commits it covers.
   `eth_getLogs`, and a failure on one chain used to skip the other chain.
 - Caveat: the watcher currently runs on the developer's laptop. While it's off, the contracts
   correctly show NOT VERIFIED.
+
+### Build step 2: companion web app (three screens)
+- `packages/core`: `status.ts` (GREEN / RED / NOT VERIFIED with reasons and the A→B→A note; 14
+  tests, including one that no wording judges intent) and `risky.ts` (upgrade / admin /
+  masterCopy / diamondCut calls and Safe `operation=1`; 6 tests).
+- Web app (Vite 8.3.5 + React 19.2.9):
+  - **Monitored contracts**: one bulk Arkiv read per trusted writer.
+  - **Check a transaction**: JSON or raw hex input, readable ERC-7730 intent, risky-calldata flags,
+    a live check and descriptor provenance.
+  - **Nym diagnostics**: Test 4, "Run 20 reads".
+- Live reads and descriptor fetches go through Anon-RPC/Nym by default, with no silent fallback.
+  Direct mode is explicit, labelled, and never saved.
+- Descriptors come from a hash-pinned registry manifest (777 files keccak-checked, 612 ERC-8176
+  hashes) behind a `DescriptorSource` interface that Swarm will plug into.
+- Verified in the browser in direct mode: Aave v3 `supply` renders "Supply 100 USDC" and is GREEN
+  with a matching live read. A real A→B upgrade of the Sepolia demo proxy turned its row RED
+  within one watcher cycle; it was then switched back.
+- The descriptor integrity check caught a real bug on its first fetch (CRLF checkout on Windows),
+  now fixed and guarded.
+- Not yet done: Nym (Test 4, morning browser run) and Swarm (Test 1).

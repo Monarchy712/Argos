@@ -8,7 +8,7 @@ output is committed under `docs/test-runs/`.
 | 3 — proxy detection | **PASS** on Sepolia (10/10) and local anvil | [sepolia](test-runs/test3-sepolia.txt) · [sepolia phase 2](test-runs/test3-sepolia-phase2.txt) · [local](test-runs/test3-local.txt) |
 | 2 — Arkiv records | **PASS** (9/9, keyed run: 0×429; keyless run found the 429 cost limit) | [keyed](test-runs/test2-rabdi-keyed.txt) · [keyless](test-runs/test2-rabdi.txt) |
 | E2E — watcher → Arkiv (Sepolia) | **PASS** (5/5 + expiry) | [e2e-arkiv-sepolia.txt](test-runs/e2e-arkiv-sepolia.txt) |
-| 4 — Nym reads | not started (by plan: needs a real browser on venue Wi-Fi) | — |
+| 4 — Nym reads | screen built (Nym diagnostics → Run 20 reads); **not run yet** (needs a real browser on venue Wi-Fi) | — |
 | 1 — Swarm | not started (by plan: postage depends on the Swarm booth) | — |
 
 ---
@@ -176,4 +176,33 @@ Run 2026-11-06 ~03:45–04:00 IST, watcher poll 15 s / write 60 s:
 
 Each change showed up on Arkiv within one watcher cycle plus one Arkiv write (~6 s) of the upgrade
 passing the 2-block confirmation depth.
+
+---
+
+## Web app verification (build step 2) — 2026-11-06 ~04:00–04:35 IST
+
+Checked in the in-app browser at 1366 px (plus a 768 px overflow check). Live reads were switched
+to **direct mode explicitly** for these checks: Nym is left for Test 4.
+
+| Check | Result |
+| --- | --- |
+| Monitored contracts loads from one bulk Arkiv read | 31 rows, ~0.4–1.1 s, 0 console errors |
+| A→B→A demo proxy | GREEN with "Matches baseline now, but a change was previously detected (block 12072383)." |
+| Real upgrade A→B of the demo proxy (tx `0xe9c5d01c…`, block 12072601) | live watcher logged it `by: event`; after reload the row is **CHANGE DETECTED** (red row, ImplA vs ImplB highlighted, tx link); tiles 30 / 1 / 0 |
+| Check: Aave v3 `supply` 100 USDC (JSON) | intent "Supply · Amount to supply 100 USDC · Collateral recipient …"; descriptor file passes its keccak check; live read matches baseline → GREEN |
+| Check: same tx as raw EIP-1559 hex | parsed from raw hex, same result |
+| Check: ProxyAdmin `upgradeAndCall` on the demo proxy | flag "Code change: upgradeAndCall"; NOT VERIFIED (not monitored); raw-calldata fallback |
+| Unit tests | core status 14/14, risky calldata 6/6, identity/slots 3/3, watcher engine 8/8 |
+
+**Bug caught by the integrity check:** the first real descriptor fetch failed with "hash mismatch for
+registry/aave/calldata-lpv3.json". The manifest had been built from a Windows checkout with
+`core.autocrlf=true` (CRLF bytes), while GitHub serves LF. The check refused the file instead of
+rendering it. The cache was re-checked out with `autocrlf=false`, and the build script now refuses
+any file containing CR.
+
+**Freshness edge found while testing:** with a 120 s watcher write interval, a 60 s poll and a 120 s
+page refresh, a healthy contract could display a 300 s old record right at the 5-minute staleness
+line. Check now reads Arkiv fresh on every click, and the table refreshes every 90 s.
+
+**Not yet verified:** anything through Nym (Test 4), and Swarm-backed descriptors (Test 1).
 

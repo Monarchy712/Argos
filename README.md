@@ -41,6 +41,28 @@ browser ───► reads Arkiv once (bulk) + live slot reads over Anon-RPC/Nym
 - Full design, with every external claim marked VERIFIED or ASSUMED:
   [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+## Companion web app
+
+```bash
+npm ci && npm run dev    # http://localhost:5180
+```
+
+| Screen | What it does |
+| --- | --- |
+| **Monitored contracts** | One bulk Arkiv read per trusted writer (the same for every visitor, so Arkiv doesn't learn which contract you care about). Shows status badge, protocol, proxy kind, detection mode, baseline vs current implementation, latest change with tx link, and the ERC-8176 descriptor hash. |
+| **Check a transaction** | Paste `{chainId, to, data}` or a raw transaction. Shows the raw calldata, the readable ERC-7730 intent (rendered with `@ethereum-sourcify/clear-signing` from a hash-checked descriptor), risky-calldata flags (upgrades, `changeMasterCopy`, Safe `operation=1`), and a status from the watcher's Arkiv record plus a live code-identity read. |
+| **Nym diagnostics** | Boots the Anon-RPC Nym worker and runs Test 4: 20 slot reads with boot time, success count, HTTP statuses, p50/p95. |
+
+**Status badges.** Each state differs in colour, icon, border and wording:
+- **Verified · no change**: a fresh watcher record (≤ 5 min) matches the baseline, and any live read agrees. This means "no change seen as of block N", not "safe".
+- **Change detected**: the watcher or a live read shows code that differs from the baseline. It means "check whether the descriptor still describes this code", never "malicious".
+- **Not verified**: no record, an expired or stale record, an unsupported proxy, a failed live read, or a contract that isn't monitored. The reason is always shown.
+- A contract that went A→B→A shows *"Matches baseline now, but a change was previously detected (block N)."*
+
+**Privacy routing.** Live chain reads and descriptor fetches go through Anon-RPC (Nym) by default. If Nym can't boot or a request times out, the check **fails and shows Not verified**; there is no silent fallback to direct RPC. The viewer can switch to direct RPC explicitly (labelled "not anonymized", never saved). Disclosed exclusions: the one bulk Arkiv read (Arkiv's RPC didn't answer through the Nym exit in our spike) and the harness's one bootstrap read of the Nym specifier contract.
+
+**Descriptor storage.** Descriptors currently come from the EF registry at a pinned commit. Every file is checked against keccak256 in [`web/public/registry-index.json`](web/public/registry-index.json), built by [`scripts/build-registry-index.ts`](scripts/build-registry-index.ts). After Swarm is set up (Test 1), a Swarm source plugs in behind the same `DescriptorSource` interface without UI changes.
+
 ## Monitored contracts
 
 - Sepolia demo proxy `0xb8E5525eF80cEEC29Bf8598e303F71077361BFF5` (OZ 5.6.1 transparent proxy; we
@@ -79,7 +101,8 @@ cp .env.example .env   # fill in keys locally; never commit .env
 
 | Command | What it does |
 | --- | --- |
-| `npm test` | unit tests (core + watcher engine) |
+| `npm run dev` | companion web app on http://localhost:5180 |
+| `npm test` | unit tests (core status / risky calldata / identity, watcher engine) |
 | `npm run typecheck` | TypeScript check of everything |
 | `npm start -w watcher` | run the watcher (Arkiv sink; needs `ARKIV_WATCHER_PRIVATE_KEY`, `ARKIV_ACCESS_KEY`, RPC URLs) |
 | `npm run rebaseline -w watcher -- --chain <id> --address <0x..> --kind eip1967` | write or replace a baseline (writer key) |
