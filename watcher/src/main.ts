@@ -36,32 +36,40 @@ async function main() {
       const baselines = await sink.loadBaselines();
       const chains = [...new Set(baselines.map((b) => b.chainId))];
       for (const chainId of chains) {
-        const r = await runChainCycle({
-          chainId,
-          client: clientFor(chainId),
-          baselines: baselines.filter((b) => b.chainId === chainId),
-          cursor,
-          sink,
-          config,
-          now: Date.now(),
-          log,
-        });
-        saveCursor(cursorPath, cursor); // only after the sink accepted this cycle's writes
-        log("cycle", {
-          chainId,
-          from: r.fromBlock.toString(),
-          to: r.toBlock.toString(),
-          events: r.events,
-          changes: r.changes.length,
-          written: r.written,
-          failed: r.failed,
-          ms: Date.now() - started,
-        });
+        // Each chain succeeds or fails on its own; a failure rolls back that chain's in-memory
+        // cursor changes, so the same range is retried and no event is applied twice.
+        const snapshot = structuredClone(cursor);
+        try {
+          const r = await runChainCycle({
+            chainId,
+            client: clientFor(chainId),
+            baselines: baselines.filter((b) => b.chainId === chainId),
+            cursor,
+            sink,
+            config,
+            now: Date.now(),
+            log,
+          });
+          saveCursor(cursorPath, cursor); // only after the sink accepted this cycle's writes
+          log("cycle", {
+            chainId,
+            from: r.fromBlock.toString(),
+            to: r.toBlock.toString(),
+            events: r.events,
+            changes: r.changes.length,
+            written: r.written,
+            failed: r.failed,
+            ms: Date.now() - started,
+          });
+        } catch (err) {
+          Object.assign(cursor, snapshot);
+          log("cycle failed", { chainId, error: err instanceof Error ? err.message.split(/\r?\n/).slice(0, 3).join(" ") : String(err) });
+        }
       }
       if (chains.length === 0) log("no baselines yet; run `npm run rebaseline -w watcher`");
     } catch (err) {
-      // Keep running: a failed cycle leaves the cursor where it was, so the range is retried.
-      log("cycle failed", { error: err instanceof Error ? err.message : String(err) });
+      // Baselines unreadable (Arkiv down or rate-limited): keep running and retry next poll.
+      log("cycle failed", { error: err instanceof Error ? err.message.split(/\r?\n/).slice(0, 3).join(" ") : String(err) });
     }
     if (once) break;
     // Sleep until the next poll, waking early on SIGINT/SIGTERM.
