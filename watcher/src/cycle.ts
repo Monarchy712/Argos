@@ -5,7 +5,7 @@ import { scanEvents, type EmitterMap, type ScannedEvent } from "./events.ts";
 import type { CursorFile } from "./cursor.ts";
 import type { Sink } from "./sink.ts";
 import { contractId, detectionFor, type Baseline, type ChangeRecord, type CurrentState, type ObservedEvent } from "./types.ts";
-import type { ChangeField } from "@driftguard/core";
+import { describeError, type ChangeField } from "@driftguard/core";
 import type { Hex } from "viem";
 import type { WatcherConfig } from "./config.ts";
 
@@ -108,7 +108,7 @@ export async function runChainCycle(args: {
       // show NOT VERIFIED (honest). Keep its events so the next successful read applies them.
       (cursor.pending ??= {})[id] = mine.map((e) => ({ field: e.field, newValue: e.newValue, block: e.block.toString(), logIndex: e.logIndex, txHash: e.txHash }));
       failed++;
-      log("read failed", { contract: id, error: err instanceof Error ? err.message.split(/\r?\n/)[0] : String(err) });
+      log("read failed", { contract: id, error: describeError(err) });
       continue;
     }
     if (cursor.pending?.[id]) delete cursor.pending[id];

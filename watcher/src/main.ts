@@ -10,6 +10,7 @@ import { clientFor, loadConfig } from "./config.ts";
 import { loadCursor, saveCursor } from "./cursor.ts";
 import { runChainCycle, type Log } from "./cycle.ts";
 import { makeSink } from "./sinks.ts";
+import { describeError } from "@driftguard/core";
 
 const log: Log = (msg, data) =>
   console.log(JSON.stringify({ t: new Date().toISOString(), msg, ...data }));
@@ -63,13 +64,13 @@ async function main() {
           });
         } catch (err) {
           Object.assign(cursor, snapshot);
-          log("cycle failed", { chainId, error: err instanceof Error ? err.message.split(/\r?\n/).slice(0, 3).join(" ") : String(err) });
+          log("cycle failed", { chainId, error: describeError(err) });
         }
       }
       if (chains.length === 0) log("no baselines yet; run `npm run rebaseline -w watcher`");
     } catch (err) {
       // Baselines unreadable (Arkiv down or rate-limited): keep running and retry next poll.
-      log("cycle failed", { error: err instanceof Error ? err.message.split(/\r?\n/).slice(0, 3).join(" ") : String(err) });
+      log("cycle failed", { error: describeError(err) });
     }
     if (once) break;
     // Sleep until the next poll, waking early on SIGINT/SIGTERM.

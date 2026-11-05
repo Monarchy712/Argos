@@ -6,3 +6,4 @@ export * from "./trust.ts";
 export * from "./status.ts";
 export * from "./risky.ts";
 export * from "./classify.ts";
+export * from "./redact.ts";
