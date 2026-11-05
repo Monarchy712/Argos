@@ -1,0 +1,37 @@
+[22:14:56] == E2E watcher → Arkiv on Sepolia demo proxy 0xb8E5525eF80cEEC29Bf8598e303F71077361BFF5
+[22:14:57] proxy on 0x1f31ab6fe4c931ab7413523f75d490e1e0b63b4b; moving to ImplA
+[22:15:03] upgraded to 0xcEa0520134a8C0fCAdc139Bcd9fAf5D3F712910F in tx 0x165a7e94c7ef7753bf118d4ae8fd5ea06f29a3be4a12a16e84046c0000d40bab (block 12072369)
+[22:15:28] write baseline to Arkiv (writer wallet)
+  "key": "0x074baf808fb6f8731a973f1b5b5f50995c0928a47c42771263354b43dc14ecef",
+  "block": "12072369",
+    "implementation": "0xcEa0520134a8C0fCAdc139Bcd9fAf5D3F712910F",
+[22:15:39] watcher started (pid 3069, arkiv sink)
+{"current":{"key":"0x5d5fd82103bc94328c4e16a2b4ba600b778dd89d0a0cfcbe511179d613398ed8","implementation":"0xcEa0520134a8C0fCAdc139Bcd9fAf5D3F712910F","matches_baseline":true,"ever_changed_since_baseline":false,"checked_block":"12072370","checked_age_s":37,"expires_in_s":568},"latest_change":"none"}
+PASS current_state on Arkiv, matches_baseline = true
+[22:16:26] upgraded to 0x1F31ab6fE4C931Ab7413523f75D490E1e0b63B4B in tx 0xb5228d1044a20b8617582a7bff2536e146678a7ffbbc1b52b4d3492206a5af40 (block 12072376)
+{"current":{"key":"0x5d5fd82103bc94328c4e16a2b4ba600b778dd89d0a0cfcbe511179d613398ed8","implementation":"0x1F31ab6fE4C931Ab7413523f75D490E1e0b63B4B","matches_baseline":false,"ever_changed_since_baseline":true,"checked_block":"12072376","checked_age_s":36,"expires_in_s":576},"latest_change":{"field":"implementation","from":"0xcea0520134a8c0fcadc139bcd9faf5d3f712910f","to":"0x1f31ab6fe4c931ab7413523f75d490e1e0b63b4b","block":"12072376","tx":"0xb5228d1044a20b8617582a7bff2536e146678a7ffbbc1b52b4d3492206a5af40","by":"event"}}
+PASS after A→B: matches_baseline = false
+PASS latest_change A→B detected by event, with tx
+[22:17:51] upgraded to 0xcEa0520134a8C0fCAdc139Bcd9fAf5D3F712910F in tx 0xbd555949c153e023f12a6d13d6b0838968612678d051055ef0d5febb37df2dd0 (block 12072383)
+{"current":{"key":"0x5d5fd82103bc94328c4e16a2b4ba600b778dd89d0a0cfcbe511179d613398ed8","implementation":"0xcEa0520134a8C0fCAdc139Bcd9fAf5D3F712910F","matches_baseline":true,"ever_changed_since_baseline":true,"checked_block":"12072384","checked_age_s":30,"expires_in_s":580},"latest_change":{"field":"implementation","from":"0x1f31ab6fe4c931ab7413523f75d490e1e0b63b4b","to":"0xcea0520134a8c0fcadc139bcd9faf5d3f712910f","block":"12072383","tx":"0xbd555949c153e023f12a6d13d6b0838968612678d051055ef0d5febb37df2dd0","by":"event"}}
+PASS after B→A: matches_baseline = true
+PASS ever_changed_since_baseline stays true (A→B→A)
+[22:18:58] watcher stopped; current_state should expire within 10 min → NOT VERIFIED (re-check with show-arkiv)
+[22:18:58] == watcher log
+{"t":"2026-11-05T22:15:42.551Z","msg":"start","sink":"arkiv","pollMs":15000,"writeEveryMs":60000,"resumeFrom":{}}
+{"t":"2026-11-05T22:15:51.080Z","msg":"cycle","chainId":11155111,"from":"12072370","to":"12072370","events":0,"changes":0,"written":1,"ms":8525}
+{"t":"2026-11-05T22:15:59.335Z","msg":"cycle","chainId":11155111,"from":"12072371","to":"12072371","events":0,"changes":0,"written":0,"ms":1775}
+{"t":"2026-11-05T22:16:14.093Z","msg":"cycle","chainId":11155111,"from":"12072372","to":"12072372","events":0,"changes":0,"written":0,"ms":1524}
+{"t":"2026-11-05T22:16:29.164Z","msg":"cycle","chainId":11155111,"from":"12072373","to":"12072374","events":0,"changes":0,"written":0,"ms":1591}
+{"t":"2026-11-05T22:16:44.117Z","msg":"cycle","chainId":11155111,"from":"12072375","to":"12072375","events":0,"changes":0,"written":0,"ms":1541}
+{"t":"2026-11-05T22:16:59.219Z","msg":"change","contract":"11155111:0xb8e5525ef80ceec29bf8598e303f71077361bff5","field":"implementation","from":"0xcea0520134a8c0fcadc139bcd9faf5d3f712910f","to":"0x1f31ab6fe4c931ab7413523f75d490e1e0b63b4b","block":"12072376","by":"event","tx":"0xb5228d1044a20b8617582a7bff2536e146678a7ffbbc1b52b4d3492206a5af40"}
+{"t":"2026-11-05T22:17:11.094Z","msg":"cycle","chainId":11155111,"from":"12072376","to":"12072376","events":1,"changes":1,"written":1,"ms":13508}
+{"t":"2026-11-05T22:17:14.116Z","msg":"cycle","chainId":11155111,"from":"12072377","to":"12072377","events":0,"changes":0,"written":0,"ms":1528}
+{"t":"2026-11-05T22:17:29.125Z","msg":"cycle","chainId":11155111,"from":"12072378","to":"12072379","events":0,"changes":0,"written":0,"ms":1535}
+{"t":"2026-11-05T22:17:44.086Z","msg":"cycle","chainId":11155111,"from":"12072380","to":"12072380","events":0,"changes":0,"written":0,"ms":1492}
+{"t":"2026-11-05T22:18:05.055Z","msg":"cycle","chainId":11155111,"from":"12072381","to":"12072381","events":0,"changes":0,"written":1,"ms":7445}
+{"t":"2026-11-05T22:18:14.540Z","msg":"cycle","chainId":11155111,"from":"12072382","to":"12072382","events":0,"changes":0,"written":0,"ms":1918}
+{"t":"2026-11-05T22:18:29.188Z","msg":"change","contract":"11155111:0xb8e5525ef80ceec29bf8598e303f71077361bff5","field":"implementation","from":"0x1f31ab6fe4c931ab7413523f75d490e1e0b63b4b","to":"0xcea0520134a8c0fcadc139bcd9faf5d3f712910f","block":"12072383","by":"event","tx":"0xbd555949c153e023f12a6d13d6b0838968612678d051055ef0d5febb37df2dd0"}
+{"t":"2026-11-05T22:18:40.804Z","msg":"cycle","chainId":11155111,"from":"12072383","to":"12072384","events":1,"changes":1,"written":1,"ms":13167}
+{"t":"2026-11-05T22:18:44.104Z","msg":"cycle","chainId":11155111,"from":"12072385","to":"12072385","events":0,"changes":0,"written":0,"ms":1454}
+[22:18:58] E2E: PASS
