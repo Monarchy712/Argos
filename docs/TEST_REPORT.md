@@ -5,7 +5,7 @@ output is committed under `docs/test-runs/`.
 
 | Test | Status | Run output |
 | --- | --- | --- |
-| 3 — proxy detection | **Local anvil: PASS** · Sepolia: **BLOCKED** (deployer unfunded) | [test3-local.txt](test-runs/test3-local.txt) |
+| 3 — proxy detection | **PASS** on Sepolia (10/10) and local anvil | [sepolia](test-runs/test3-sepolia.txt) · [sepolia phase 2](test-runs/test3-sepolia-phase2.txt) · [local](test-runs/test3-local.txt) |
 | 2 — Arkiv records | **PASS** (9/9 functional); keyless reads hit a 429 cost limit, keyed re-run pending | [test2-rabdi.txt](test-runs/test2-rabdi.txt) |
 | 4 — Nym reads | not started (by plan: needs a real browser on venue Wi-Fi) | — |
 | 1 — Swarm | not started (by plan: postage depends on the Swarm booth) | — |
@@ -53,14 +53,36 @@ Also verified while building:
   would miss it, but the events catch it), A→B→A across cycles, slot-only detection, no-op
   upgrade, rebaseline reset, metamorphic codehash change. 8/8 pass, plus 3 core tests.
 
-### Run 2 — Sepolia — BLOCKED
+### Run 2 — Sepolia, 2026-11-06 ~03:30–03:42 IST — PASS (10/10)
 
-- Deployer `0x060762aa5D602d1A6E9a5AecC3301cf804b7E42C` has **0 Sepolia ETH** (checked 2026-11-06).
-- Needs roughly 0.01 Sepolia ETH (3 contracts plus 3 upgrades).
-- RPC: PublicNode Sepolia works (chain 11155111). It rejects `eth_getLogs` without an `address`
-  filter (error -32701), which the watcher always sets. **A2** (2k-block log ranges with an
-  address filter) gets checked in this run.
-- Once funded: `bash scripts/test3.sh sepolia` (≈5 min with 60 s waits).
+Demo deployment (committed in `contracts/deployments/11155111.json`):
+proxy `0xb8E5525eF80cEEC29Bf8598e303F71077361BFF5`, ImplA `0xcEa0520134a8C0fCAdc139Bcd9fAf5D3F712910F`,
+ImplB `0x1F31ab6fE4C931Ab7413523f75D490E1e0b63B4B`, ProxyAdmin `0x26c64D91f0d2e8AE6449Adf774f5Abe610e80d13`.
+Watcher poll 15 s, PublicNode Sepolia RPC.
+
+| Step | Result |
+| --- | --- |
+| A→B with watcher running | detected `by: "event"`, block 12072314, tx `0x226acb3b…` |
+| Hard kill at cursor block 12072318, then B→A while down | — |
+| Restart | `resumeFrom: 12072318`; B→A found by event (block 12072322, tx `0x26b5b849…`) |
+| Final state | impl = ImplA (matches `cast storage`), `matches_baseline = true`, **`ever_changed_since_baseline = true`**, latest_change B→A with tx |
+| Phase 2 (events off), A→B | detected `by: "slot"` at block 12072350 |
+
+**A2 closed:** address-filtered `eth_getLogs` works on PublicNode Sepolia.
+
+**Problems found and fixed on the way (each one committed):**
+1. **Deploys ran out of gas.** Current Sepolia (blocks carry `blockAccessListHash`) charges far more
+   for contract creation than Foundry 1.5.1's local EVM simulates: the node estimates **966,638 gas**
+   to deploy DemoImplA, against ~158k simulated. Every limit derived from simulation failed with
+   `gasUsed == gasLimit`, even at a 3× multiplier. Fix: `--skip-simulation`, so gas comes from the
+   node. Cost of the failed attempts: ~0.001 Sepolia ETH.
+2. **Zero-identity baseline.** The first attempt baselined the proxy before it existed at head-2.
+   `rebaseline` now refuses an identity with no implementation or no code.
+3. **Hidden forge errors.** A grep pipe swallowed forge's failure. The script now keeps full forge
+   output and fails loudly.
+4. **Transient RPC error.** PublicNode returned `-32001 block not found` from a lagging backend during
+   phase 2. `forge_run` now retries such errors, only when the nonce shows nothing was broadcast.
+   Phase 2 was rerun on the same deployment (`PHASE=2`).
 
 ---
 

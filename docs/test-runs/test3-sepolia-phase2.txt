@@ -1,0 +1,10 @@
+[22:09:38] == Test 3 on sepolia (chain 11155111), phase: 2
+[22:09:39] == phase 2: slot-read detection alone (event scanning disabled)
+[22:10:43] upgrade A→B (watcher can only see it through slot reads)
+  to implementation 0x1F31ab6fE4C931Ab7413523f75D490E1e0b63B4B
+{"t":"2026-11-05T22:11:32.035Z","msg":"change","contract":"11155111:0xb8e5525ef80ceec29bf8598e303f71077361bff5","field":"implementation","from":"0xcea0520134a8c0fcadc139bcd9faf5d3f712910f","to":"0x1f31ab6fe4c931ab7413523f75d490e1e0b63b4b","block":"12072350","by":"slot","tx":""}
+PASS slot read detected the implementation change
+PASS current_state.implementation is B
+PASS matches_baseline = false
+PHASE 2 (slot-only): PASS
+[22:12:31] TEST 3 (sepolia): PASS
