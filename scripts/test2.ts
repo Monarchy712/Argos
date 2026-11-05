@@ -31,12 +31,26 @@ const watcherClient = createWalletClient({ chain, transport: http(), account: wa
 // --- timing + 429 bookkeeping -------------------------------------------------------------
 const timings: Record<string, number[]> = {};
 let rateLimited = 0;
+/** HTTP status anywhere in a viem error's cause chain. */
+function statusOf(err: unknown): number | undefined {
+  for (let c = err as { status?: number; cause?: unknown } | undefined; c; c = c.cause as typeof c) {
+    if (typeof c.status === "number") return c.status;
+  }
+  return undefined;
+}
+/** Rate-limit details (body + ratelimit header) from a 429, for the report. */
+function rateLimitInfo(err: unknown): string {
+  for (let c = err as { details?: string; headers?: Headers; cause?: unknown } | undefined; c; c = c.cause as typeof c) {
+    if (c.headers) return `${c.details ?? ""} ratelimit="${c.headers.get("ratelimit")}" retry-after=${c.headers.get("retry-after")}`;
+  }
+  return String(err).slice(0, 120);
+}
 async function timed<T>(label: string, fn: () => Promise<T>): Promise<T> {
   const t0 = performance.now();
   try {
     return await fn();
   } catch (err) {
-    if (String(err).includes("429")) rateLimited++;
+    if (statusOf(err) === 429) rateLimited++;
     throw err;
   } finally {
     (timings[label] ??= []).push(Math.round(performance.now() - t0));
@@ -198,16 +212,26 @@ while (Date.now() - t0 < 4 * 60_000) {
     gone = true;
     break;
   }
-  await new Promise((r) => setTimeout(r, 10_000));
+  await new Promise((r) => setTimeout(r, 20_000)); // sparse polling: keyless reads have a cost budget
 }
 const remaining = (await pub.select({ $key: true }).from(CurrentStateSchema).where(lapseWhere).createdBy(watcher.address).fetch()).entities.filter((r) => r.$key === lapse.entityKey);
 check("2-minute current_state expired and disappeared from queries", gone, `after ~${Math.round((Date.now() - t0) / 1000)} s; reader status: ${status(remaining)}`);
 
 // --- 7. keyless read latency (what the browser does) -----------------------------------------
-const keyless = createPublicClient({ chain: rabdi({ accessKey: "" }), transport: http() });
+// No retries, so a 429 is observed instead of being backed off and hidden. The public endpoint
+// gives each anonymous client a cost budget (429 ANON_COST_LIMITED when spent).
+const keyless = createPublicClient({ chain: rabdi({ accessKey: "" }), transport: http(undefined, { retryCount: 0, timeout: 15_000 }) });
+let keylessOk = 0;
 for (let i = 0; i < 20; i++) {
-  await timed("keyless query", () => keyless.select({ $key: true }).from(BaselineSchema).createdBy(writer.address).limit(100).fetch());
+  try {
+    await timed("keyless query", () => keyless.select({ $key: true }).from(BaselineSchema).createdBy(writer.address).limit(100).fetch());
+    keylessOk++;
+  } catch (err) {
+    console.log(`keyless query ${i + 1}/20 refused: HTTP ${statusOf(err)} ${rateLimitInfo(err)}`);
+    break;
+  }
 }
+console.log(`keyless reads: ${keylessOk}/20 answered${env.ARKIV_ACCESS_KEY ? "" : " (all other reads in this run were keyless too)"}`);
 
 // --- cleanup -------------------------------------------------------------------------------
 await timed("batch", () => watcherClient.executeBatch({ deletes: [{ entityKey: live.entityKey }, { entityKey: change.entityKey }] }));
