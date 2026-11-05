@@ -204,5 +204,11 @@ any file containing CR.
 page refresh, a healthy contract could display a 300 s old record right at the 5-minute staleness
 line. Check now reads Arkiv fresh on every click, and the table refreshes every 90 s.
 
+**Non-atomic write found while testing:** right after switching the demo proxy back B→A, a reload showed
+the new latest_change (B→A) next to the old current_state (mismatch), so RED stayed up for ~6 s. The
+watcher wrote the two rows in separate transactions. They now go in one `executeBatch` per contract
+(`Sink.writeCycle`). Regression: local Test 3 and 31 unit tests pass. The live watcher was restarted
+on this code and resumed from its saved cursor on both chains.
+
 **Not yet verified:** anything through Nym (Test 4), and Swarm-backed descriptors (Test 1).
 

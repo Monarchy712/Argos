@@ -31,5 +31,8 @@ human decided, reviewed or did by hand. It is kept up to date as the build goes 
 | `scripts/test2.ts`, `scripts/test3.sh`, `scripts/e2e-arkiv.sh` | generated and run | defined what each risk test must prove and the pass criteria |
 | `scripts/select-mainnet-proxies.ts`, `watcher/monitored-mainnet.json` | generated and run | set the cap of ~30 with attested contracts first |
 | `scripts/show-arkiv.ts`, `scripts/cleanup-test-rows.ts` | generated | — |
+| `packages/core/src/status.ts`, `risky.ts` + tests | generated | specified the GREEN / RED / NOT VERIFIED rules, the A→B→A line and the "never malicious" wording rule |
+| `web/` (screens, transport, descriptor resolver, Arkiv read, styles) | generated; verified in the in-app browser | specified the screens, Nym-by-default with no silent fallback, the resolver interface for Swarm, and badge requirements |
+| `scripts/build-registry-index.ts`, `web/public/registry-index.json` | generated and run | — |
 | `README.md`, `UPDATES.md`, `docs/TEST_REPORT.md`, `arkiv/*.md` | drafted | reviewed; final wording |
 | `.env` (not committed) | generated wallet keys locally | funded wallets; added the Arkiv access key |

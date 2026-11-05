@@ -124,3 +124,7 @@ way. Times are IST. Each entry points at the commits it covers.
 - The descriptor integrity check caught a real bug on its first fetch (CRLF checkout on Windows),
   now fixed and guarded.
 - Not yet done: Nym (Test 4, morning browser run) and Swarm (Test 1).
+- Found and fixed while testing the UI: the watcher wrote `latest_change` and `current_state`
+  in two transactions ~6 s apart, so readers could briefly see a mixed state. A contract's rows
+  are now written atomically in one `executeBatch`. The live watcher was restarted and resumed
+  from its cursor.
