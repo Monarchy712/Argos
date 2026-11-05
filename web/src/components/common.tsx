@@ -101,29 +101,48 @@ export function useNow(ms = 15_000): number {
 // ---- transport pill (header) ---------------------------------------------------------------
 export function TransportPill() {
   const t = useTransport();
+  const [confirming, setConfirming] = useState(false);
   const nymText =
     t.nym.state === "ready" ? `ready${t.nym.bootMs ? ` (booted in ${(t.nym.bootMs / 1000).toFixed(1)} s)` : ""}`
     : t.nym.state === "booting" ? "booting…"
     : t.nym.state === "failed" ? "failed"
     : "starts on first live read";
   return (
-    <div className="transport-pill row small">
-      <span className={`kind`} title={routeLabel(t.mode)} style={t.mode === "direct" ? { background: "var(--warn-soft)", color: "var(--warn-fg)" } : undefined}>
-        {t.mode === "nym" ? `Live reads: Anon-RPC / Nym · ${nymText}` : "Live reads: DIRECT (not anonymized)"}
-      </span>
-      {t.mode === "nym" ? (
-        <button
-          className="btn btn-small"
-          onClick={() => {
-            if (confirm("Switch live reads to DIRECT RPC?\n\nThe RPC provider will see your IP address and which contracts you check. This setting is not saved; reloading returns to Nym.")) transport.setMode("direct");
-          }}
-        >
-          Use direct RPC
-        </button>
-      ) : (
-        <button className="btn btn-small btn-primary" onClick={() => transport.setMode("nym")}>
-          Back to Nym
-        </button>
+    <div className="transport-pill" style={{ position: "relative" }}>
+      <div className="row small">
+        <span className={t.mode === "direct" ? "kind kind-warn" : "kind"} title={routeLabel(t.mode)}>
+          {t.mode === "nym" ? `Live reads: Anon-RPC / Nym · ${nymText}` : "Live reads: DIRECT (not anonymized)"}
+        </span>
+        {t.mode === "nym" ? (
+          <button className="btn btn-small" onClick={() => setConfirming((v) => !v)} aria-expanded={confirming}>
+            Use direct RPC
+          </button>
+        ) : (
+          <button className="btn btn-small btn-primary" onClick={() => transport.setMode("nym")}>
+            Back to Nym
+          </button>
+        )}
+      </div>
+      {confirming && t.mode === "nym" && (
+        <div className="card card-pad popover" role="dialog" aria-label="Switch to direct RPC">
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>Switch live reads to direct RPC?</div>
+          <p className="small" style={{ margin: "0 0 10px", color: "var(--text-2)" }}>
+            The RPC provider and descriptor mirror will see your IP address and which contracts you check. This is not saved:
+            reloading the page returns to Nym.
+          </p>
+          <div className="row">
+            <button
+              className="btn btn-small btn-primary"
+              onClick={() => {
+                transport.setMode("direct");
+                setConfirming(false);
+              }}
+            >
+              Switch to direct
+            </button>
+            <button className="btn btn-small" onClick={() => setConfirming(false)}>Cancel</button>
+          </div>
+        </div>
       )}
     </div>
   );

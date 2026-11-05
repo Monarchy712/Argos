@@ -144,3 +144,5 @@ label { font-weight: 600; font-size: 13px; color: var(--text-2); display: block;
 .kv dt { color: var(--text-3); }
 .kv dd { margin: 0; }
 footer.foot { margin-top: 32px; color: var(--text-3); font-size: 12.5px; }
+.kind-warn { background: var(--warn-soft); color: var(--warn-fg); }
+.popover { position: absolute; right: 0; top: calc(100% + 8px); width: 340px; z-index: 10; box-shadow: 0 10px 30px rgba(15, 23, 42, 0.15); }
