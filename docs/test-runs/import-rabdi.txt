@@ -1,0 +1,33 @@
+# Import run 1 (Rabdi) — log lines only
+{"t":"2026-11-05T23:38:39.521Z","msg":"registry read","commit":"ef582c2f03bfbd062b7e3889b55dd3b45c3d5494","descriptors":768,"deployments":2675,"attestation":{"valid":164,"stale":3,"none":579}}
+{"t":"2026-11-05T23:38:40.008Z","msg":"classifying mainnet deployments","cached":681,"todo":0}
+{"t":"2026-11-05T23:38:40.363Z","msg":"arkiv state","descriptors":0,"deployments":0,"baselines":31}
+{"t":"2026-11-05T23:38:40.405Z","msg":"plan","creates":3443,"patches":0,"unchanged":0,"batches":173,"dry":false}
+{"t":"2026-11-05T23:38:47.170Z","msg":"progress","done":20,"total":3443,"batches":1,"elapsedS":7}
+{"t":"2026-11-05T23:39:47.100Z","msg":"progress","done":220,"total":3443,"batches":11,"elapsedS":66}
+{"t":"2026-11-05T23:40:47.469Z","msg":"progress","done":420,"total":3443,"batches":21,"elapsedS":127}
+{"t":"2026-11-05T23:41:47.698Z","msg":"progress","done":620,"total":3443,"batches":31,"elapsedS":187}
+{"t":"2026-11-05T23:42:47.688Z","msg":"progress","done":820,"total":3443,"batches":41,"elapsedS":247}
+{"t":"2026-11-05T23:43:43.178Z","msg":"progress","done":1020,"total":3443,"batches":51,"elapsedS":303}
+{"t":"2026-11-05T23:44:42.825Z","msg":"progress","done":1220,"total":3443,"batches":61,"elapsedS":362}
+{"t":"2026-11-05T23:45:42.153Z","msg":"progress","done":1420,"total":3443,"batches":71,"elapsedS":422}
+{"t":"2026-11-05T23:46:41.681Z","msg":"progress","done":1620,"total":3443,"batches":81,"elapsedS":481}
+{"t":"2026-11-05T23:47:46.500Z","msg":"progress","done":1820,"total":3443,"batches":91,"elapsedS":546}
+{"t":"2026-11-05T23:48:45.583Z","msg":"progress","done":2020,"total":3443,"batches":101,"elapsedS":605}
+{"t":"2026-11-05T23:49:47.803Z","msg":"progress","done":2220,"total":3443,"batches":111,"elapsedS":667}
+{"t":"2026-11-05T23:50:50.153Z","msg":"progress","done":2420,"total":3443,"batches":121,"elapsedS":730}
+{"t":"2026-11-05T23:51:49.051Z","msg":"progress","done":2620,"total":3443,"batches":131,"elapsedS":788}
+{"t":"2026-11-05T23:52:47.165Z","msg":"progress","done":2820,"total":3443,"batches":141,"elapsedS":847}
+{"t":"2026-11-05T23:53:45.236Z","msg":"progress","done":3020,"total":3443,"batches":151,"elapsedS":905}
+{"t":"2026-11-05T23:54:43.566Z","msg":"progress","done":3220,"total":3443,"batches":161,"elapsedS":963}
+{"t":"2026-11-05T23:55:46.135Z","msg":"progress","done":3420,"total":3443,"batches":171,"elapsedS":1026}
+{"t":"2026-11-05T23:55:59.322Z","msg":"progress","done":3443,"total":3443,"batches":173,"elapsedS":1039}
+{"t":"2026-11-05T23:55:59.608Z","msg":"import done","ops":3443,"batches":173,"seconds":1039,"costTGLM":1.651363391,"writerBalanceTGLM":6.328690737999978}
+
+# Import run 2 (idempotency re-run)
+{"t":"2026-11-05T23:56:16.698Z","msg":"registry read","commit":"ef582c2f03bfbd062b7e3889b55dd3b45c3d5494","descriptors":768,"deployments":2675,"attestation":{"valid":164,"stale":3,"none":579}}
+{"t":"2026-11-05T23:56:17.236Z","msg":"classifying mainnet deployments","cached":681,"todo":0}
+{"t":"2026-11-05T23:56:25.792Z","msg":"arkiv state","descriptors":768,"deployments":2675,"baselines":31}
+{"t":"2026-11-05T23:56:25.808Z","msg":"plan","creates":0,"patches":6,"unchanged":3437,"batches":1,"dry":false}
+{"t":"2026-11-05T23:56:33.078Z","msg":"progress","done":6,"total":6,"batches":1,"elapsedS":7}
+{"t":"2026-11-05T23:56:33.354Z","msg":"import done","ops":6,"batches":1,"seconds":7,"costTGLM":0.000235162,"writerBalanceTGLM":6.328455575999978}

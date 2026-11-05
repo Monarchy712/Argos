@@ -1,0 +1,15 @@
+commit ef582c2 · read 3443 rows in 11320 ms
+PASS dg_descriptor count matches registry — arkiv {"calldata":617,"eip712":129,"include":22} vs registry {"calldata":617,"eip712":129,"include":22}
+PASS dg_deployment count matches registry — arkiv 2675 vs registry 2675
+attestation=stale on Arkiv: registry/walletconnect/calldata-wct.json, registry/safe/eip712-Safe-Multisig.json, registry/safe/calldata-SafeMigration-1.5.0.json
+PASS spot-check registry/morpho/calldata-steakhouse_financial-steakPYUSD-v2-1.json — file_sha ✓ descriptor_hash ✓ (0x5bcf7c47af…) @ ef582c2
+PASS spot-check registry/symbiotic/calldata-VaultV1-BARD.json — file_sha ✓ descriptor_hash ✓ (0x2649f72500…) @ ef582c2
+PASS spot-check registry/kiln/calldata-kiln-batch-exit.json — file_sha ✓ descriptor_hash ✓ (0x4b804ff8b8…) @ ef582c2
+PASS spot-check registry/kiln/calldata-Vault-WETH-Morpho-MEV-Capital.json — file_sha ✓ descriptor_hash ✓ (0xbaf72b5080…) @ ef582c2
+PASS spot-check registry/flare/calldata-FAsset-FXRP-Songbird.json — file_sha ✓ descriptor_hash ✓ (0x0db53cf787…) @ ef582c2
+PASS spot-check registry/sky/calldata-sUSDS.json — file_sha ✓ descriptor_hash ✓ (0x94e524b3c3…) @ ef582c2
+PASS spot-check registry/safe/eip712-SafeL2-1.3.0.json — file_sha ✓ descriptor_hash ✓ (0x61f0f89d9e…) @ ef582c2
+PASS spot-check registry/symbiotic/calldata-VaultV1-LINK.json — file_sha ✓ descriptor_hash ✓ (0x2903aab919…) @ ef582c2
+PASS spot-check registry/morpho/calldata-steakhouse_financial-bbqUSDT0.json — file_sha ✓ descriptor_hash ✓ (0xe8fe5393da…) @ ef582c2
+PASS spot-check registry/safe/calldata-SafeMigration-1.4.1.json — file_sha ✓ descriptor_hash ✓ (0x4cae1cf081…) @ ef582c2
+MIRROR VERIFY: PASS
