@@ -124,7 +124,42 @@ Built with an AI coding assistant (Claude Code). Details per file: [AI_USAGE.md]
 
 ## CROPS
 
-- **C**ensorship resistance: TODO
-- **O**pen source: MIT; everything builds from this repo plus pinned npm/Foundry dependencies.
-- **P**rivacy: TODO (Anon-RPC/Nym for live reads; one bulk, contract-independent Arkiv read)
-- **S**ecurity: TODO
+DriftGuard's lead property is **Privacy** for the user checking a transaction, together with
+fail-closed **Security**. The other two properties hold, with the trade-offs below.
+
+- **C (censorship resistance):** What users depend on: our **watcher** (one process, one key) and our
+  **writer key** (baselines + registry mirror). If the watcher stops or is censored, its
+  `current_state` rows expire within 10 minutes and every client shows **Not verified**. It fails
+  closed and never leaves a stale green. Baselines and the mirror stay readable for ~182 days. All data
+  lives on Arkiv, not on our server. The web app is static (any host or IPFS works), and anyone can run their own
+  watcher with their own key and have clients trust that `$creator` instead of, or as well as, ours.
+  Remaining dependencies: the Arkiv Rabdi testnet and public Ethereum RPCs.
+- **O (open source):** MIT. Builds and runs from this repo alone (`npm ci`, exact-pinned npm deps, Foundry
+  deps as pinned git submodules). ERC-7730 data is CC0. No closed services; `.env` holds only the
+  operator's own keys and RPC URLs.
+- **P (privacy):** Live chain reads and descriptor downloads go through **Anon-RPC over Nym by default**,
+  so the RPC provider and GitHub see a Nym exit, not the user's IP. If Nym fails, the check fails
+  (Not verified). It never silently falls back to direct RPC, and direct mode is an explicit,
+  labelled, unsaved switch. Disclosed exclusions: (1) **Arkiv reads are direct and keyless**:
+  the Arkiv node sees the user's IP and that DriftGuard was opened, but reads are bulk and
+  contract-independent, so it doesn't learn which contract (details below). (2) The Anon-RPC
+  harness reads the Nym specifier contract once through a public RPC (reveals only "loads the Nym
+  worker"). (3) The static host sees the page load. No trackers or analytics. *Nym path: pending
+  Test 4.*
+- **S (security):** The browser holds no keys. The watcher key can write state but never baselines,
+  which come from a separate writer key. Clients trust rows only by `$creator`. Every descriptor
+  file is checked byte-for-byte (keccak256) against the mirror before rendering, and the ERC-8176 hash
+  is recomputed two ways at import. The Anon-RPC client bundle is hash-pinned by the harness. Trust
+  assumptions: our two keys are honest; the watcher's RPC is honest (cross-checked by the user's
+  live read); a status is "as of block N" (an upgrade can land between check and execution, see
+  [TOCTOU](docs/ARCHITECTURE.md#6-toctou-and-other-limitations-stated-plainly-in-the-readme)).
+  Operator keys live only in a gitignored `.env`, and logged errors are redacted.
+
+### What the Arkiv node can learn
+
+| Read | When | What it reveals to the Arkiv RPC node |
+| --- | --- | --- |
+| Baselines, current_state, latest_change (3 bulk queries) | page load, then every 90 s; and on each "Check" | IP address, and that DriftGuard is open. Not which contract (every visitor sends identical queries). |
+| Registry mirror (dg_descriptor + dg_deployment, ~36 paged bulk queries) | first "Check" in a session, then cached | IP address, and that the mirror was loaded. Not which contract. |
+| Targeted mirror lookup | only if the keyless budget refuses the bulk read; **shown on screen when it happens** | IP address **and the contract being checked**. |
+| Browse mirror | only when the user runs a filter | IP address and the filter (chain, protocol, …). |
