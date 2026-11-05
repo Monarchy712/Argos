@@ -4,7 +4,9 @@ import { step, shouldWrite } from "./engine.ts";
 import { scanEvents, type EmitterMap, type ScannedEvent } from "./events.ts";
 import type { CursorFile } from "./cursor.ts";
 import type { Sink } from "./sink.ts";
-import { contractId, detectionFor, type Baseline, type ChangeRecord, type CurrentState } from "./types.ts";
+import { contractId, detectionFor, type Baseline, type ChangeRecord, type CurrentState, type ObservedEvent } from "./types.ts";
+import type { ChangeField } from "@driftguard/core";
+import type { Hex } from "viem";
 import type { WatcherConfig } from "./config.ts";
 
 export interface CycleResult {
@@ -14,6 +16,8 @@ export interface CycleResult {
   events: number;
   changes: ChangeRecord[];
   written: number;
+  /** Contracts whose slot read failed this cycle (their events are kept as pending). */
+  failed: number;
 }
 
 export type Log = (msg: string, data?: Record<string, unknown>) => void;
@@ -89,11 +93,24 @@ export async function runChainCycle(args: {
   const changes: ChangeRecord[] = [];
   const toWrite: CurrentState[] = [];
   const latestPerContract = new Map<string, ChangeRecord>();
+  let failed = 0;
 
   for (const b of baselines) {
     const id = contractId(b.chainId, b.address);
-    const mine = events.filter((e) => e.contracts.includes(id) && e.block > b.block);
-    const observed = await readIdentity(client, b.address, b.identity.proxyKind, head);
+    const replay: ObservedEvent[] = (cursor.pending?.[id] ?? []).map((e) => ({ ...e, field: e.field as ChangeField, block: BigInt(e.block), txHash: e.txHash as Hex }));
+    const mine = [...replay, ...events.filter((e) => e.contracts.includes(id) && e.block > b.block)];
+    let observed;
+    try {
+      observed = await readIdentity(client, b.address, b.identity.proxyKind, head);
+    } catch (err) {
+      // Skip this contract for this cycle: no current_state write, so it goes stale and clients
+      // show NOT VERIFIED (honest). Keep its events so the next successful read applies them.
+      (cursor.pending ??= {})[id] = mine.map((e) => ({ field: e.field, newValue: e.newValue, block: e.block.toString(), logIndex: e.logIndex, txHash: e.txHash }));
+      failed++;
+      log("read failed", { contract: id, error: err instanceof Error ? err.message.split(/\r?\n/)[0] : String(err) });
+      continue;
+    }
+    if (cursor.pending?.[id]) delete cursor.pending[id];
     const out = step({
       chainId,
       address: b.address,
@@ -132,5 +149,5 @@ export async function runChainCycle(args: {
   if (toWrite.length) await sink.writeCurrentStates(toWrite);
   cursor.chains[chainId] = head.toString();
 
-  return { chainId, fromBlock: from, toBlock: head, events: events.length, changes, written: toWrite.length };
+  return { chainId, fromBlock: from, toBlock: head, events: events.length, changes, written: toWrite.length, failed };
 }

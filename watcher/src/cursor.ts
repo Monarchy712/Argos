@@ -9,6 +9,12 @@ export interface CursorFile {
   chains: Record<string, string>;
   /** contractId → per-contract memory. */
   contracts: Record<string, ContractCursor>;
+  /**
+   * contractId → events already scanned but not yet applied, because that contract's slot read
+   * failed. Replayed on its next successful read so a failed read never loses an event.
+   * (bigint fields stored as decimal strings.)
+   */
+  pending?: Record<string, { field: string; newValue: string | null; block: string; logIndex: number; txHash: string }[]>;
 }
 
 export function emptyCursor(): CursorFile {

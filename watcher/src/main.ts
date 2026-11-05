@@ -54,6 +54,7 @@ async function main() {
           events: r.events,
           changes: r.changes.length,
           written: r.written,
+          failed: r.failed,
           ms: Date.now() - started,
         });
       }
