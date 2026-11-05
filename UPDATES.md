@@ -92,3 +92,15 @@ way. Times are IST. Each entry points at the commits it covers.
   stale (NOT VERIFIED) and its events are replayed later.
 - README now has the problem statement, wallets, setup and a runnable Arkiv query.
   `arkiv/schema.md` is filled in.
+
+### Build step 1 done: watcher + Arkiv records live
+- Wrote 30 mainnet baselines to Arkiv with `npm run seed -w watcher` (writer wallet).
+- The live watcher now monitors 31 contracts (30 mainnet + the Sepolia demo proxy). It reads
+  every 60 s and writes `current_state` every 120 s or on change.
+- First live cycle: mainnet 30/30 read and written in 38 s with 0 failures. A client reading
+  Arkiv sees 31/31 with a live `current_state`, all matching baseline. The Sepolia demo proxy
+  shows "matches baseline now, but changed before" (`ever_changed_since_baseline`).
+- Two problems found on the first live run and fixed: PublicNode allows at most 10 addresses per
+  `eth_getLogs`, and a failure on one chain used to skip the other chain.
+- Caveat: the watcher currently runs on the developer's laptop. While it's off, the contracts
+  correctly show NOT VERIFIED.
