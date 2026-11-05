@@ -16,13 +16,15 @@ import { createPublicClient, createWalletClient, ExpirationTime } from "@arkiv-n
 import { rabdi } from "@arkiv-network/sdk/chains";
 import { asc } from "@arkiv-network/sdk/query";
 import { addr, u64 } from "@arkiv-network/sdk/schema";
-import { classifyContract, BaselineSchema, DeploymentSchema, DescriptorSchema, TRUSTED_CREATORS } from "@driftguard/core";
+import { classifyContract, describeError, BaselineSchema, DeploymentSchema, DescriptorSchema, TRUSTED_CREATORS } from "@driftguard/core";
 import { createPublicClient as viemClient, getAddress, http, isHex, type Address, type Hex } from "viem";
 import { mainnet } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
 import { readRegistry, type DeploymentRow, type DescriptorRow } from "./registry.ts";
 
-const BATCH = 50;
+/** Operations per executeBatch. Rabdi's RPC answered 413 (payload too large) at 50 descriptor
+ *  rows, so start lower and halve automatically on a 413. */
+const BATCH = Number(process.env.IMPORT_BATCH ?? 20);
 const args = process.argv.slice(2);
 const root = args.find((a) => !a.startsWith("--"));
 const dry = args.includes("--dry");
@@ -162,8 +164,10 @@ if (dry || ops.length === 0) process.exit(0);
 const startBal = await pub.getBalance({ address: account!.address });
 const t0 = Date.now();
 let done = 0;
-for (let i = 0; i < ops.length; i += BATCH) {
-  const group = ops.slice(i, i + BATCH);
+let batches = 0;
+const is413 = (err: unknown) => /HTTP 413/.test(describeError(err));
+/** Sends a group; on 413 splits it in half (down to 1 op), on other errors retries once. */
+async function sendGroup(group: Op[]): Promise<void> {
   const send = () =>
     wallet!.executeBatch({
       creates: group.flatMap((o) => (o.kind === "create" ? [{ schema: o.schema, values: o.values, expiration: ExpirationTime.max() }] : [])) as never,
@@ -172,12 +176,28 @@ for (let i = 0; i < ops.length; i += BATCH) {
   try {
     await send();
   } catch (err) {
-    log("batch failed, retrying once", { batch: i / BATCH, error: String(err).split("\n")[0] });
+    if (is413(err) && group.length > 1) {
+      log("payload too large, splitting batch", { size: group.length });
+      const mid = Math.ceil(group.length / 2);
+      await sendGroup(group.slice(0, mid));
+      await sendGroup(group.slice(mid));
+      return;
+    }
+    log("batch failed, retrying once", { size: group.length, error: describeError(err) });
     await new Promise((r) => setTimeout(r, 5000));
     await send(); // a second failure aborts; rerunning resumes from what is on Arkiv
   }
+  batches++;
   done += group.length;
-  if ((i / BATCH) % 5 === 0 || done === ops.length) log("progress", { done, total: ops.length, elapsedS: Math.round((Date.now() - t0) / 1000) });
+}
+try {
+  for (let i = 0; i < ops.length; i += BATCH) {
+    await sendGroup(ops.slice(i, i + BATCH));
+    if ((i / BATCH) % 10 === 0 || done === ops.length) log("progress", { done, total: ops.length, batches, elapsedS: Math.round((Date.now() - t0) / 1000) });
+  }
+} catch (err) {
+  log("import aborted (rerun to resume)", { done, total: ops.length, error: describeError(err) });
+  process.exit(1);
 }
 const endBal = await pub.getBalance({ address: account!.address });
-log("import done", { ops: ops.length, seconds: Math.round((Date.now() - t0) / 1000), costTGLM: Number(startBal - endBal) / 1e18, writerBalanceTGLM: Number(endBal) / 1e18 });
+log("import done", { ops: ops.length, batches, seconds: Math.round((Date.now() - t0) / 1000), costTGLM: Number(startBal - endBal) / 1e18, writerBalanceTGLM: Number(endBal) / 1e18 });
