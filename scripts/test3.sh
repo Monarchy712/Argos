@@ -5,6 +5,7 @@
 #
 #   scripts/test3.sh local     # anvil on 127.0.0.1:8545 (well-known anvil test key)
 #   scripts/test3.sh sepolia   # needs SEPOLIA_RPC_URL + funded SEPOLIA_DEPLOYER_PRIVATE_KEY in .env
+#   PHASE=2 scripts/test3.sh sepolia   # only the slot-only phase, on the already deployed proxy
 #
 # Uses the file sink, so no Arkiv writes. Output: docs/test-runs/test3-<network>.txt
 set -euo pipefail
@@ -23,9 +24,15 @@ else
   export DEPLOYER_PRIVATE_KEY="$SEPOLIA_DEPLOYER_PRIVATE_KEY"
 fi
 
-mkdir -p docs/test-runs; LOG="docs/test-runs/test3-$NET.txt"
+PHASE="${PHASE:-all}"
+mkdir -p docs/test-runs
 STATE="watcher/state/test3-$NET"
-rm -rf "$STATE"; mkdir -p "$STATE"; : > "$LOG"
+if [ "$PHASE" = 2 ]; then
+  LOG="docs/test-runs/test3-$NET-phase2.txt"; mkdir -p "$STATE"
+else
+  LOG="docs/test-runs/test3-$NET.txt"; rm -rf "$STATE"; mkdir -p "$STATE"
+fi
+: > "$LOG"
 say() { echo "[$(date -u +%H:%M:%S)] $*" | tee -a "$LOG"; }
 export WATCHER_SINK=file WATCHER_STATE_DIR="$STATE" WATCHER_POLL_MS=$POLL WATCHER_WRITE_EVERY_MS=$((POLL * 2))
 
@@ -34,21 +41,32 @@ export WATCHER_SINK=file WATCHER_STATE_DIR="$STATE" WATCHER_POLL_MS=$POLL WATCHE
 forge_run() {
   # usage: forge_run <label> <script path> [VAR=value ...]
   local name="$1" path="$2"; shift 2
-  local out="$STATE/forge-$name.txt"
-  if ! (cd contracts && env "$@" forge script "$path" $FORGE_FLAGS --rpc-url "$RPC" --broadcast --slow > "../$out" 2>&1); then
-    say "FORGE FAILED ($name):"; grep -E 'Error|revert|Failure' "$out" | tee -a "$LOG"; exit 1
-  fi
+  local out="$STATE/forge-$name.txt" owner attempt nonce
+  owner=$(cast wallet address --private-key "$DEPLOYER_PRIVATE_KEY")
+  for attempt in 1 2 3; do
+    nonce=$(cast nonce "$owner" --rpc-url "$RPC")
+    if (cd contracts && env "$@" forge script "$path" $FORGE_FLAGS --rpc-url "$RPC" --broadcast --slow > "../$out" 2>&1); then break; fi
+    # Load-balanced public RPCs sometimes serve a backend that lacks the latest block. Retry only
+    # transient RPC errors, and only if nothing was broadcast (nonce unchanged).
+    if [ "$attempt" -lt 3 ] && grep -qE 'block not found|error sending request|timed out|429' "$out"        && [ "$(cast nonce "$owner" --rpc-url "$RPC")" = "$nonce" ]; then
+      say "transient RPC error in $name (attempt $attempt), retrying"; sleep 5; continue
+    fi
+    say "FORGE FAILED ($name):"; grep -E 'Error|revert|Failure|error code' "$out" | tee -a "$LOG"; exit 1
+  done
   grep -E '^\s+(proxy|implA|implB|proxyAdmin|to implementation) ' "$out" | tee -a "$LOG" || true
   local script="${path#script/}"
   local mined; mined=$(node -p "Math.max(...require('./contracts/broadcast/$script/$CHAIN/run-latest.json').receipts.map(r => parseInt(r.blockNumber)))")
   until [ $(( $(cast block-number --rpc-url "$RPC") - 2 )) -ge "$mined" ]; do sleep 3; done
 }
 
-say "== Test 3 on $NET (chain $CHAIN)"
+say "== Test 3 on $NET (chain $CHAIN), phase: $PHASE"
+DEP="contracts/deployments/$CHAIN.json"
+if [ "$PHASE" != 2 ]; then
 say "deploy ImplA, ImplB, TransparentUpgradeableProxy(ImplA)"
 forge_run deploy script/DeployDemo.s.sol
-DEP="contracts/deployments/$CHAIN.json"
+fi
 PROXY=$(node -p "require('./$DEP').proxy"); IMPL_A=$(node -p "require('./$DEP').implA"); IMPL_B=$(node -p "require('./$DEP').implB")
+if [ "$PHASE" != 2 ]; then
 
 say "baseline (rebaseline CLI)"
 node watcher/src/rebaseline.ts --chain $CHAIN --address "$PROXY" --kind eip1967 --reason "test3" | grep -E '"(implementation|block)"' | tee -a "$LOG"
@@ -102,9 +120,14 @@ for (const [k, v] of Object.entries(checks)) { console.log((v ? 'PASS ' : 'FAIL 
 console.log(ok ? 'PHASE 1 (events + restart): PASS' : 'PHASE 1 (events + restart): FAIL');
 process.exit(ok ? 0 : 1);
 " | tee -a "$LOG"
+fi # end phase 1
 
 say "== phase 2: slot-read detection alone (event scanning disabled)"
-STATE2="$STATE/slot-only"; mkdir -p "$STATE2"
+CURRENT=$(cast storage "$PROXY" 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc --rpc-url "$RPC")
+if [ "$PHASE" = 2 ] && [ "0x${CURRENT: -40}" = "$(echo "$IMPL_B" | tr 'A-F' 'a-f')" ]; then
+  say "proxy is on ImplB; switching it back to ImplA first"; forge_run upgradeA0 script/UpgradeDemo.s.sol TARGET=A
+fi
+STATE2="$STATE/slot-only"; rm -rf "$STATE2"; mkdir -p "$STATE2"
 WATCHER_STATE_DIR="$STATE2" node watcher/src/rebaseline.ts --chain $CHAIN --address "$PROXY" --kind eip1967 --reason "test3 slot-only" > /dev/null
 WATCHER_STATE_DIR="$STATE2" WATCHER_DISABLE_EVENTS=1 node watcher/src/main.ts >> "$STATE2/watcher.log" 2>&1 & WPID=$!
 sleep "$WAIT"
