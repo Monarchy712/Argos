@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { TransportPill } from "./components/common.tsx";
+import { MonitoredScreen, useArkiv, useManifest } from "./screens/Monitored.tsx";
 
 type Tab = "monitored" | "check" | "nym";
 const TABS: { id: Tab; label: string }[] = [
@@ -9,6 +11,8 @@ const TABS: { id: Tab; label: string }[] = [
 
 export function App() {
   const [tab, setTab] = useState<Tab>("monitored");
+  const arkiv = useArkiv();
+  const manifest = useManifest();
   return (
     <div className="app">
       <header className="topbar">
@@ -25,13 +29,15 @@ export function App() {
             </button>
           ))}
         </nav>
+        <TransportPill />
       </header>
       <main>
-        <p className="muted">Scaffold: {TABS.find((t) => t.id === tab)!.label}</p>
+        {tab === "monitored" && <MonitoredScreen arkiv={arkiv} manifest={manifest} />}
+        {tab !== "monitored" && <p className="muted">Coming next.</p>}
       </main>
       <footer className="foot">
-        DriftGuard detects, verifies and warns. It does not block transactions or guarantee safety, and an upgrade is
-        not a sign of malice.
+        DriftGuard detects, verifies and warns. It does not block transactions or guarantee safety, and an upgrade is not a
+        sign of malice. Code: MIT. Descriptors: ERC-7730 registry (CC0).
       </footer>
     </div>
   );
