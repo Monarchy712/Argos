@@ -4,3 +4,4 @@ export * from "./read.ts";
 export * from "./arkivSchemas.ts";
 export * from "./trust.ts";
 export * from "./status.ts";
+export * from "./risky.ts";
