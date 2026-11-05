@@ -11,10 +11,16 @@
 ERC-7730 descriptors are keyed by `(chainId, address)`. For an upgradeable proxy that address
 is the proxy, so after an upgrade the wallet still finds "the" descriptor and still renders a
 confident, human-readable intent, while different code runs. The registry contains **no**
-proxy or implementation binding (spike S3: 0 of 743 descriptors declare one). The registry
-maintainers asked for an external monitor (issues #2975, #3098 — ASSUMED: issue text not
-re-read today). DriftGuard is that monitor: it records each monitored contract's baseline
-code identity and publishes what changed and when.
+proxy or implementation binding (spike S3: 0 of 743 descriptors declare one). Registry issue
+[#3098](https://github.com/ethereum/clear-signing-erc7730-registry/issues/3098) names upgradeable
+proxies as a case where a signed intent can change, and lists "an external monitoring tool that
+regularly checks for such changes" as the alternative to on-device detection (response still
+"tbd"). [#2975](https://github.com/ethereum/clear-signing-erc7730-registry/issues/2975) proposes
+checking proxies bound to EIP-712 descriptors for domain changes on each `Upgraded` event
+(VERIFIED, re-read 2026-11-06; earlier wording "maintainers asked for an external monitor"
+overstated #2975). DriftGuard is such a monitor for the implementation case: it records each
+monitored contract's baseline code identity and publishes what changed and when. EIP-712
+domain checks are future work.
 
 ## 1. Components
 
@@ -445,7 +451,7 @@ step for jobs).
 | A9 | `resolveCalldataDescriptor` resolves `includes` for a registry file loaded from disk; our `canonicalize` output hashes equal to `computeDescriptorHash` | Test 1 |
 | A10 | Largest registry descriptor (spike: 1 file > 128 KiB) uploads and round-trips | Test 1 |
 | A11 | Safe versions with `ChangedMasterCopy` | read Safe sources before the watcher build; until then Safe = slot-only |
-| A12 | Registry issues #2975/#3098 say what we cite | re-read before writing the README problem section |
+| A12 | ~~Registry issues #2975/#3098 say what we cite~~ **CLOSED, corrected:** #3098 lists an external monitoring tool as an alternative; #2975 is about EIP-712 domain drift on upgrade (not yet covered by DriftGuard) | re-read 2026-11-06, see §0 and `arkiv/reach.md` |
 | A13 | Mirror-track eligibility: registry data is CC0 and not Sourcify data (the clear-signing *library* is published by Sourcify, but the mirrored *data* is the EF registry) | confirm with Arkiv booth; fallback = Build on Arkiv (rename `data-quality.md` → `how-you-use-arkiv.md`) |
 | A14 | Registry default branch is `master` | importer pins a commit SHA anyway |
 
