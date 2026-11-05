@@ -24,6 +24,8 @@ export interface WatcherConfig {
   logChunk: bigint;
   stateDir: string;
   sink: "file" | "arkiv";
+  /** Test switch: skip event scans so only slot reads can detect changes. */
+  disableEvents: boolean;
 }
 
 export function loadConfig(env = process.env): WatcherConfig {
@@ -34,6 +36,7 @@ export function loadConfig(env = process.env): WatcherConfig {
     logChunk: BigInt(env.WATCHER_LOG_CHUNK ?? 2_000),
     stateDir: env.WATCHER_STATE_DIR ?? join(WATCHER_DIR, "state"),
     sink: (env.WATCHER_SINK ?? "arkiv") as "file" | "arkiv",
+    disableEvents: env.WATCHER_DISABLE_EVENTS === "1",
   };
 }
 

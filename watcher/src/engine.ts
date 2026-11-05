@@ -78,7 +78,10 @@ export function step(input: StepInput): StepOutput {
 
   // 2. Slot read. Anything that still differs from what we knew, without an event, is a
   //    slot-detected change (poll-only proxies, or events we missed).
-  for (const field of diffIdentity(last, observed)) {
+  const slotDiff = diffIdentity(last, observed);
+  // A new implementation implies a new codehash; report the implementation change only.
+  if (slotDiff.includes("implementation")) explained.add("codehash");
+  for (const field of slotDiff) {
     if (explained.has(field)) continue;
     changes.push({
       chainId,

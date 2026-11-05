@@ -69,7 +69,7 @@ export async function runChainCycle(args: {
 
   // Map emitter address → contracts it reports for.
   const emitters: EmitterMap = new Map();
-  for (const b of baselines) {
+  for (const b of config.disableEvents ? [] : baselines) {
     for (const e of emittersFor(b, cursor)) {
       emitters.set(e, [...(emitters.get(e) ?? []), contractId(b.chainId, b.address)]);
     }
@@ -80,7 +80,7 @@ export async function runChainCycle(args: {
   for (const b of baselines) {
     const id = contractId(b.chainId, b.address);
     const known = cursor.contracts[id]?.baselineKey === b.key;
-    if (!known && b.block < scanned) {
+    if (!config.disableEvents && !known && b.block < scanned) {
       const own: EmitterMap = new Map(emittersFor(b, cursor).map((e) => [e, [id]]));
       events.unshift(...(await scanRange(client, own, b.block + 1n, scanned, config.logChunk)));
     }

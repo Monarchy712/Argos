@@ -74,7 +74,8 @@ test("A→B then B→A in a later cycle: ever_changed stays true", () => {
 
 test("change without an event is detected by the slot read", () => {
   const out = step({ ...base, cursor: null, events: [], observed: idB, block: 15n });
-  assert.equal(out.changes.length, 2); // implementation + codehash, both slot-detected
+  assert.equal(out.changes.length, 1); // implementation only; the codehash change is implied
+  assert.equal(out.changes[0]!.field, "implementation");
   assert.ok(out.changes.every((c) => c.detectedBy === "slot" && c.txHash === ""));
   assert.equal(out.cursor.everChanged, true);
 });
@@ -91,4 +92,12 @@ test("upgrade to the same implementation is not a change", () => {
   const out = step({ ...base, cursor: null, events: [upgraded(A, 12n)], observed: idA, block: 12n });
   assert.deepEqual(out.changes, []);
   assert.equal(out.cursor.everChanged, false);
+});
+
+test("same implementation address but new code (metamorphic redeploy) is a codehash change", () => {
+  const redeployed: CodeIdentity = { ...idA, implementationCodehash: HASH_B as `0x${string}` };
+  const out = step({ ...base, cursor: null, events: [], observed: redeployed, block: 16n });
+  assert.equal(out.changes.length, 1);
+  assert.equal(out.changes[0]!.field, "codehash");
+  assert.equal(out.matchesBaseline, false);
 });
