@@ -26,3 +26,14 @@ way. Times are IST. Each entry points at the commits it covers.
 - Added the `arkiv/swarm.md` stub that the Arkiv + Swarm bonus requires.
 - Problem hit: the GitHub REST API is rate-limited on the venue IP, so we read files
   through raw.githubusercontent.com instead.
+
+## 2026-11-06 — Day 2
+
+### Blueprint approved (v1)
+- Approved with decisions D1–D3, plus a lower Arkiv write rate: slot reads every 60 s,
+  `current_state` written every 120 s or immediately on change, batched where possible. Mainnet
+  monitoring is capped at ~30 registry proxies (attested ones first), plus the Sepolia demo proxy.
+- Generated the writer, watcher and Sepolia-deployer wallets locally. Keys are only in the
+  gitignored `.env`, and the public addresses are in `docs/ARCHITECTURE.md` §11.
+- Found that the PublicNode RPC rejects `eth_getLogs` without an address filter. The watcher
+  always passes one.

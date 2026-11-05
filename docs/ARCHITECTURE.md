@@ -1,6 +1,7 @@
 # DriftGuard — Architecture blueprint
 
-> Status: **v0, awaiting approval** (2026-11-05). Every external claim is tagged
+> Status: **v1, approved** (2026-11-06) with D1–D3 as recommended plus the write-rate and
+> monitoring-cap changes in §2.4 and §4.2. Every external claim is tagged
 > **VERIFIED** (with source) or **ASSUMED** (to be checked by a named risk test).
 > DriftGuard **detects, verifies and warns**. It does not block transactions, does not
 > guarantee safety, and never calls an upgrade malicious.
@@ -166,8 +167,10 @@ that writes a new entity and deletes the old one (history kept in `rebaseline_re
 | `rebaseline_reason` | str | `""` for the first baseline. |
 | `previous_baseline_key` | str | `""` for the first baseline. |
 
-**`dg_current_state`** — liveness + current view. Watcher. **Short expiry** and rewritten
-every cycle. Target: cycle 60 s, expiry **10 min** (= 300 blocks). If the watcher dies, the
+**`dg_current_state`** — liveness + current view. Watcher. **Short expiry**. Slot reads every
+60 s; the entity is rewritten **every 120 s, or immediately when anything changed**. Expiry
+**10 min** (= 300 Arkiv blocks); GREEN staleness 5 min, so a single missed write never turns a
+contract NOT VERIFIED, but a dead watcher does within 5 minutes. If the watcher dies, the
 entity expires and the UI falls to NOT VERIFIED — this is the visible Arkiv-expiry feature.
 Rewrite = `patchEntity` + `extendEntity` (or a create if it already expired; ASSUMED → Test 2).
 
@@ -203,7 +206,7 @@ newer change is detected, never on a routine cycle. Long expiry + renewal.
 | --- | --- | --- | --- | --- | --- |
 | descriptor, deployment | writer | importer | importer re-run (upsert by `descriptor_hash`/`(chain,address,descriptor_hash)`; unchanged rows untouched) | ≈182 d | `npm run renew` |
 | baseline | writer | `rebaseline` | never in place; replace only via `rebaseline` | ≈182 d | `npm run renew` |
-| current_state | watcher | first cycle | every cycle | 10 min | implicit: every cycle |
+| current_state | watcher | first cycle | every 120 s, or at once on change; one batched write per cycle where the SDK allows | 10 min | implicit: every write |
 | latest_change | watcher | first change | on newer change | ≈182 d | `npm run renew` |
 
 `renew` extends anything with `$expiresAt` closer than 30 days, and is safe to run anytime.
@@ -293,8 +296,14 @@ loop every 60 s:
   for each monitored contract: slot reads at `head` → identity
      if identity != last seen and no event explained it → latest_change (detected_by=slot)
      ever_changed |= identity != baseline.identity
-     upsert current_state (checked_block=head, checked_at=now, last_scanned_block)
+  if anything changed OR now - last_write >= 120 s:
+     upsert all current_state rows (checked_block=head, checked_at=now, last_scanned_block),
+     batched into as few transactions as the SDK allows
 ```
+
+**Scope (approved D3 + cap):** at most **~30 mainnet proxy contracts** from the registry,
+preferring deployments whose descriptor has an auditor attestation in `sigs/`, plus the
+Sepolia demo proxy.
 
 - **Restart:** cursor is on disk (`watcher/state/cursor.json`, gitignored). On a missing cursor the
   watcher starts at the baseline block, so a restart never skips a range. `ever_changed` is also
@@ -440,10 +449,22 @@ step for jobs).
 | A13 | Mirror-track eligibility: registry data is CC0 and not Sourcify data (the clear-signing *library* is published by Sourcify, but the mirrored *data* is the EF registry) | confirm with Arkiv booth; fallback = Build on Arkiv (rename `data-quality.md` → `how-you-use-arkiv.md`) |
 | A14 | Registry default branch is `master` | importer pins a commit SHA anyway |
 
-## 10. Decisions needed from you
+## 10. Decisions (approved 2026-11-06)
 
-- **D1** Baseline signed by the writer wallet (recommended) vs. the watcher wallet vs. a third wallet.
-- **D2** Watcher cycle 60 s / current_state expiry 10 min / GREEN staleness 5 min — OK for the demo?
-- **D3** Monitoring scope: Sepolia demo proxy + mainnet registry deployments the importer
-  classifies as proxies (spike S4 suggests about 8 of 15 sampled; full count after the import). Other chains in the
-  mirror only, not watched, unless you want one more (e.g. Base).
+- **D1** Baseline is signed by the writer wallet; the watcher wallet can never move a baseline.
+- **D2** Slot reads every 60 s; current_state written every 120 s or on change; expiry 10 min;
+  GREEN staleness 5 min.
+- **D3** Watch the Sepolia demo proxy + up to ~30 mainnet registry proxies (attested first).
+  Other chains are mirrored, not watched.
+
+## 11. Wallets and RPC
+
+| Role | Address |
+| --- | --- |
+| writer (importer, baselines) | `0x623EdFf351EB13aCCFc56cBf541eE4D45BDADCf4` |
+| watcher (current_state, latest_change) | `0x8a883182b488cE04f08D348C64d9AC8EecACF2Bf` |
+| Sepolia deployer (demo proxy) | `0x060762aa5D602d1A6E9a5AecC3301cf804b7E42C` |
+
+Keys live only in the gitignored `.env`. Default RPCs are PublicNode (Sepolia, mainnet), which
+**rejects `eth_getLogs` without an `address` filter** (error -32701) — VERIFIED 2026-11-06. The
+watcher always filters by address, so this is fine.
