@@ -6,6 +6,7 @@ import { idOf, readArkiv, type ArkivSnapshot } from "../lib/arkiv.ts";
 import { clientFor, liveIdentity } from "../lib/chain.ts";
 import { CHAINS, DEMO_PROXY } from "../lib/config.ts";
 import { RegistryFallbackSource, descriptorFor, makeResolver, type FetchRecord, type RegistryManifest } from "../lib/descriptors.ts";
+import { lookupContract } from "../lib/mirror.ts";
 import { routeLabel } from "../lib/transport.ts";
 import { AddressLink, StatusBadge, chainName, short, useTransport } from "../components/common.tsx";
 
@@ -70,8 +71,10 @@ interface Result {
   display: DisplayModel | null;
   displayError: string | null;
   fetches: FetchRecord[];
-  descriptor: ReturnType<typeof descriptorFor>;
+  descriptor: { path: string; descriptorHash: string | null; attestation: "valid" | "stale" | "none"; commit: string; owner: string } | null;
   baselineDescriptorHash: string | null;
+  /** where the descriptor metadata (path, commit, hashes) came from */
+  provenance: { source: "arkiv-bulk" | "arkiv-targeted" | "bundled"; note: string };
 }
 
 export function CheckTxScreen({ snap: snapshot, manifest }: { snap: ArkivSnapshot | null; manifest: RegistryManifest | null }) {
@@ -107,7 +110,21 @@ export function CheckTxScreen({ snap: snapshot, manifest }: { snap: ArkivSnapsho
     const baseline = snap?.baselines.find((b) => idOf(b.chainId, b.address) === id) ?? null;
     const current = snap?.current.find((c) => idOf(c.chainId, c.address) === id) ?? null;
     const change = snap?.changes.find((c) => idOf(c.chainId, c.address) === id) ?? null;
-    const descriptor = manifest ? descriptorFor(manifest, tx.chainId, tx.to) : null;
+    // Descriptor metadata from the Arkiv mirror (bulk read; targeted fallback says so). The index
+    // bundled with the app is used only if Arkiv can't be reached at all, and that is shown too.
+    const lookup = await lookupContract(tx.chainId, tx.to).catch(() => null);
+    const index: RegistryManifest | null = lookup?.manifest ?? manifest;
+    const provenance: Result["provenance"] = lookup
+      ? { source: lookup.mode === "bulk" ? "arkiv-bulk" : "arkiv-targeted", note: lookup.note }
+      : { source: "bundled", note: "Arkiv mirror unreachable: using the descriptor index bundled with this app (same pinned registry commit, same hash checks)." };
+    const descriptor: Result["descriptor"] = lookup?.descriptor
+      ? { path: lookup.descriptor.path, descriptorHash: lookup.descriptor.descriptorHash || null, attestation: lookup.descriptor.attestation as "valid" | "stale" | "none", commit: lookup.descriptor.commit, owner: lookup.descriptor.owner }
+      : !lookup && manifest
+        ? (() => {
+            const d = descriptorFor(manifest, tx.chainId, tx.to);
+            return d ? { path: d.path, descriptorHash: d.descriptorHash, attestation: d.attested ? "valid" : "none", commit: manifest.commit, owner: d.owner } : null;
+          })()
+        : null;
     const now = Math.floor(Date.now() / 1000);
     const evaluate = (live: LiveEvidence) =>
       computeStatus({
@@ -137,6 +154,7 @@ export function CheckTxScreen({ snap: snapshot, manifest }: { snap: ArkivSnapsho
       fetches: [],
       descriptor,
       baselineDescriptorHash: baseline?.descriptorHash || null,
+      provenance,
     };
     setResult(base);
 
@@ -149,12 +167,12 @@ export function CheckTxScreen({ snap: snapshot, manifest }: { snap: ArkivSnapsho
       : Promise.resolve({ state: "not-run" as const });
 
     // Readable intent through the hash-checked descriptor source (same transport).
-    const source = manifest ? new RegistryFallbackSource(manifest) : null;
+    const source = index ? new RegistryFallbackSource(index) : null;
     const displayPromise = source
       ? format(
           { chainId: tx.chainId, to: tx.to, data: tx.data, value: tx.value },
           {
-            descriptorResolverOptions: { type: "custom", resolver: makeResolver(manifest!, source) },
+            descriptorResolverOptions: { type: "custom", resolver: makeResolver(index!, source) },
             externalDataProvider: {
               resolveToken: async (chainId, token) => {
                 try {
@@ -176,7 +194,7 @@ export function CheckTxScreen({ snap: snapshot, manifest }: { snap: ArkivSnapsho
           (d) => ({ display: d, displayError: null }),
           (err) => ({ display: null, displayError: err instanceof Error ? err.message : String(err) }),
         )
-      : Promise.resolve({ display: null, displayError: "registry manifest not loaded" });
+      : Promise.resolve({ display: null, displayError: "no descriptor index available (Arkiv mirror and bundled index both unavailable)" });
 
     const [live, shown] = await Promise.all([livePromise, displayPromise]);
     setResult({ ...base, live, status: evaluate(live), ...shown, fetches: source?.log ?? [] });
@@ -303,16 +321,23 @@ function ResultView({ r }: { r: Result }) {
 
         <div className="card card-pad">
           <div className="tile-label">Descriptor provenance</div>
+          <div className={`note ${r.provenance.source === "arkiv-bulk" ? "muted" : "note-warn"}`} style={{ marginTop: 6 }}>
+            {r.provenance.source === "bundled" ? "Source: bundled index" : "Source: Arkiv registry mirror"} · {r.provenance.note}
+          </div>
           {r.descriptor ? (
             <dl className="kv" style={{ marginTop: 8 }}>
               <dt>registry file</dt><dd className="mono">{r.descriptor.path}</dd>
+              <dt>registry commit</dt><dd className="mono">{r.descriptor.commit.slice(0, 10)}</dd>
               <dt>ERC-8176 hash</dt><dd className="mono" title={r.descriptor.descriptorHash ?? ""}>{r.descriptor.descriptorHash ? short(r.descriptor.descriptorHash, 12, 8) : "—"}</dd>
-              <dt>attestation</dt><dd>{r.descriptor.attested ? "auditor attestation in registry sigs/" : "none in registry"}</dd>
+              <dt>attestation</dt>
+              <dd>
+                {r.descriptor.attestation === "valid" ? "auditor attestation signs this exact descriptor" : r.descriptor.attestation === "stale" ? <b>attestation exists but signs different content (stale)</b> : "none in registry"}
+              </dd>
               <dt>vs baseline</dt>
-              <dd>{hashMatches === null ? <span className="muted">baseline has no descriptor hash yet (importer pending)</span> : hashMatches ? "same descriptor as at baseline" : <b>descriptor changed since baseline</b>}</dd>
+              <dd>{hashMatches === null ? <span className="muted">baseline records no descriptor hash</span> : hashMatches ? "same descriptor as at baseline" : <b>descriptor changed since baseline</b>}</dd>
             </dl>
           ) : (
-            <p className="muted small">The registry has no descriptor for this contract.</p>
+            <p className="muted small">The registry mirror has no calldata descriptor for this contract.</p>
           )}
           {r.fetches.length > 0 && (
             <>
