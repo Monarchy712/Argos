@@ -64,10 +64,30 @@ Also verified while building:
 
 ---
 
-## Test 2 — Arkiv records — BLOCKED
+## Test 2 — Arkiv records — BLOCKED (script ready)
 
 - Writer `0x623EdFf351EB13aCCFc56cBf541eE4D45BDADCf4` and watcher
   `0x8a883182b488cE04f08D348C64d9AC8EecACF2Bf` have **0 tGLM** on Rabdi.
 - Faucet: `hub.arkiv.network/faucet`. Spike S1 measured ~0.00013 tGLM per entity, so a few tGLM per wallet is plenty.
-- An access key (`hub.arkiv.network/access-keys`) is optional for the test. Keyless reads worked in
-  the spike, but writes through a keyed endpoint are what we'd run in the demo.
+- An access key (`hub.arkiv.network/access-keys`) is optional for the test but recommended. Without one
+  the SDK warns that the public endpoint is heavily rate limited.
+- Once funded: `node --env-file=.env scripts/test2.ts` (≈4 min, most of it waiting for the
+  2-minute expiry).
+
+**What the script checks:** create baseline (writer) + 2× current_state + latest_change (watcher),
+query back filtered by `$creator`, confirm the wrong creator gets 0 rows, update current_state +
+latest_change in **one `executeBatch`** (patch + extend), baseline byte-for-byte unchanged, renewal
+via `extendEntity(ExpirationTime.max())`, a 2-minute current_state disappears → reader shows NOT
+VERIFIED, 20 keyless reads, p50/p95 per operation, 429 count.
+
+**Already established without funds (2026-11-06):**
+- Keyless reads from Rabdi work: 10 queries, **p50 199 ms, max 360 ms**, no 429.
+- From the SDK 1.0.1 type definitions (typechecked against the real package):
+  - Batch writes are `executeBatch({ creates, patches, deletes, extensions, ownershipChanges })`,
+    one transaction. **A5 closed (API side).**
+  - **A patch never changes expiry** ("Use `extendEntity` for the expiry"), so a current_state
+    rewrite = patch + extension in one batch.
+  - `.createdBy(address)` filters on `$creator`. `ExpirationTime.max()` = longest allowed life.
+  - The SDK documents `key` as "a reference to another entity", so hashes are stored as `str`
+    (66 bytes, under the 128-byte limit).
+  - All `dg_*` attribute names pass the SDK's runtime name grammar (`defineSchema` validates on load).

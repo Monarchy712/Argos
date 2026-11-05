@@ -50,3 +50,11 @@ way. Times are IST. Each entry points at the commits it covers.
   `docs/TEST_REPORT.md`.
 - Blocked: the Sepolia deployer and both Arkiv wallets need testnet funds. Faucets are a user
   action.
+
+### Test 2 (Arkiv): script ready, blocked on faucet
+- Added `dg_*` Arkiv schemas in `packages/core/src/arkivSchemas.ts` and the Test 2 script
+  (`scripts/test2.ts`). The script typechecks against the real SDK 1.0.1.
+- Learned from the SDK types: a patch never moves expiry, so a `current_state` rewrite is a
+  patch plus an `extendEntity` in a single `executeBatch`.
+- Keyless Rabdi reads measured at p50 199 ms.
+- Waiting on tGLM for the writer and watcher wallets.
