@@ -6,7 +6,7 @@ output is committed under `docs/test-runs/`.
 | Test | Status | Run output |
 | --- | --- | --- |
 | 3 — proxy detection | **Local anvil: PASS** · Sepolia: **BLOCKED** (deployer unfunded) | [test3-local.txt](test-runs/test3-local.txt) |
-| 2 — Arkiv records | **BLOCKED** (writer/watcher wallets have 0 tGLM) | — |
+| 2 — Arkiv records | **PASS** (9/9 functional); keyless reads hit a 429 cost limit, keyed re-run pending | [test2-rabdi.txt](test-runs/test2-rabdi.txt) |
 | 4 — Nym reads | not started (by plan: needs a real browser on venue Wi-Fi) | — |
 | 1 — Swarm | not started (by plan: postage depends on the Swarm booth) | — |
 
@@ -64,15 +64,40 @@ Also verified while building:
 
 ---
 
-## Test 2 — Arkiv records — BLOCKED (script ready)
+## Test 2 — Arkiv records — functional PASS (9/9), keyless rate limit found
 
-- Writer `0x623EdFf351EB13aCCFc56cBf541eE4D45BDADCf4` and watcher
-  `0x8a883182b488cE04f08D348C64d9AC8EecACF2Bf` have **0 tGLM** on Rabdi.
-- Faucet: `hub.arkiv.network/faucet`. Spike S1 measured ~0.00013 tGLM per entity, so a few tGLM per wallet is plenty.
-- An access key (`hub.arkiv.network/access-keys`) is optional for the test but recommended. Without one
-  the SDK warns that the public endpoint is heavily rate limited.
-- Once funded: `node --env-file=.env scripts/test2.ts` (≈4 min, most of it waiting for the
-  2-minute expiry).
+**How to run:** `node --env-file=.env scripts/test2.ts` (≈4 min, mostly waiting for the 2-minute
+expiry), then `node --env-file=.env scripts/cleanup-test-rows.ts`.
+
+### Run 1 — Rabdi, keyless, 2026-11-06 ~03:25 IST — 9/9 functional checks PASS
+
+Output: [test2-rabdi.txt](test-runs/test2-rabdi.txt). Writer funded with 10 tGLM, and 2 tGLM moved to
+the watcher.
+
+| Check | Result |
+| --- | --- |
+| Create baseline (writer), 2× current_state + latest_change (watcher) | PASS |
+| Baseline readable with `createdBy(writer)` | PASS |
+| Same query with `createdBy(watcher)` returns 0 rows (creator filter works) | PASS |
+| current_state rows readable with `createdBy(watcher)` | PASS |
+| One `executeBatch`: patch current_state + latest_change **and** extend current_state | PASS (`$expiresAt` 265326 → 265336, block numbers) |
+| latest_change replaced in place (same key, new value) | PASS |
+| Baseline identical after the state updates | PASS |
+| Renewal: `extendEntity(ExpirationTime.max())` moves baseline `$expiresAt` later | PASS (8149022 → 8149042) |
+| 2-minute current_state disappears from queries → reader status NOT VERIFIED | PASS (gone after ~94 s of polling) |
+
+**Finding — keyless cost budget:** the run then stalled in the 20-keyless-read phase. Probing
+directly showed **HTTP 429 `ANON_COST_LIMITED`**, with header `ratelimit: limit=10000, remaining=0,
+reset=217` and `retry-after: 217`. Every read in this run was keyless (no `ARKIV_ACCESS_KEY` yet),
+and the expiry polling used up the anonymous budget. viem's default retries then hid the 429 as a
+hang. Consequences:
+- **Watcher, importer and tests need an access key.** Keyless use is fine only for occasional reads.
+- **Browser:** one bulk, contract-independent read per page load, as designed (§2.5). It must not
+  poll Arkiv in a loop. A 429 is shown as NOT VERIFIED with "Arkiv rate-limited", never as GREEN.
+- The test now runs keyless reads with `retryCount: 0`, logs the 429 header, and always cleans up.
+  Leftover rows from run 1 were deleted with `scripts/cleanup-test-rows.ts` (writer tx `0x876c3242…`,
+  watcher tx `0x5819925e…`).
+- Re-run with an access key pending, for clean keyed timings (p50/p95).
 
 **What the script checks:** create baseline (writer) + 2× current_state + latest_change (watcher),
 query back filtered by `$creator`, confirm the wrong creator gets 0 rows, update current_state +

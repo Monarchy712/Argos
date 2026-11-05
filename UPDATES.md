@@ -58,3 +58,20 @@ way. Times are IST. Each entry points at the commits it covers.
   patch plus an `extendEntity` in a single `executeBatch`.
 - Keyless Rabdi reads measured at p50 199 ms.
 - Waiting on tGLM for the writer and watcher wallets.
+
+### Test 2 passed; Sepolia gas surprise; Arkiv sink built
+- **Test 2 (Arkiv): 9/9 functional checks pass** on Rabdi:
+  - The `$creator` filter rejects the wrong wallet.
+  - A single `executeBatch` patches and extends `current_state`.
+  - The baseline stays untouched after state updates, and renewal works.
+  - A 2-minute `current_state` lapses into NOT VERIFIED.
+- Found that keyless Arkiv reads have a cost budget (`429 ANON_COST_LIMITED`, limit 10000, reset
+  ~217 s). Because of this, the watcher and importer use an access key, and the browser keeps to a
+  single bulk read.
+- Sepolia deploys ran out of gas. The node estimates ~6x more creation gas than Foundry 1.5.1's
+  local EVM simulates (current Sepolia blocks carry `blockAccessListHash`). Test 3 now uses
+  `--skip-simulation`, so gas comes from the node.
+- `rebaseline` now refuses an all-zero identity. That bug once baselined a proxy that wasn't
+  deployed yet.
+- Built the Arkiv sink (one batch per cycle; create+delete on rebaseline; retry when an expired
+  row is found), the `renew` script, and a cleanup script for test rows.

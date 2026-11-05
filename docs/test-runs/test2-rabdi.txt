@@ -1,0 +1,12 @@
+writer 0x623EdFf351EB13aCCFc56cBf541eE4D45BDADCf4 balance 7999978999999979000 wei; watcher 0x8a883182b488cE04f08D348C64d9AC8EecACF2Bf balance 2000000000000000000 wei
+PASS create baseline / 2× current_state / latest_change — keys 0xe08bf287…
+PASS baseline readable by $creator=writer
+PASS same query with $creator=watcher returns nothing (creator filter works)
+PASS current_state rows readable by $creator=watcher
+PASS executeBatch patched + extended current_state in one tx — tx 0x10b4426c…, expiresAt 265326→265336
+PASS latest_change replaced in place (same key, new value)
+PASS baseline unchanged after state updates
+PASS renewal: extendEntity moved baseline $expiresAt later — 8149022→8149042 (tx 0xf05a09d6…)
+waiting for the 2-minute current_state to expire…
+PASS 2-minute current_state expired and disappeared from queries — after ~94 s; reader status: NOT VERIFIED (no live watcher record)
+Rabdi: no access key, so requests go to the public endpoint, which is heavily rate limited. Get a free key at https://hub.arkiv.network/access-keys and pass it as rabdi({ accessKey }).
