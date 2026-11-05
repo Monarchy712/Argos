@@ -37,3 +37,16 @@ way. Times are IST. Each entry points at the commits it covers.
   gitignored `.env`, and the public addresses are in `docs/ARCHITECTURE.md` §11.
 - Found that the PublicNode RPC rejects `eth_getLogs` without an address filter. The watcher
   always passes one.
+
+### Test 3 (proxy detection): local PASS, Sepolia waiting on funds
+- Demo contracts: `DemoImplA`/`DemoImplB` behind an OpenZeppelin v5.6.1
+  `TransparentUpgradeableProxy`, with deploy/upgrade scripts (Foundry, pinned submodules).
+- `packages/core`: EIP-1967 slots, the code-identity model, and an on-chain reader for
+  EIP-1967, beacon, diamond, Safe and plain contracts.
+- Watcher: a pure detection engine (sticky `ever_changed`), address-filtered event scans, an
+  atomic cursor file, a file sink and the rebaseline CLI.
+- `scripts/test3.sh local` passes all 10 checks. That includes a hard kill with an upgrade made
+  while the watcher was down, plus slot-only detection with event scanning switched off. See
+  `docs/TEST_REPORT.md`.
+- Blocked: the Sepolia deployer and both Arkiv wallets need testnet funds. Faucets are a user
+  action.
