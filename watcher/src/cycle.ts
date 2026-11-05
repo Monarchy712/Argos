@@ -146,8 +146,7 @@ export async function runChainCycle(args: {
     cursor.contracts[id] = out.cursor;
   }
 
-  if (latestPerContract.size) await sink.writeLatestChanges([...latestPerContract.values()]);
-  if (toWrite.length) await sink.writeCurrentStates(toWrite);
+  if (toWrite.length || latestPerContract.size) await sink.writeCycle(toWrite, [...latestPerContract.values()]);
   cursor.chains[chainId] = head.toString();
 
   return { chainId, fromBlock: from, toBlock: head, events: events.length, changes, written: toWrite.length, failed };

@@ -13,10 +13,11 @@ export interface Sink {
   loadBaselines(): Promise<Baseline[]>;
   /** Writes a new baseline and retires the previous one. Returns the new key. */
   writeBaseline(b: Omit<Baseline, "key">): Promise<string>;
-  /** Upserts current_state rows, batched where possible. */
-  writeCurrentStates(rows: CurrentState[]): Promise<void>;
-  /** Replaces the latest_change row for each contract that has a newer change. */
-  writeLatestChanges(rows: ChangeRecord[]): Promise<void>;
+  /**
+   * Upserts this cycle's current_state rows and replaces latest_change rows for contracts with a
+   * newer change. A contract's two rows are written atomically (same transaction).
+   */
+  writeCycle(states: CurrentState[], changes: ChangeRecord[]): Promise<void>;
 }
 
 // JSON can't hold bigint; store as decimal strings.
@@ -64,9 +65,14 @@ export class FileSink implements Sink {
     return key;
   }
 
-  async writeCurrentStates(rows: CurrentState[]): Promise<void> {
+  async writeCycle(states: CurrentState[], changes: ChangeRecord[]): Promise<void> {
     const s = this.read();
-    for (const r of rows) {
+    for (const r of changes) {
+      const id = contractId(r.chainId, r.address);
+      s.latestChanges[id] = r;
+      s.log.push({ at: Date.now(), kind: "latest_change", id });
+    }
+    for (const r of states) {
       const id = contractId(r.chainId, r.address);
       s.currentStates[id] = r;
       s.log.push({ at: Date.now(), kind: "current_state", id });
@@ -74,13 +80,5 @@ export class FileSink implements Sink {
     this.write(s);
   }
 
-  async writeLatestChanges(rows: ChangeRecord[]): Promise<void> {
-    const s = this.read();
-    for (const r of rows) {
-      const id = contractId(r.chainId, r.address);
-      s.latestChanges[id] = r;
-      s.log.push({ at: Date.now(), kind: "latest_change", id });
-    }
-    this.write(s);
-  }
+
 }

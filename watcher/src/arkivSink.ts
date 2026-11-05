@@ -208,10 +208,16 @@ export class ArkivSink implements Sink {
     this.changeKeys = await load(LatestChangeSchema);
   }
 
-  async writeCurrentStates(rows: CurrentState[]): Promise<void> {
+  /**
+   * Writes one cycle's current_state rows and latest_change rows. Both rows of a contract go in
+   * the SAME executeBatch, so a reader never sees a new latest_change next to an old
+   * current_state (found in testing: two separate txs ~6 s apart showed RED briefly after a
+   * revert). Contracts are chunked BATCH per transaction.
+   */
+  async writeCycle(states: CurrentState[], changes: ChangeRecord[]): Promise<void> {
     const watcher = this.need(this.watcher, "ARKIV_WATCHER_PRIVATE_KEY");
-    if (!this.stateKeys) await this.loadKeys();
-    const values = (r: CurrentState) => ({
+    if (!this.stateKeys || !this.changeKeys) await this.loadKeys();
+    const stateValues = (r: CurrentState) => ({
       chain_id: u64(BigInt(r.chainId)),
       address: addr(r.address),
       ...identityAttrs(r.identity, r.identityHash),
@@ -223,41 +229,7 @@ export class ArkivSink implements Sink {
       detection: r.detection,
       baseline_key: r.baselineKey,
     });
-    const expiration = ExpirationTime.fromSeconds(EXPIRY.currentStateSeconds);
-
-    for (const group of chunks(rows, BATCH)) {
-      const send = () => {
-        const creates = [];
-        const patches = [];
-        const extensions = [];
-        for (const r of group) {
-          const key = this.stateKeys!.get(contractId(r.chainId, r.address));
-          if (key) {
-            patches.push({ schema: CurrentStateSchema, entityKey: key, set: values(r) });
-            extensions.push({ entityKey: key, expiration });
-          } else {
-            creates.push({ schema: CurrentStateSchema, values: values(r), expiration });
-          }
-        }
-        return watcher.executeBatch({ creates, patches, extensions }).then((res) => ({ res, creates: group.filter((r) => !this.stateKeys!.has(contractId(r.chainId, r.address))) }));
-      };
-      let out;
-      try {
-        out = await send();
-      } catch (err) {
-        // Most likely a row expired (dead watcher, or a long pause) between lookups: the patch of
-        // a gone entity fails the whole batch. Re-read which rows still exist and retry once.
-        await this.loadKeys();
-        out = await send();
-      }
-      out.creates.forEach((r, i) => this.stateKeys!.set(contractId(r.chainId, r.address), out.res.createdEntities[i]!));
-    }
-  }
-
-  async writeLatestChanges(rows: ChangeRecord[]): Promise<void> {
-    const watcher = this.need(this.watcher, "ARKIV_WATCHER_PRIVATE_KEY");
-    if (!this.changeKeys) await this.loadKeys();
-    const values = (r: ChangeRecord) => ({
+    const changeValues = (r: ChangeRecord) => ({
       chain_id: u64(BigInt(r.chainId)),
       address: addr(r.address),
       field: r.field as ChangeField as string,
@@ -268,20 +240,52 @@ export class ArkivSink implements Sink {
       detected_at: u64(BigInt(r.detectedAt > 1e12 ? Math.floor(r.detectedAt / 1000) : r.detectedAt)),
       detected_by: r.detectedBy,
     });
-    for (const group of chunks(rows, BATCH)) {
-      const creates = [];
-      const patches = [];
-      const fresh: ChangeRecord[] = [];
-      for (const r of group) {
-        const key = this.changeKeys!.get(contractId(r.chainId, r.address));
-        if (key) patches.push({ schema: LatestChangeSchema, entityKey: key, set: values(r) });
-        else {
-          creates.push({ schema: LatestChangeSchema, values: values(r), expiration: ExpirationTime.max() });
-          fresh.push(r);
+    const shortLived = ExpirationTime.fromSeconds(EXPIRY.currentStateSeconds);
+
+    // Group by contract so a contract's two rows always share a transaction.
+    const ids = [...new Set([...states, ...changes].map((r) => contractId(r.chainId, r.address)))];
+    const stateById = new Map(states.map((r) => [contractId(r.chainId, r.address), r]));
+    const changeById = new Map(changes.map((r) => [contractId(r.chainId, r.address), r]));
+
+    for (const group of chunks(ids, BATCH)) {
+      const send = async () => {
+        const creates = [];
+        const createdFor: { kind: "state" | "change"; id: string }[] = [];
+        const patches = [];
+        const extensions = [];
+        for (const id of group) {
+          const st = stateById.get(id);
+          if (st) {
+            const key = this.stateKeys!.get(id);
+            if (key) {
+              patches.push({ schema: CurrentStateSchema, entityKey: key, set: stateValues(st) });
+              extensions.push({ entityKey: key, expiration: shortLived });
+            } else {
+              creates.push({ schema: CurrentStateSchema, values: stateValues(st), expiration: shortLived });
+              createdFor.push({ kind: "state", id });
+            }
+          }
+          const ch = changeById.get(id);
+          if (ch) {
+            const key = this.changeKeys!.get(id);
+            if (key) patches.push({ schema: LatestChangeSchema, entityKey: key, set: changeValues(ch) });
+            else {
+              creates.push({ schema: LatestChangeSchema, values: changeValues(ch), expiration: ExpirationTime.max() });
+              createdFor.push({ kind: "change", id });
+            }
+          }
         }
+        const res = await watcher.executeBatch({ creates, patches, extensions });
+        createdFor.forEach((c, i) => (c.kind === "state" ? this.stateKeys! : this.changeKeys!).set(c.id, res.createdEntities[i]!));
+      };
+      try {
+        await send();
+      } catch {
+        // Most likely a current_state row expired (dead watcher, long pause) between lookups: the
+        // patch of a gone entity fails the whole batch. Re-read which rows exist and retry once.
+        await this.loadKeys();
+        await send();
       }
-      const res = await watcher.executeBatch({ creates, patches });
-      fresh.forEach((r, i) => this.changeKeys!.set(contractId(r.chainId, r.address), res.createdEntities[i]!));
     }
   }
 }
