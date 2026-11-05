@@ -1,0 +1,292 @@
+{
+  "generatedAt": "2026-11-05T22:26:48.716Z",
+  "registry": {
+    "repo": "ethereum/clear-signing-erc7730-registry",
+    "commit": "ef582c2f03bfbd062b7e3889b55dd3b45c3d5494",
+    "license": "CC0-1.0"
+  },
+  "classifiedAtBlock": "26351604",
+  "stats": {
+    "mainnetAddresses": 652,
+    "attested": 131,
+    "byKind": {
+      "eip1967": 284,
+      "none": 338,
+      "beacon": 28,
+      "diamond": 2
+    },
+    "attestedProxies": 29
+  },
+  "selected": [
+    {
+      "chainId": 1,
+      "address": "0x00F05Efa6D73335225f23b5ADb1Fc873795AACCF",
+      "kind": "beacon",
+      "implementation": "0x0193BA8d74e8c7F51522a25F89C405691406eF20",
+      "entity": "kiln",
+      "descriptor": "registry/kiln/calldata-Vault-USDT-Morpho-Steakhouse-USDT-multisig.json",
+      "attested": true
+    },
+    {
+      "chainId": 1,
+      "address": "0x057e9B54c04B467Ccd9DFB56A84bDD99c17a2A50",
+      "kind": "beacon",
+      "implementation": "0x0193BA8d74e8c7F51522a25F89C405691406eF20",
+      "entity": "kiln",
+      "descriptor": "registry/kiln/calldata-Vault-WETH-Morpho-MEV-Capital.json",
+      "attested": true
+    },
+    {
+      "chainId": 1,
+      "address": "0x067d3D0e11efd564FED27b48DA1198Ab0F492ED1",
+      "kind": "beacon",
+      "implementation": "0x0193BA8d74e8c7F51522a25F89C405691406eF20",
+      "entity": "kiln",
+      "descriptor": "registry/kiln/calldata-Vault-USDT-Morpho-Gauntlet-USDT-Prime.json",
+      "attested": true
+    },
+    {
+      "chainId": 1,
+      "address": "0x91E677b07F7AF907ec9a428aafA9fc14a0d3A338",
+      "kind": "eip1967",
+      "implementation": "0xd22dd829779ADBf3869fb224F703452f7F95E9dB",
+      "entity": "p2p",
+      "descriptor": "registry/p2p/calldata-EigenPodManager.json",
+      "attested": true
+    },
+    {
+      "chainId": 1,
+      "address": "0x45E581d6841F0a99Fc34F70871ef56b353813ddb",
+      "kind": "eip1967",
+      "implementation": "0xf0dE6a331AB2EE4199d81462E740BC38E6f879C0",
+      "entity": "swissborg",
+      "descriptor": "registry/swissborg/calldata-WormholeTransceiver.json",
+      "attested": true
+    },
+    {
+      "chainId": 1,
+      "address": "0xaA854688caAB725fe17b7D21b46fDA5AF365985a",
+      "kind": "eip1967",
+      "implementation": "0xFb976eA3AE9Bfe4bC36fb7078e0B32e579463e96",
+      "entity": "swissborg",
+      "descriptor": "registry/swissborg/calldata-ChsbToBorgMigrator.json",
+      "attested": true
+    },
+    {
+      "chainId": 1,
+      "address": "0x0184739C32edc3471D3e4860c8E39a5f3Ff85A45",
+      "kind": "eip1967",
+      "implementation": "0x25aAF04229f77A9AE80430b3C89E3455Ab2ec22F",
+      "entity": "threshold",
+      "descriptor": "registry/threshold/calldata-RebateStaking.json",
+      "attested": true
+    },
+    {
+      "chainId": 1,
+      "address": "0xeF4461891DfB3AC8572cCf7C794664A8DD927945",
+      "kind": "eip1967",
+      "implementation": "0xf27d4FB3B1c194f94b9966Cc75B4bBb686008C8c",
+      "entity": "walletconnect",
+      "descriptor": "registry/walletconnect/calldata-wct.json",
+      "attested": true
+    },
+    {
+      "chainId": 1,
+      "address": "0x641dc9E75A1b0a4c011926C4Aa1BB4721778EC2a",
+      "kind": "beacon",
+      "implementation": "0x3C4C2f4d6e45C23DF2B02b94168A5f0d378faeAe",
+      "entity": "bedrock",
+      "descriptor": "registry/bedrock/calldata-selini-delayRedeemRouter.json",
+      "attested": false
+    },
+    {
+      "chainId": 1,
+      "address": "0xe1b1252652A2FF0CC3A4214eE73d9FeD1FEa5b4f",
+      "kind": "beacon",
+      "implementation": "0x6D11b6D8E71E92d497aC7593277453Df55C89aF1",
+      "entity": "figment",
+      "descriptor": "registry/figment/calldata-PoolDynamic-USDC.json",
+      "attested": false
+    },
+    {
+      "chainId": 1,
+      "address": "0x1231DEB6f5749EF6cE6943a275A1D3E7486F4EaE",
+      "kind": "diamond",
+      "implementation": "0x0000000000000000000000000000000000000000",
+      "entity": "lifi",
+      "descriptor": "registry/lifi/calldata-LIFIDiamond.json",
+      "attested": false
+    },
+    {
+      "chainId": 1,
+      "address": "0x6A000F20005980200259B80c5102003040001068",
+      "kind": "diamond",
+      "implementation": "0x0000000000000000000000000000000000000000",
+      "entity": "paraswap",
+      "descriptor": "registry/paraswap/calldata-AugustusSwapper-v6.2.json",
+      "attested": false
+    },
+    {
+      "chainId": 1,
+      "address": "0x2B947E3c348c81409f8e8fc5ef8F65d9dFf76A42",
+      "kind": "eip1967",
+      "implementation": "0x82f3148cc4836f03110F9B7139588B0563AF5005",
+      "entity": "10102",
+      "descriptor": "registry/10102/calldata-TimeLockRouter.json",
+      "attested": false
+    },
+    {
+      "chainId": 1,
+      "address": "0x4E81E1Ed3F6684EB948F8956b8787967b1a6275b",
+      "kind": "eip1967",
+      "implementation": "0x355BBf74B91e021f18Cee0de191b295B4159E4A1",
+      "entity": "10102",
+      "descriptor": "registry/10102/calldata-TransferEOALegacyRouter.json",
+      "attested": false
+    },
+    {
+      "chainId": 1,
+      "address": "0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9",
+      "kind": "eip1967",
+      "implementation": "0x02D84abD89Ee9DB409572f19B6e1596c301F3c81",
+      "entity": "aave",
+      "descriptor": "registry/aave/calldata-lpv2.json",
+      "attested": false
+    },
+    {
+      "chainId": 1,
+      "address": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+      "kind": "eip1967",
+      "implementation": "0x728a138A4823392C2EFA55e028d434F526fE03CF",
+      "entity": "aave",
+      "descriptor": "registry/aave/calldata-lpv3.json",
+      "attested": false
+    },
+    {
+      "chainId": 1,
+      "address": "0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5",
+      "kind": "eip1967",
+      "implementation": "0x456Ac26E5ec083EE9889eBa0d1a0A582502B8e84",
+      "entity": "across",
+      "descriptor": "registry/across/calldata-Ethereum_SpokePool.json",
+      "attested": false
+    },
+    {
+      "chainId": 1,
+      "address": "0x3154Cf16ccdb4C6d922629664174b904d80F2C35",
+      "kind": "eip1967",
+      "implementation": "0x61525EaaCDdB97D9184aFc205827E6A4fd0Bf62A",
+      "entity": "base",
+      "descriptor": "registry/base/calldata-L1StandardBridge.json",
+      "attested": false
+    },
+    {
+      "chainId": 1,
+      "address": "0x49048044D57e1C92A77f79988d21Fa8fAF74E97e",
+      "kind": "eip1967",
+      "implementation": "0x03863Ab7F64B733cFF85C8fF44a86601C568Ca70",
+      "entity": "base",
+      "descriptor": "registry/base/calldata-OptimismPortal2.json",
+      "attested": false
+    },
+    {
+      "chainId": 1,
+      "address": "0x004E9C3EF86bc1ca1f0bB5C7662861Ee93350568",
+      "kind": "eip1967",
+      "implementation": "0xE0E6A124D500be28BBDC47e6123E68B23B039CAD",
+      "entity": "bedrock",
+      "descriptor": "registry/bedrock/calldata-uniBTC.json",
+      "attested": false
+    },
+    {
+      "chainId": 1,
+      "address": "0x0Ec68c5B10F21EFFb74f2A5C61DFe6b08C0Db6Cb",
+      "kind": "eip1967",
+      "implementation": "0xA280aEBF81c917DbD2aA1b39f979dfECEc9e4391",
+      "entity": "blast",
+      "descriptor": "registry/blast/calldata-OptimismPortal.json",
+      "attested": false
+    },
+    {
+      "chainId": 1,
+      "address": "0x3a05E5d33d7Ab3864D53aaEc93c8301C1Fa49115",
+      "kind": "eip1967",
+      "implementation": "0xC245b4994cd229ad6Ab7B464205d71bfe85a96b7",
+      "entity": "blast",
+      "descriptor": "registry/blast/calldata-L1BlastBridge.json",
+      "attested": false
+    },
+    {
+      "chainId": 1,
+      "address": "0xa4215Daaf3745E14E96E169E0E7706c479Ce04F2",
+      "kind": "eip1967",
+      "implementation": "0xc55253Ea84050700E1EfA8878D4A5053b6Bf7c5E",
+      "entity": "flyingtulip",
+      "descriptor": "registry/flyingtulip/calldata-PftNft.json",
+      "attested": false
+    },
+    {
+      "chainId": 1,
+      "address": "0xAa48EcBC843cF7E9A29155D112b8Cb27902bD23C",
+      "kind": "eip1967",
+      "implementation": "0x8852B132B72613a16f1E3960978a3d45c0A7c3C6",
+      "entity": "flyingtulip",
+      "descriptor": "registry/flyingtulip/calldata-MintAndRedeem.json",
+      "attested": false
+    },
+    {
+      "chainId": 1,
+      "address": "0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1",
+      "kind": "eip1967",
+      "implementation": "0xE42C659Dc09109566720EA8b2De186c2Be7D94D9",
+      "entity": "lido",
+      "descriptor": "registry/lido/calldata-WithdrawalQueueERC721.json",
+      "attested": false
+    },
+    {
+      "chainId": 1,
+      "address": "0x8236a87084f8B84306f72007F36F2618A5634494",
+      "kind": "eip1967",
+      "implementation": "0xE15382BC6968a50C5Ff5aF193D03de6BE4d0270f",
+      "entity": "lombard",
+      "descriptor": "registry/lombard/calldata-lbtc-mainnet.json",
+      "attested": false
+    },
+    {
+      "chainId": 1,
+      "address": "0x0D89C1C4799353F3805A3E6C4e1Cbbb83217D123",
+      "kind": "eip1967",
+      "implementation": "0xB83a6c9779c6f855372A6dCDc78375Fe2AAf86Ca",
+      "entity": "midas",
+      "descriptor": "registry/midas/calldata-RedemptionVault.json",
+      "attested": false
+    },
+    {
+      "chainId": 1,
+      "address": "0x0f7e323103b29E1B18d521DE957Ed0c4c0A8189E",
+      "kind": "eip1967",
+      "implementation": "0xc7158ad4E60d308606d0C77506Cf290Cdc1255BD",
+      "entity": "midas",
+      "descriptor": "registry/midas/calldata-MinterVault.json",
+      "attested": false
+    },
+    {
+      "chainId": 1,
+      "address": "0x789d89eBb2A882343044830A9d4d072737FFEC92",
+      "kind": "eip1967",
+      "implementation": "0xF5548a8a5a44B8cEB5b415276A44E83c939F1d91",
+      "entity": "opencover",
+      "descriptor": "registry/opencover/calldata-Quote.json",
+      "attested": false
+    },
+    {
+      "chainId": 1,
+      "address": "0xB72668D6FF7A0e318F83097A754c6AEd0f8AF034",
+      "kind": "eip1967",
+      "implementation": "0x927A83c679A5e1a6435D6BfaEF7F20D4db23e2cC",
+      "entity": "p2p",
+      "descriptor": "registry/p2p/calldata-NativeTokenVault.json",
+      "attested": false
+    }
+  ]
+}

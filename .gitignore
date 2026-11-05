@@ -31,3 +31,6 @@ Thumbs.db
 # Local anvil deployments (Sepolia deployments ARE committed)
 contracts/deployments/31337.json
 contracts/broadcast/
+
+# Local caches (registry checkout etc.)
+.cache/
