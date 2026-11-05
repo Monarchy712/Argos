@@ -28,3 +28,6 @@ watcher/state/
 Thumbs.db
 .vscode/
 .idea/
+# Local anvil deployments (Sepolia deployments ARE committed)
+contracts/deployments/31337.json
+contracts/broadcast/
