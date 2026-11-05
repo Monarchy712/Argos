@@ -22,6 +22,8 @@ export interface WatcherConfig {
   confirmations: bigint;
   /** Max block span per eth_getLogs call. */
   logChunk: bigint;
+  /** Max addresses per eth_getLogs call (PublicNode allows 10). */
+  logMaxAddresses: number;
   stateDir: string;
   sink: "file" | "arkiv";
   /** Test switch: skip event scans so only slot reads can detect changes. */
@@ -34,6 +36,7 @@ export function loadConfig(env = process.env): WatcherConfig {
     writeEveryMs: Number(env.WATCHER_WRITE_EVERY_MS ?? 120_000),
     confirmations: BigInt(env.WATCHER_CONFIRMATIONS ?? 2),
     logChunk: BigInt(env.WATCHER_LOG_CHUNK ?? 2_000),
+    logMaxAddresses: Number(env.WATCHER_LOG_MAX_ADDRESSES ?? 10),
     stateDir: env.WATCHER_STATE_DIR ?? join(WATCHER_DIR, "state"),
     sink: (env.WATCHER_SINK ?? "arkiv") as "file" | "arkiv",
     disableEvents: env.WATCHER_DISABLE_EVENTS === "1",

@@ -30,15 +30,23 @@ export async function scanEvents(
   emitters: EmitterMap,
   fromBlock: bigint,
   toBlock: bigint,
+  maxAddresses = 10,
 ): Promise<ScannedEvent[]> {
   if (emitters.size === 0 || fromBlock > toBlock) return [];
-  const logs = await client.getLogs({
-    address: [...emitters.keys()] as Address[],
-    events: CHANGE_EVENTS,
-    fromBlock,
-    toBlock,
-    strict: true,
-  });
+  // Public RPCs cap the address filter (PublicNode: "A maximum of 10 addresses is allowed").
+  const all = [...emitters.keys()] as Address[];
+  const logs = [];
+  for (let i = 0; i < all.length; i += maxAddresses) {
+    logs.push(
+      ...(await client.getLogs({
+        address: all.slice(i, i + maxAddresses),
+        events: CHANGE_EVENTS,
+        fromBlock,
+        toBlock,
+        strict: true,
+      })),
+    );
+  }
   const out: ScannedEvent[] = [];
   for (const log of logs) {
     const contracts = emitters.get(log.address.toLowerCase()) ?? [];

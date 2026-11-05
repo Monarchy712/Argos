@@ -39,11 +39,12 @@ async function scanRange(
   from: bigint,
   to: bigint,
   chunk: bigint,
+  maxAddresses: number,
 ): Promise<ScannedEvent[]> {
   const all: ScannedEvent[] = [];
   for (let start = from; start <= to; start += chunk) {
     const end = start + chunk - 1n < to ? start + chunk - 1n : to;
-    all.push(...(await scanEvents(client, emitters, start, end)));
+    all.push(...(await scanEvents(client, emitters, start, end, maxAddresses)));
   }
   return all;
 }
@@ -78,7 +79,7 @@ export async function runChainCycle(args: {
       emitters.set(e, [...(emitters.get(e) ?? []), contractId(b.chainId, b.address)]);
     }
   }
-  const events = from <= head ? await scanRange(client, emitters, from, head, config.logChunk) : [];
+  const events = from <= head ? await scanRange(client, emitters, from, head, config.logChunk, config.logMaxAddresses) : [];
 
   // Contracts added after the chain cursor moved on: catch up from their own baseline block.
   for (const b of baselines) {
@@ -86,7 +87,7 @@ export async function runChainCycle(args: {
     const known = cursor.contracts[id]?.baselineKey === b.key;
     if (!config.disableEvents && !known && b.block < scanned) {
       const own: EmitterMap = new Map(emittersFor(b, cursor).map((e) => [e, [id]]));
-      events.unshift(...(await scanRange(client, own, b.block + 1n, scanned, config.logChunk)));
+      events.unshift(...(await scanRange(client, own, b.block + 1n, scanned, config.logChunk, config.logMaxAddresses)));
     }
   }
 
