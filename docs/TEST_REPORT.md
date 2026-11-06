@@ -274,6 +274,20 @@ nothing to the harness log channel.
 - Hashing / copying cost in the harness: keccak of the bundle in 0.9 s; the 0.4.0 plain-value copy is a
   typed-array copy.
 
+**Timeboxed debugging (45 min, 2026-11-06 ~08:10–08:55 IST):**
+- Harness **0.3.2** (exact spike version) added to the A/B switch: also not ready.
+- Nym API topology answers: `/api/v1/unstable/nym-nodes/skimmed/entry-gateways/all` 200 (629 gateways);
+  `/api/v1/epoch/current` 200. (The old `/api/v1/gateways` path is 404, but the client uses the skimmed
+  endpoints.)
+- Gateway reachability: 8/8 sampled entry gateways accept TCP on 9000 (ws), 9001 (wss) and 443 in
+  108–572 ms, so the network isn't blocking the mixnet.
+- The worker bundle starts a nested Worker from a ~13.6 MB base64 blob (mix-tunnel + WASM, Nym API
+  at `validator.nymtech.net/api/` with fallbacks). `runNymWorker` logs only when `setupMixTunnel` throws.
+  It logged nothing and the DevTools console showed no errors, only Chrome "[Violation] 'message'
+  handler took 5390 ms / 9751 ms" long tasks. So the tunnel setup hangs silently.
+- Outcome per the agreed rule: **direct RPC by default** (labelled), **Nym opt-in and fail-closed**,
+  EF target **Best CROPS App**.
+
 **Not established:** why the worker doesn't become ready. Candidates: the Nym client (mix-fetch) can't
 reach its gateways or the mixnet, or a problem in the worker bundle itself. The spike booted the same
 specifier in ~10 s a day earlier. We stopped here per the plan's rule instead of debugging the

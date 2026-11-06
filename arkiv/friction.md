@@ -92,12 +92,26 @@ large" (or split it automatically).
   (`!(handle->flags & UV_HANDLE_CLOSING)`), probably keep-alive sockets. We set `process.exitCode`
   and let the process exit on its own.
 
-## 6. Arkiv RPC and Anon-RPC
+## 6. Anon-RPC / Nym (not Arkiv, but it shaped our Arkiv design)
 
-Our spike found that Arkiv's RPC didn't answer through the Nym anonymizing exit (0/25), while
-Ethereum RPCs did. Our app routes everything else through Nym, so the Arkiv read is the one
-disclosed direct call. If Arkiv endpoints accepted mixnet exits, a privacy-focused app could read
-Arkiv anonymously too.
+- **Arkiv's RPC didn't answer through the Nym exit** in our spike (0/25), while Ethereum RPCs did. So
+  we designed Arkiv reads as one bulk, contract-independent, keyless read. If Arkiv endpoints
+  accepted mixnet exits, a privacy-focused app could read Arkiv anonymously too.
+- **At the event, the Nym Anon-RPC worker never became ready at all** (Test 4). We timeboxed it to 45
+  minutes; full detail is in [`docs/TEST_REPORT.md`](../docs/TEST_REPORT.md#test-4--anon-rpc-over-nym--fail-2026-11-06-0800-ist).
+  - Same result on venue Wi-Fi and a phone hotspot, with `@anon-rpc/browser-harness` 0.4.0, 0.3.3
+    and 0.3.2 (the version that booted in 10 s in our spike a day earlier).
+  - Everything before the worker runs works: the specifier returns the expected `workerHash`, the
+    18 MB bundle downloads in 0.3 s and matches it, the Nym API serves the topology (629 entry gateways),
+    and sampled gateways accept TCP on 9000/9001/443.
+  - The worker's outer layer only logs when `setupMixTunnel` throws, and we saw no log lines and no
+    console errors. So the nested tunnel worker (a blob Worker inside the sandboxed iframe's worker)
+    hangs silently. Chrome reported 5–10 s main-thread tasks while the worker was being set up.
+  - **Consequence:** live reads default to direct RPC, labelled "not anonymized". Nym stays one click
+    away and fails closed. We changed our EF target from Anon-RPC to CROPS.
+  - **Ask (to the anon-rpc / Nym teams):** a boot-progress or heartbeat log from the worker (or a
+    harness-level boot timeout that reports the last phase reached). A silent hang is the hardest
+    failure to debug in a sandboxed, nested worker.
 
 ## What worked well
 
