@@ -179,3 +179,10 @@ way. Times are IST. Each entry points at the commits it covers.
   docs, `arkiv/*.md`, package descriptions). Arkiv schema names (`dg_*`), entity attributes, env
   variables, cursor files and the internal `@driftguard/*` package scope keep the working name, so
   the records already on Arkiv stay valid.
+
+### ~09:40 · Mirror re-verified; query script
+- Build step 3 was already complete. Re-ran `npm run verify -w importer`: counts match the registry
+  and 10/10 fresh random spot-checks match GitHub raw. Upstream `master` is still `ef582c2`, so the
+  mirror is current.
+- Added `scripts/query-mirror.ts` (stale attestations, descriptors for a contract, one registry
+  folder), with an explorer link per entity. Linked from the README.

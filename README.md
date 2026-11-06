@@ -101,6 +101,19 @@ npm ci && node scripts/show-arkiv.ts
 It prints every monitored contract's baseline, current state (or "NOT VERIFIED" if the watcher's
 record has expired) and latest change, trusting only the two wallets above.
 
+**Query the registry mirror** (read-only, no keys). This lists every registry descriptor whose
+auditor attestation no longer matches its content (3 today):
+
+```bash
+npm ci && node scripts/query-mirror.ts stale
+```
+
+`node scripts/query-mirror.ts deployments 1 0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2` lists the
+descriptors bound to one contract (here Aave v3 Pool on mainnet). Verify the whole mirror against
+the registry yourself (counts + 10 random files against GitHub raw, no key):
+`npm run verify -w importer -- ../.cache/registry` (clone steps in
+[arkiv/data-quality.md](arkiv/data-quality.md#re-run-it)).
+
 ## Setup
 
 Requirements: Node ≥ 22.10 (tested on 24.12), Foundry 1.5.x, Git.

@@ -76,6 +76,7 @@ npm run verify -w importer -- ../.cache/registry         # client-side verificat
 | Client read, counts | `dg_descriptor` 617 / 129 / 22 = registry; `dg_deployment` 2,675 = registry (3,443 rows read keyed in 11 s) |
 | 10 random descriptors vs GitHub raw @ `ef582c2` | **10/10**: `keccak256(GitHub bytes) == file_sha` and `computeDescriptorHash(resolved from GitHub) == descriptor_hash` |
 | Stale attestations on Arkiv | exactly the 3 listed above |
+| Re-verify, Nov 6 ~09:30 IST | counts match again, **10/10** new random spot-checks pass; upstream `master` is still `ef582c2`, so the mirror is current |
 
 ## One runnable query
 
@@ -94,3 +95,13 @@ const r = await c.select({ registry_path: true, descriptor_hash: true, registry_
   .from(DescriptorSchema).where(eq("attestation", "stale")).createdBy(TRUSTED_CREATORS.writer).fetch();
 for (const e of r.entities) console.log(e.registry_path.value, e.descriptor_hash.value);'
 ```
+
+More queries, each printing the Arkiv query it runs and an explorer link per entity:
+
+```bash
+node scripts/query-mirror.ts stale                                              # the 3 stale attestations
+node scripts/query-mirror.ts deployments 1 0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2   # descriptors bound to one contract
+node scripts/query-mirror.ts protocol safe                                      # one registry folder
+```
+
+Example entity: [stale `registry/safe/calldata-SafeMigration-1.5.0.json`](https://rabdi.explorer.arkiv.network/entity/0xdd73f42bcf36a2c51aee264212bb8ef041530ecab5254399da923dfee8e8b3e3).
