@@ -41,6 +41,12 @@ ANON_COST_LIMITED · ratelimit: limit=10000, remaining=0, reset=217 · retry-aft
   option there. We made it do **one bulk read per page load** (three queries), refresh every
   90 s, and show a clear "Arkiv rate-limited" state that never turns a contract green.
 
+- **Expected:** a 429 with a clear message, or documented numbers to stay under. **Happened:** the
+  SDK client hung (viem retried silently), then 429 `ANON_COST_LIMITED`.
+- **Reproduce:** `node scripts/show-arkiv.ts` in a loop with no `ARKIV_ACCESS_KEY` (about 3 bulk
+  queries per run). After roughly a dozen runs in a minute the budget is spent; with viem's default
+  `retryCount` the next call appears to hang for the `retry-after` period.
+
 **Ask:** document the anonymous budget (units, window, typical query costs) and return the
 `ratelimit` header on every response, so clients can pace themselves before hitting the wall.
 
@@ -50,6 +56,10 @@ ANON_COST_LIMITED · ratelimit: limit=10000, remaining=0, reset=217 · retry-aft
 include the full request URL. **Our first importer failure printed the key into a run log.** We
 caught it before committing, deleted the log, and verified the key is in neither the tree nor the
 git history. We now pass every logged error through `describeError()`, which redacts `ark_live_*`.
+
+- **Expected:** errors without secrets. **Happened:** the access key in a log file.
+- **Reproduce:** `createPublicClient({ chain: rabdi({ accessKey: "ark_live_test" }), transport: http() })`,
+  stop your network, call any `select().fetch()`, and print `err.message`: the URL with the key is in it.
 
 **Ask:** send the key in a header (`Authorization` / `X-Api-Key`), or have the SDK wrap transport
 errors with the key redacted. Most teams will paste a stack trace into a GitHub issue sooner or
@@ -67,6 +77,11 @@ EntityMutationError: Transaction failed: Execution error without revert data
 
 The top-level message ("execution error without revert data") pointed us at the contract, not the
 transport. The importer now sends batches of 20 and halves automatically on a 413.
+
+- **Expected:** "payload too large" or an automatic split. **Happened:** an execution-error
+  message that pointed at the contract.
+- **Reproduce:** `executeBatch({ creates })` with 50 entities of 14 attributes each (~120-byte
+  strings); see `importer/src/import.ts` with `IMPORT_BATCH=50`.
 
 **Ask:** document the request-size limit, and have `executeBatch` report a 413 as "batch too
 large" (or split it automatically).

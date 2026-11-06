@@ -180,9 +180,20 @@ way. Times are IST. Each entry points at the commits it covers.
   variables, cursor files and the internal `@driftguard/*` package scope keep the working name, so
   the records already on Arkiv stay valid.
 
-### ~09:40 · Mirror re-verified; query script
+### ~08:55 · Mirror re-verified; query script
 - Build step 3 was already complete. Re-ran `npm run verify -w importer`: counts match the registry
   and 10/10 fresh random spot-checks match GitHub raw. Upstream `master` is still `ef582c2`, so the
   mirror is current.
 - Added `scripts/query-mirror.ts` (stale attestations, descriptors for a contract, one registry
   folder), with an explorer link per entity. Linked from the README.
+
+### ~09:15 · Swarm (Test 1): descriptors on Swarm, refs on Arkiv, browser reads Swarm first
+- The Swarm booth details weren't in `.env` yet. We found that the public gateway
+  (`api.gateway.ethswarm.org`) accepts stampless `POST /bytes` and stamps uploads itself, so we went ahead with it.
+- `importer/src/swarm.ts` (bee-js 13.2.0): uploads the resolved JCS bytes of all **746**
+  descriptors, reads each back and checks keccak256 = ERC-8176 hash, then patches the 746
+  `dg_descriptor` rows on Arkiv (`swarm_ref`, `storage_mode = swarm`). 53 s of uploads, 0 failures.
+- Web: `SwarmFirstSource` fetches from Swarm by the Arkiv ref and checks the hash. If Swarm is
+  unreachable it falls back to the registry (labelled); a hash mismatch is rejected. All three paths were checked in the browser.
+- `arkiv/swarm.md` written. Open item: put the content under the booth's own batch with `--restamp`
+  (same references, no Arkiv change) once `BEE_API_URL` / `SWARM_POSTAGE_BATCH_ID` are set.

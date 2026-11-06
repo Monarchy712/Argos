@@ -76,7 +76,7 @@ npm run verify -w importer -- ../.cache/registry         # client-side verificat
 | Client read, counts | `dg_descriptor` 617 / 129 / 22 = registry; `dg_deployment` 2,675 = registry (3,443 rows read keyed in 11 s) |
 | 10 random descriptors vs GitHub raw @ `ef582c2` | **10/10**: `keccak256(GitHub bytes) == file_sha` and `computeDescriptorHash(resolved from GitHub) == descriptor_hash` |
 | Stale attestations on Arkiv | exactly the 3 listed above |
-| Re-verify, Nov 6 ~09:30 IST | counts match again, **10/10** new random spot-checks pass; upstream `master` is still `ef582c2`, so the mirror is current |
+| Re-verify, Nov 6 ~08:55 IST | counts match again, **10/10** new random spot-checks pass; upstream `master` is still `ef582c2`, so the mirror is current |
 
 ## One runnable query
 

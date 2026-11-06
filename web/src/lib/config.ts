@@ -32,7 +32,7 @@ export const BOOTSTRAP_RPC_URL = CHAINS[1]!.rpcUrl;
 export const DEMO_PROXY = {
   chainId: 11155111,
   address: "0xb8E5525eF80cEEC29Bf8598e303F71077361BFF5",
-  label: "DriftGuard demo proxy",
+  label: "Argos demo proxy",
 } as const;
 
 export const ARKIV_EXPLORER = "https://rabdi.explorer.arkiv.network";
@@ -44,3 +44,10 @@ export const ARKIV_BLOCK_SECONDS = 2;
  * a healthy watcher under the 5-minute staleness line. "Check" always reads fresh.
  */
 export const ARKIV_REFRESH_MS = 90_000;
+
+/**
+ * Swarm gateway for descriptor downloads (GET /bytes/:ref). The public gateway answers with
+ * `Access-Control-Allow-Origin: *`. What it returns is never trusted: keccak256 of the bytes must
+ * equal the ERC-8176 hash on the writer's Arkiv row, or the descriptor is rejected.
+ */
+export const SWARM_GATEWAY = (import.meta.env.VITE_SWARM_GATEWAY as string | undefined) ?? "https://api.gateway.ethswarm.org";

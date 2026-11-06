@@ -151,6 +151,11 @@ export function manifestFromMirror(descriptors: MirrorDescriptor[], deployments:
     descriptors: Object.fromEntries(
       atCommit.map((d) => [d.path, { entity: d.entity, owner: d.owner, attested: d.attestation === "valid", deployments: 0, descriptorHash: d.descriptorHash || null }]),
     ),
+    swarm: Object.fromEntries(
+      atCommit
+        .filter((d) => d.storageMode === "swarm" && /^[0-9a-f]{64}$/.test(d.swarmRef) && d.descriptorHash)
+        .map((d) => [d.path, { ref: d.swarmRef, descriptorHash: d.descriptorHash, arkivKey: d.key }]),
+    ),
   };
 }
 

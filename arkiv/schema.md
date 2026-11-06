@@ -33,7 +33,7 @@ because the SDK defines `key` as a reference to another entity.
 | `implementation_codehash`, `facets_hash` | str | keccak of impl bytecode; diamond facets hash |
 | `code_identity` ⓘ | str | one hash over all of the above, compared for equality |
 | `descriptor_hash` ⓘ | str | ERC-8176 hash of the ERC-7730 descriptor in force |
-| `swarm_ref` | str | Swarm reference of that descriptor |
+| `swarm_ref` | str | Swarm reference of that descriptor ("" in baselines written before the Swarm upload; the `dg_descriptor` row with the same `descriptor_hash` carries it) |
 | `baseline_block`, `baselined_at` | u64 | block / unix time |
 | `rebaseline_reason`, `previous_baseline_key` | str | audit trail of rebaselines |
 
@@ -69,7 +69,8 @@ Same `chain_id`, `address` and identity columns as the baseline, plus:
 | `kind` ⓘ | str | `calldata` / `eip712` / `include` |
 | `file_sha` | str | keccak256 of the raw file bytes as GitHub serves them |
 | `attestation` ⓘ | str | `valid` (an auditor signs exactly this hash) / `stale` (signs other content) / `none` |
-| `storage_mode` ⓘ, `swarm_ref` | str | `registry` and "" until Swarm content is added |
+| `storage_mode` ⓘ | str | `swarm` for the 746 calldata/EIP-712 descriptors (the resolved JCS bytes are on Swarm); `registry` for the 22 include files (already merged into the resolved descriptors) |
+| `swarm_ref` | str | 64-hex **unencrypted** Swarm reference of the resolved descriptor's JCS bytes; `keccak256(bytes) == descriptor_hash`. Never an encrypted (128-hex) reference, which would embed its key in a public entity. See [swarm.md](swarm.md). |
 | `size_bytes`, `schema_version`, `owner_name`, `imported_at` | u64 / str | metadata |
 
 ### `dg_deployment` — one per (chain, address, descriptor) (writer, importer) — **2,675 rows live**

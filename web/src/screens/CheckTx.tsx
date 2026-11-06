@@ -5,7 +5,7 @@ import { encodeFunctionData, getAddress, isAddress, isHex, parseAbi, parseTransa
 import { idOf, readArkiv, type ArkivSnapshot } from "../lib/arkiv.ts";
 import { clientFor, liveIdentity } from "../lib/chain.ts";
 import { CHAINS, DEMO_PROXY } from "../lib/config.ts";
-import { RegistryFallbackSource, descriptorFor, makeResolver, type FetchRecord, type RegistryManifest } from "../lib/descriptors.ts";
+import { RegistryFallbackSource, SwarmFirstSource, descriptorFor, makeResolver, type FetchRecord, type RegistryManifest } from "../lib/descriptors.ts";
 import { loadMirror, lookupContract, type Mirror } from "../lib/mirror.ts";
 import { routeLabel } from "../lib/transport.ts";
 import { AddressLink, StatusBadge, chainName, short, useTransport } from "../components/common.tsx";
@@ -181,7 +181,9 @@ export function CheckTxScreen({ snap: snapshot, manifest }: { snap: ArkivSnapsho
       : Promise.resolve({ state: "not-run" as const });
 
     // Readable intent through the hash-checked descriptor source (same transport).
-    const source = index ? new RegistryFallbackSource(index, { tamperPath: tamperDemo ? descriptor?.path ?? null : null }) : null;
+    // Swarm first when the writer recorded swarm refs on Arkiv; otherwise the registry. Both check hashes.
+    const tamperPath = tamperDemo ? descriptor?.path ?? null : null;
+    const source = !index ? null : index.swarm && Object.keys(index.swarm).length > 0 ? new SwarmFirstSource(index, { tamperPath }) : new RegistryFallbackSource(index, { tamperPath });
     const displayPromise = source
       ? format(
           { chainId: tx.chainId, to: tx.to, data: tx.data, value: tx.value },
@@ -378,11 +380,14 @@ function ResultView({ r }: { r: Result }) {
           )}
           {r.fetches.length > 0 && (
             <>
-              <div className="small muted" style={{ marginTop: 10 }}>Files fetched {routeLabel(transport.mode)}, each checked against the pinned keccak256:</div>
+              <div className="small muted" style={{ marginTop: 10 }}>Files fetched {routeLabel(transport.mode)}, each checked against the keccak256 on Arkiv:</div>
               <ul className="reason-list small">
-                {r.fetches.map((f) => (
-                  <li key={f.path} style={{ color: f.ok ? undefined : "var(--bad-bg)" }}>
-                    {f.ok ? "✓" : "✗"} <span className="mono">{f.path}</span>{f.error ? `: ${f.error}` : ""}
+                {r.fetches.map((f, i) => (
+                  <li key={`${f.path}-${i}`} style={{ color: f.ok ? undefined : f.fellBack ? "var(--warn-fg)" : "var(--bad-bg)" }}>
+                    {f.ok ? "✓" : f.fellBack ? "↷" : "✗"} <span className={`source-tag source-${f.via}`}>{f.via === "swarm" ? "Swarm" : "registry"}</span>{" "}
+                    <a className="mono" href={f.url} target="_blank" rel="noreferrer">{f.path}</a>
+                    {f.ok && f.via === "swarm" ? " · resolved JCS bytes match the ERC-8176 hash on Arkiv" : ""}
+                    {f.error ? `: ${f.error}` : ""}
                   </li>
                 ))}
               </ul>

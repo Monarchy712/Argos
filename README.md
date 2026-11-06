@@ -32,7 +32,7 @@ change with its transaction.
 ## How it works
 
 ```
-registry ──► importer ──► Arkiv: dg_descriptor (768) + dg_deployment (2,675)   [Swarm content after Test 1]
+registry ──► importer ──► Swarm: resolved descriptor bytes (746)  ◄── swarm_ref ── Arkiv: dg_descriptor (768) + dg_deployment (2,675)
 chain ─────► watcher ───► Arkiv: dg_current_state (10-min expiry), dg_latest_change
 writer ────► rebaseline ► Arkiv: dg_baseline (the trust anchor; never auto-replaced)
 browser ───► reads Arkiv once (bulk) + live slot reads over Anon-RPC/Nym → GREEN / RED / NOT VERIFIED
@@ -66,7 +66,7 @@ npm ci && npm run dev    # http://localhost:5180
 
 **Privacy routing.** Live chain reads and descriptor downloads go **direct by default**, labelled "direct RPC (not anonymized)" in the header and on every result. **Try Nym (experimental)** routes them through Anon-RPC over the Nym mixnet instead. In that mode a check **fails closed** (Not verified, with the reason) if the Nym worker isn't ready, and never falls back to direct on its own. Nym was meant to be the default, but at ETHGlobal Mumbai its worker never became ready (two networks, three harness versions; see [Test 4](docs/TEST_REPORT.md#test-4--anon-rpc-over-nym--fail-2026-11-06-0800-ist)). Arkiv reads are always direct, keyless, bulk and contract-independent (see below).
 
-**Descriptor storage.** Descriptor metadata (path, registry commit, raw-file keccak, ERC-8176 hash, attestation status) comes from the Arkiv mirror written by the [importer](importer/src/import.ts). The file itself is fetched from the registry at that commit and must match the hash from Arkiv. A copy of the index ships with the app ([`web/public/registry-index.json`](web/public/registry-index.json)) and is used, with a visible label, only if Arkiv can't be reached. After Swarm is set up (Test 1), a Swarm source plugs in behind the same `DescriptorSource` interface without UI changes.
+**Descriptor storage.** Descriptor metadata (path, registry commit, raw-file keccak, ERC-8176 hash, attestation status, **Swarm reference**) comes from the Arkiv mirror written by the [importer](importer/src/import.ts). The descriptor itself is fetched **from Swarm** by the `swarm_ref` on its Arkiv row ([`importer/src/swarm.ts`](importer/src/swarm.ts) uploads the resolved JCS bytes), and `keccak256(bytes)` must equal the ERC-8176 hash on that row, or it is rejected. If Swarm can't be reached, the app falls back to the registry file at the pinned commit (checked against `file_sha`), and the provenance panel says so. A hash mismatch never falls back. A copy of the index ships with the app ([`web/public/registry-index.json`](web/public/registry-index.json)) and is used, with a visible label, only if Arkiv can't be reached. Details: [arkiv/swarm.md](arkiv/swarm.md).
 
 ## Monitored contracts
 
@@ -178,7 +178,7 @@ instead of showing a stale green.
   don't show false information. Baselines and the registry mirror stay readable on Arkiv for ~182 days.
   The app is static (any host or IPFS), and anyone can run a watcher with their own key and have clients
   trust that `$creator`. Remaining dependencies: the Arkiv Rabdi testnet, public Ethereum RPCs, and
-  GitHub raw (for descriptor bytes, hash-checked) until Swarm.
+  the Swarm gateway for descriptor bytes (hash-checked), with GitHub raw as the labelled fallback.
 - **O (open source):** MIT. Builds from this repo alone (`npm ci`, exact-pinned npm deps, Foundry deps
   as pinned submodules). ERC-7730 data is CC0. No closed services.
 - **P (privacy), stated honestly:** live chain reads and descriptor downloads are **direct by default**,

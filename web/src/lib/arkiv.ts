@@ -1,7 +1,7 @@
 /**
  * The app's only Arkiv access: one bulk read per trusted creator, the same rows for every visitor
  * whatever contract they care about, filtered client-side. Arkiv learns "someone opened
- * DriftGuard", not which contract. Keyless (the browser holds no key), and therefore direct: it is
+ * Argos", not which contract. Keyless (the browser holds no key), and therefore direct: it is
  * the one disclosed exclusion from Anon-RPC (Arkiv's RPC didn't answer through the Nym exit).
  */
 import { createPublicClient } from "@arkiv-network/sdk";

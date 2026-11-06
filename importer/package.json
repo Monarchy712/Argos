@@ -7,12 +7,14 @@
   "license": "MIT",
   "scripts": {
     "import": "node --env-file=../.env src/import.ts",
-    "verify": "node --env-file=../.env src/verify.ts"
+    "verify": "node --env-file=../.env src/verify.ts",
+    "swarm": "node --env-file=../.env src/swarm.ts"
   },
   "dependencies": {
     "@arkiv-network/sdk": "1.0.1",
     "@driftguard/core": "0.1.0",
     "@ethereum-sourcify/clear-signing": "0.3.1",
+    "@ethersphere/bee-js": "13.2.0",
     "canonicalize": "5.1.0",
     "viem": "2.56.3"
   }

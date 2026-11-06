@@ -33,6 +33,8 @@ export interface DescriptorRow {
   attestedHashes: Hex[];
   /** valid = an attestation signs exactly descriptorHash; stale = attestations exist but for other content */
   attestation: "valid" | "stale" | "none";
+  /** RFC 8785 JCS text of the resolved descriptor (what goes to Swarm); absent for include files */
+  jcs?: string;
 }
 
 export interface DeploymentRow {
@@ -56,11 +58,11 @@ export function truncateBytes(s: string, max = 120): string {
   return out;
 }
 
-export function jcsHash(value: unknown): { hash: Hex; size: number } {
+export function jcsHash(value: unknown): { hash: Hex; size: number; text: string } {
   const text = canonicalize(value);
   if (text === undefined) throw new Error("JCS: value is not serialisable");
   const bytes = stringToBytes(text);
-  return { hash: keccak256(bytes), size: bytes.length };
+  return { hash: keccak256(bytes), size: bytes.length, text };
 }
 
 export function readRegistry(root: string): RegistrySnapshot {
@@ -149,7 +151,7 @@ export function readRegistry(root: string): RegistrySnapshot {
       }
     }
     const attestation = attestedHashes.length === 0 ? "none" : attestedHashes.includes(lib) ? "valid" : "stale";
-    descriptors.push({ ...base, descriptorHash: lib, sizeBytes: ours.size, attested: attestation === "valid", attestedHashes, attestation });
+    descriptors.push({ ...base, descriptorHash: lib, sizeBytes: ours.size, attested: attestation === "valid", attestedHashes, attestation, jcs: ours.text });
 
     const ctx = (full.context ?? {}) as { contract?: { deployments?: unknown[] }; eip712?: { deployments?: unknown[] } };
     const deps = (kind === "calldata" ? ctx.contract?.deployments : ctx.eip712?.deployments) ?? [];

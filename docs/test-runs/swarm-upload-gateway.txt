@@ -1,0 +1,75 @@
+
+> @driftguard/importer@0.1.0 swarm
+> node --env-file=../.env src/swarm.ts ../.cache/registry --public-gateway
+
+{"t":"2026-11-06T03:32:43.825Z","msg":"plan","commit":"ef582c2","descriptors":746,"alreadyOnSwarm":0,"toUpload":746,"mode":"public gateway (gateway stamp)","missingArkivRow":0,"bytes":2417210,"dry":false}
+{"t":"2026-11-06T03:32:45.981Z","msg":"progress","uploaded":25,"of":746,"elapsedS":2}
+{"t":"2026-11-06T03:32:47.847Z","msg":"progress","uploaded":50,"of":746,"elapsedS":4}
+{"t":"2026-11-06T03:32:49.662Z","msg":"progress","uploaded":75,"of":746,"elapsedS":6}
+{"t":"2026-11-06T03:32:51.411Z","msg":"progress","uploaded":100,"of":746,"elapsedS":8}
+{"t":"2026-11-06T03:32:53.352Z","msg":"progress","uploaded":125,"of":746,"elapsedS":10}
+{"t":"2026-11-06T03:32:55.263Z","msg":"progress","uploaded":150,"of":746,"elapsedS":11}
+{"t":"2026-11-06T03:32:57.041Z","msg":"progress","uploaded":175,"of":746,"elapsedS":13}
+{"t":"2026-11-06T03:32:58.761Z","msg":"progress","uploaded":200,"of":746,"elapsedS":15}
+{"t":"2026-11-06T03:33:00.565Z","msg":"progress","uploaded":225,"of":746,"elapsedS":17}
+{"t":"2026-11-06T03:33:02.249Z","msg":"progress","uploaded":250,"of":746,"elapsedS":18}
+{"t":"2026-11-06T03:33:04.008Z","msg":"progress","uploaded":275,"of":746,"elapsedS":20}
+{"t":"2026-11-06T03:33:05.719Z","msg":"progress","uploaded":300,"of":746,"elapsedS":22}
+{"t":"2026-11-06T03:33:07.541Z","msg":"progress","uploaded":325,"of":746,"elapsedS":24}
+{"t":"2026-11-06T03:33:09.284Z","msg":"progress","uploaded":350,"of":746,"elapsedS":25}
+{"t":"2026-11-06T03:33:10.979Z","msg":"progress","uploaded":375,"of":746,"elapsedS":27}
+{"t":"2026-11-06T03:33:12.780Z","msg":"progress","uploaded":400,"of":746,"elapsedS":29}
+{"t":"2026-11-06T03:33:14.376Z","msg":"progress","uploaded":425,"of":746,"elapsedS":31}
+{"t":"2026-11-06T03:33:16.291Z","msg":"progress","uploaded":450,"of":746,"elapsedS":32}
+{"t":"2026-11-06T03:33:17.963Z","msg":"progress","uploaded":475,"of":746,"elapsedS":34}
+{"t":"2026-11-06T03:33:19.811Z","msg":"progress","uploaded":500,"of":746,"elapsedS":36}
+{"t":"2026-11-06T03:33:21.585Z","msg":"progress","uploaded":525,"of":746,"elapsedS":38}
+{"t":"2026-11-06T03:33:23.335Z","msg":"progress","uploaded":550,"of":746,"elapsedS":40}
+{"t":"2026-11-06T03:33:25.011Z","msg":"progress","uploaded":575,"of":746,"elapsedS":41}
+{"t":"2026-11-06T03:33:26.891Z","msg":"progress","uploaded":600,"of":746,"elapsedS":43}
+{"t":"2026-11-06T03:33:28.571Z","msg":"progress","uploaded":625,"of":746,"elapsedS":45}
+{"t":"2026-11-06T03:33:30.250Z","msg":"progress","uploaded":650,"of":746,"elapsedS":46}
+{"t":"2026-11-06T03:33:31.892Z","msg":"progress","uploaded":675,"of":746,"elapsedS":48}
+{"t":"2026-11-06T03:33:33.696Z","msg":"progress","uploaded":700,"of":746,"elapsedS":50}
+{"t":"2026-11-06T03:33:35.358Z","msg":"progress","uploaded":725,"of":746,"elapsedS":52}
+{"t":"2026-11-06T03:33:36.617Z","msg":"uploads done","uploaded":743,"failed":0,"cached":746,"seconds":53}
+{"t":"2026-11-06T03:33:36.743Z","msg":"public gateway check","url":"https://api.gateway.ethswarm.org/bytes/f9113a881765a699375f187f1f349f4c9ec0991d2318d98b1b4981f418fab109","status":200,"hashMatches":true,"path":"ercs/calldata-erc20-tokens.json","arkivEntity":"0x7e01e14e031486a3f2e6165345e6d32ca494e01bfaeb10b10a075f84030d315e"}
+{"t":"2026-11-06T03:33:42.787Z","msg":"arkiv patched","patched":20,"of":746}
+{"t":"2026-11-06T03:33:48.490Z","msg":"arkiv patched","patched":40,"of":746}
+{"t":"2026-11-06T03:33:54.225Z","msg":"arkiv patched","patched":60,"of":746}
+{"t":"2026-11-06T03:33:59.974Z","msg":"arkiv patched","patched":80,"of":746}
+{"t":"2026-11-06T03:34:05.745Z","msg":"arkiv patched","patched":100,"of":746}
+{"t":"2026-11-06T03:34:11.507Z","msg":"arkiv patched","patched":120,"of":746}
+{"t":"2026-11-06T03:34:17.358Z","msg":"arkiv patched","patched":140,"of":746}
+{"t":"2026-11-06T03:34:23.150Z","msg":"arkiv patched","patched":160,"of":746}
+{"t":"2026-11-06T03:34:28.929Z","msg":"arkiv patched","patched":180,"of":746}
+{"t":"2026-11-06T03:34:34.610Z","msg":"arkiv patched","patched":200,"of":746}
+{"t":"2026-11-06T03:34:40.324Z","msg":"arkiv patched","patched":220,"of":746}
+{"t":"2026-11-06T03:34:46.073Z","msg":"arkiv patched","patched":240,"of":746}
+{"t":"2026-11-06T03:34:51.794Z","msg":"arkiv patched","patched":260,"of":746}
+{"t":"2026-11-06T03:34:57.645Z","msg":"arkiv patched","patched":280,"of":746}
+{"t":"2026-11-06T03:35:03.431Z","msg":"arkiv patched","patched":300,"of":746}
+{"t":"2026-11-06T03:35:09.544Z","msg":"arkiv patched","patched":320,"of":746}
+{"t":"2026-11-06T03:35:15.637Z","msg":"arkiv patched","patched":340,"of":746}
+{"t":"2026-11-06T03:35:21.424Z","msg":"arkiv patched","patched":360,"of":746}
+{"t":"2026-11-06T03:35:27.132Z","msg":"arkiv patched","patched":380,"of":746}
+{"t":"2026-11-06T03:35:32.883Z","msg":"arkiv patched","patched":400,"of":746}
+{"t":"2026-11-06T03:35:38.595Z","msg":"arkiv patched","patched":420,"of":746}
+{"t":"2026-11-06T03:35:44.652Z","msg":"arkiv patched","patched":440,"of":746}
+{"t":"2026-11-06T03:35:50.399Z","msg":"arkiv patched","patched":460,"of":746}
+{"t":"2026-11-06T03:35:56.127Z","msg":"arkiv patched","patched":480,"of":746}
+{"t":"2026-11-06T03:36:01.879Z","msg":"arkiv patched","patched":500,"of":746}
+{"t":"2026-11-06T03:36:07.665Z","msg":"arkiv patched","patched":520,"of":746}
+{"t":"2026-11-06T03:36:13.640Z","msg":"arkiv patched","patched":540,"of":746}
+{"t":"2026-11-06T03:36:19.387Z","msg":"arkiv patched","patched":560,"of":746}
+{"t":"2026-11-06T03:36:25.076Z","msg":"arkiv patched","patched":580,"of":746}
+{"t":"2026-11-06T03:36:30.825Z","msg":"arkiv patched","patched":600,"of":746}
+{"t":"2026-11-06T03:36:36.543Z","msg":"arkiv patched","patched":620,"of":746}
+{"t":"2026-11-06T03:36:42.271Z","msg":"arkiv patched","patched":640,"of":746}
+{"t":"2026-11-06T03:36:48.204Z","msg":"arkiv patched","patched":660,"of":746}
+{"t":"2026-11-06T03:36:54.025Z","msg":"arkiv patched","patched":680,"of":746}
+{"t":"2026-11-06T03:36:59.770Z","msg":"arkiv patched","patched":700,"of":746}
+{"t":"2026-11-06T03:37:05.550Z","msg":"arkiv patched","patched":720,"of":746}
+{"t":"2026-11-06T03:37:11.312Z","msg":"arkiv patched","patched":740,"of":746}
+{"t":"2026-11-06T03:37:17.125Z","msg":"arkiv patched","patched":746,"of":746}
+{"t":"2026-11-06T03:37:17.125Z","msg":"swarm import done","uploaded":743,"failed":0,"patched":746}

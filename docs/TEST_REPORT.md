@@ -9,7 +9,29 @@ output is committed under `docs/test-runs/`.
 | 2 — Arkiv records | **PASS** (9/9, keyed run: 0×429; keyless run found the 429 cost limit) | [keyed](test-runs/test2-rabdi-keyed.txt) · [keyless](test-runs/test2-rabdi.txt) |
 | E2E — watcher → Arkiv (Sepolia) | **PASS** (5/5 + expiry) | [e2e-arkiv-sepolia.txt](test-runs/e2e-arkiv-sepolia.txt) |
 | 4 — Nym reads | **FAIL**: the Nym worker never became ready (venue Wi-Fi and a phone hotspot, harness 0.4.0 and 0.3.3) → EF target switches to CROPS | see below |
-| 1 — Swarm | not started (by plan: postage depends on the Swarm booth) | — |
+| 1 — Swarm | **PASS** via the public gateway (gateway stamp): 746/746 uploaded, each read back and keccak-checked, refs on Arkiv, browser reads Swarm first. Own batch: pending the booth | [swarm-upload-gateway.txt](test-runs/swarm-upload-gateway.txt) · see below |
+
+---
+
+## Test 1 — Swarm — PASS via the public gateway (2026-11-06 ~09:00–09:15 IST)
+
+**Question:** can we put descriptor content on Swarm, point to it from Arkiv, and have the browser
+read it back with an integrity check?
+
+| Step | Result |
+| --- | --- |
+| Stampless upload to `https://api.gateway.ethswarm.org/bytes` (no `swarm-postage-batch-id`) | `201 {"reference":"7d65ee6b…"}` for `registry/aave/calldata-lpv3.json` (7,986 JCS bytes). The gateway stamps it itself. |
+| Read back `GET /bytes/7d65ee6b…` | 200, keccak256 = `0xf11301c7…19322683` = the descriptor's ERC-8176 hash |
+| CORS for the browser | `Access-Control-Allow-Origin: *` on `/health` and `/bytes` |
+| Full run (`npm run swarm -w importer -- ../.cache/registry --public-gateway`) | **746/746** descriptors uploaded in 53 s, **0 failures**, each downloaded back and keccak-checked; **746 Arkiv patches** (`swarm_ref`, `storage_mode = swarm`) in 38 batches |
+| Content addressing | The bulk run produced the same reference for lpv3 as the manual upload; 746 distinct refs for 746 distinct hashes |
+| Browser, Check → Aave v3 supply | `✓ Swarm registry/aave/calldata-lpv3.json · resolved JCS bytes match the ERC-8176 hash on Arkiv`; intent "Supply · 100 USDC" renders; status Verified |
+| Browser, tamper toggle on | `✗ Swarm … hash mismatch` (got `0x31348010…`, expected `0xf11301c7…`); "Descriptor rejected: integrity check failed"; **no fallback** to the registry |
+| Browser, gateway blocked (fetch rejected in the page) | `↷ Swarm … Swarm unreachable; using the registry` then `✓ registry …`; the intent still renders |
+
+**Open:** the gateway doesn't tell us which postage batch it used or how long it keeps the content.
+When the Swarm booth's batch is in `.env`, `--restamp` re-uploads everything under it and asserts
+each reference is unchanged (no Arkiv writes). Details and friction: [arkiv/swarm.md](../arkiv/swarm.md).
 
 ---
 
@@ -210,7 +232,7 @@ watcher wrote the two rows in separate transactions. They now go in one `execute
 (`Sink.writeCycle`). Regression: local Test 3 and 31 unit tests pass. The live watcher was restarted
 on this code and resumed from its saved cursor on both chains.
 
-**Not yet verified:** anything through Nym (Test 4), and Swarm-backed descriptors (Test 1).
+**Not yet verified (at the time):** anything through Nym (Test 4), and Swarm-backed descriptors (Test 1, since verified above).
 
 
 ---

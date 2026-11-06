@@ -2,15 +2,18 @@
  * Where ERC-7730 descriptors come from, behind one interface, so the UI never changes when the
  * storage does:
  *
- *  - RegistryFallbackSource (now): files at the pinned registry commit, fetched through the
- *    selected transport (Nym by default), each checked against keccak256 in the committed
- *    manifest (web/public/registry-index.json). A mismatch is an error, never a silent pass.
- *  - Swarm source (after Test 1): resolved descriptor JSON by Swarm reference, verified against
- *    the ERC-8176 descriptor hash in the trusted Arkiv row. Implements the same interface.
+ *  - SwarmFirstSource: the resolved descriptor (RFC 8785 JCS bytes) by the swarm_ref on the
+ *    writer's Arkiv row, verified against that row's ERC-8176 descriptor_hash. If Swarm can't
+ *    be reached, it falls back to the registry (labelled). A hash mismatch is never a fallback:
+ *    tampered bytes are rejected.
+ *  - RegistryFallbackSource: files at the pinned registry commit, fetched through the selected
+ *    transport, each checked against the keccak256 (file_sha) on Arkiv or in the bundled
+ *    manifest. A mismatch is an error, never a silent pass.
  */
 import type { DescriptorResolver, RegistryIndex } from "@ethereum-sourcify/clear-signing";
 import { keccak256, toHex } from "viem";
 import { anonAwareFetch } from "./transport.ts";
+import { SWARM_GATEWAY } from "./config.ts";
 
 export interface RegistryManifest {
   source: string;
@@ -21,6 +24,8 @@ export interface RegistryManifest {
   calldataIndex: Record<string, string>;
   files: Record<string, string>;
   descriptors: Record<string, { entity: string; owner: string; attested: boolean; deployments: number; descriptorHash: string | null }>;
+  /** path → Swarm reference + ERC-8176 hash, for rows the writer marked storage_mode = "swarm" */
+  swarm?: Record<string, { ref: string; descriptorHash: string; arkivKey: string }>;
 }
 
 /** One verified file fetch, for the UI's provenance panel. */
@@ -30,6 +35,10 @@ export interface FetchRecord {
   expectedHash: string;
   ok: boolean;
   error?: string;
+  /** where the bytes came from */
+  via: "swarm" | "registry";
+  /** set when a Swarm fetch failed (network) and the registry was used instead */
+  fellBack?: boolean;
 }
 
 export interface DescriptorSource {
@@ -64,7 +73,7 @@ export class RegistryFallbackSource implements DescriptorSource {
     const expectedHash = this.manifest.files[path];
     const url = this.manifest.rawBase + path;
     if (!expectedHash) {
-      this.log.push({ path, url, expectedHash: "", ok: false, error: "not in the pinned manifest" });
+      this.log.push({ path, url, expectedHash: "", ok: false, error: "not in the pinned manifest", via: "registry" });
       throw new DescriptorIntegrityError(`${path} is not in the pinned registry manifest`);
     }
     try {
@@ -76,12 +85,66 @@ export class RegistryFallbackSource implements DescriptorSource {
       if (got !== expectedHash) throw new DescriptorIntegrityError(`hash mismatch for ${path}: got ${got}, expected ${expectedHash}`);
       const json = JSON.parse(new TextDecoder().decode(bytes));
       this.cache.set(path, json);
-      this.log.push({ path, url, expectedHash, ok: true });
+      this.log.push({ path, url, expectedHash, ok: true, via: "registry" });
       return json;
     } catch (err) {
-      this.log.push({ path, url, expectedHash, ok: false, error: err instanceof Error ? err.message : String(err) });
+      this.log.push({ path, url, expectedHash, ok: false, error: err instanceof Error ? err.message : String(err), via: "registry" });
       throw err;
     }
+  }
+}
+
+/**
+ * Swarm first: GET {gateway}/bytes/{swarm_ref} through the selected transport, then
+ * keccak256(bytes) must equal the ERC-8176 descriptor_hash from the writer's Arkiv row. The bytes
+ * are the JCS form of the *resolved* descriptor, so includes are already merged in.
+ * Network failure or timeout → registry fallback (recorded as fellBack). Hash mismatch → reject.
+ */
+export class SwarmFirstSource implements DescriptorSource {
+  readonly kind = "swarm" as const;
+  readonly log: FetchRecord[];
+  private readonly cache = new Map<string, unknown>();
+  private readonly manifest: RegistryManifest;
+  private readonly fallback: RegistryFallbackSource;
+  private readonly tamperPath: string | null;
+  constructor(manifest: RegistryManifest, opts: { tamperPath?: string | null } = {}) {
+    this.manifest = manifest;
+    this.tamperPath = opts.tamperPath ?? null;
+    this.fallback = new RegistryFallbackSource(manifest, opts);
+    this.log = this.fallback.log; // one shared, ordered log for the provenance panel
+  }
+
+  describe(): string {
+    return `Swarm (${Object.keys(this.manifest.swarm ?? {}).length} refs on Arkiv), registry fallback`;
+  }
+
+  async fetchDescriptor(path: string): Promise<unknown> {
+    const cached = this.cache.get(path);
+    if (cached) return cached;
+    const entry = this.manifest.swarm?.[path];
+    if (!entry) return this.fallback.fetchDescriptor(path);
+    const url = `${SWARM_GATEWAY}/bytes/${entry.ref}`;
+    let bytes: Uint8Array;
+    try {
+      const res = await anonAwareFetch(url, { signal: AbortSignal.timeout(15_000) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      bytes = new Uint8Array(await res.arrayBuffer());
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      this.log.push({ path, url, expectedHash: entry.descriptorHash, ok: false, error: `Swarm unreachable (${reason}); using the registry`, via: "swarm", fellBack: true });
+      return this.fallback.fetchDescriptor(path);
+    }
+    if (path === this.tamperPath) bytes = tamper(bytes);
+    const got = keccak256(toHex(bytes));
+    if (got !== entry.descriptorHash) {
+      const msg = `hash mismatch for ${path}: got ${got}, expected ${entry.descriptorHash}`;
+      this.log.push({ path, url, expectedHash: entry.descriptorHash, ok: false, error: msg, via: "swarm" });
+      throw new DescriptorIntegrityError(msg);
+    }
+    const json = JSON.parse(new TextDecoder().decode(bytes));
+    this.cache.set(path, json);
+    this.log.push({ path, url, expectedHash: entry.descriptorHash, ok: true, via: "swarm" });
+    return json;
   }
 }
 

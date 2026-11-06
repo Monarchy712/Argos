@@ -1,7 +1,21 @@
 # Arkiv — reach
 
-Who uses Argos's data after Mumbai, and why it would live on Arkiv rather than in our
-database.
+How many people depend on the ERC-7730 registry today, who would use Argos's copy on Arkiv
+after Mumbai, and for what.
+
+## Who depends on this data today (numbers, Nov 6 2026)
+
+| Signal | Number | Source |
+| --- | --- | --- |
+| Descriptor files / deployments in the registry | **768 files, 2,675 deployments of 2,060 distinct contracts on 151 chains**, from **85 protocol folders** with **180 distinct owners** | our import at `ef582c2`; re-run with `npm run import -w importer -- ../.cache/registry --dry` |
+| Registry contributors / commits | **95 contributors, 559 commits** since Feb 2024; 131 stars, **222 forks** (most are protocols opening PRs to add their descriptors) | GitHub API, `ethereum/clear-signing-erc7730-registry` |
+| Wallet-side library that consumes it | `@ethereum-sourcify/clear-signing`: **4,310 npm downloads in the last 30 days** (2,475 in the last 7) | `api.npmjs.org/downloads/point/last-month/@ethereum-sourcify/clear-signing` |
+| Standard | ERC-7730 (Draft), eight authors including Ledger engineers (`@lcastillo-ledger`, `@paoun-ledger`) and Sourcify (`@kuzdogan`) | [ERC-7730 header](https://eips.ethereum.org/EIPS/eip-7730) |
+| Upgradeable share | **314 of 652 mainnet contracts (48%)** are proxies whose descriptor can silently go stale | our on-chain classification, [`watcher/monitored-mainnet.json`](../watcher/monitored-mainnet.json) |
+
+So every wallet and signer that renders ERC-7730 descriptors depends on this data, and every
+protocol that submitted a descriptor depends on it being shown correctly. Today none of them can
+query it: it's files in a GitHub repo, with no implementation binding for proxies.
 
 ## The gap, in the registry's own words
 
@@ -60,6 +74,7 @@ two writer addresses are published in the README.
   `eip712Domain()` / `DOMAIN_SEPARATOR()` with the descriptor's domain on every `Upgraded` event.
 - Extend monitoring from 30 to all 314 proxy deployments. The cost is RPC reads plus one batched
   Arkiv write per cycle.
-- A MetaMask Snap that shows the status inside the confirmation screen (stretch goal in our plan).
-- Swarm-hosted descriptor content (pending Test 1), so the mirror carries content, not just
-  hashes and pointers.
+- A wallet integration that shows the status inside the confirmation screen (a Snap or a hook in
+  `@ethereum-sourcify/clear-signing`). Not built at Mumbai.
+- Keep the Swarm copies pinned under our own postage batch and add new registry versions on
+  each import, so the mirror carries content, not just hashes and pointers ([swarm.md](swarm.md)).

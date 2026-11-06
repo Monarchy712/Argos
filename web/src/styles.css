@@ -150,3 +150,8 @@ footer.foot { margin-top: 32px; color: var(--text-3); font-size: 12.5px; }
 @media (max-width: 1000px) { .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .filters select { font-family: var(--sans); }
 label.check { display: flex; align-items: center; gap: 6px; margin: 0 0 10px; white-space: nowrap; }
+
+/* Descriptor source tag in the provenance list */
+.source-tag { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .02em; border-radius: 4px; padding: 0 6px; margin-right: 2px; }
+.source-swarm { background: #ede9fe; color: #5b21b6; }
+.source-registry { background: #e5e7eb; color: #374151; }
