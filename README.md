@@ -280,5 +280,5 @@ Others:
 | Ethereum RPC (PublicNode by default; set `VITE_MAINNET_RPC_URL` / `VITE_SEPOLIA_RPC_URL` to use your own) | each Check of a monitored contract (live slot read); token metadata for rendering | IP address and the contract being checked (direct mode). Through Nym (opt-in): neither. |
 | Swarm gateway (`api.gateway.ethswarm.org`; set `VITE_SWARM_GATEWAY` for your own Bee node) | each Check with a descriptor | IP address and which descriptor (so roughly which dapp), in direct mode. Through Nym (opt-in): neither — verified in the Test 4 retest. |
 | GitHub raw | only if Swarm is unreachable (shown on screen) | IP address and which descriptor file (direct mode). Through Nym (opt-in): neither. |
-| Our server | none exists | nothing. The app is static files. |
+| Our host (the hosted demo) | serving the page and its assets | your IP address and which files you fetched — the same as any web host. It does **not** see which contract you check: that is a direct browser-to-RPC call (through Nym by default) and a bulk, contract-independent Arkiv read. The app is static files; the host runs [`scripts/serve-static.ts`](scripts/serve-static.ts), which has no keys, reads no chain and stores nothing. Run it yourself with `npm run dev` and this row disappears entirely. |
 | Analytics / trackers | none | nothing. |
