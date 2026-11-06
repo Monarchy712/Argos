@@ -6,7 +6,8 @@ Copy each block into the matching field of the ETHGlobal form. Prize picks (thre
 2. **Ethereum Foundation** — submitted to **both Best CROPS App** (lead property: Security) **and
    Best Use of Anon-RPC**. EF's rule: "One EF prize per project. You can submit to anon-rpc, the
    alt mempool and CROPS, but you will be placed in at most one." Both use the single EF pick.
-3. Third pick: open.
+3. **0G** — Build with 0G Private Computer. Inference is in the main user flow (the
+   change-detected path), with request ids on every result.
 
 - Repo: https://github.com/Monarchy712/Argos (MIT)
 - Demo video: VIDEO_URL (fill in after upload)
@@ -201,6 +202,59 @@ failure and the recovery are written up in `docs/TEST_REPORT.md`.
 **Post-hackathon viability.** The transport is one module (`web/src/lib/transport.ts`) behind an
 `anonAwareFetch`; anything in the app that fetches goes through it. Nothing about Argos is tied to
 the mixnet being fast, because status is "as of block N" rather than real-time.
+
+---
+
+## Partner: 0G — Build with 0G Private Computer
+
+**What we built.** Argos detects that the code behind a clear-signing descriptor changed. Until
+now it could not say *what* changed, and told the reader to go and check. 0G closes that gap: on
+the change-detected path we recover the 4-byte function selectors from the **deployed bytecode**
+of the old and new implementations, diff them, and ask a model on 0G Private Computer to describe
+the difference in plain language.
+
+**Inference is in the main user flow, with request ids.** The change-detected path is the whole
+point of Argos, not a side feature. Every explanation carries the `x_0g_trace.request_id`, the
+provider address and the cost, and all three are shown in the UI and stored on Arkiv, so any
+claim can be traced back to the run that produced it. Example from a real run: request id
+`1d20f02c-e851-4b6e-9a0d-72d3dc4de5fa`, provider `0x000000003f486c…`, $0.000914.
+
+**What breaks if 0G is removed (one sentence).** Argos goes back to telling you *that* the code
+changed and leaving you to disassemble two contracts yourself — detection survives, explanation
+disappears.
+
+**The deliberate limit: it describes, it never judges.** The model is instructed never to say
+whether a change is safe, unsafe, malicious or benign, and the panel says so too. This was a
+considered decision, not caution for its own sake: Argos exists because wallets show confident
+intent while different code runs, so answering that with an AI confidence score would reproduce
+the exact failure we are warning about — and it would be unfalsifiable, since there is no ground
+truth for "safe". A factual diff is both more honest and more useful.
+
+**Why bytecode and not verified source.** Verified source would have meant depending on a block
+explorer and would fail for unverified contracts — including our own Sepolia demo
+implementations. `eth_getCode` always works. We state plainly that PUSH4 scanning yields a
+*superset* of the external ABI, not the ABI.
+
+**How it composes with the rest of the stack.** An Arkiv `str` caps at 128 bytes, so the text goes
+to **Swarm** and `dg_change_note` on Arkiv carries its keccak hash plus the facts. The browser
+renders the words only if they hash to the value on Arkiv — the same integrity rule as
+descriptors — so a gateway cannot put different words in the model's mouth. The app stays
+keyless: `ZEROG_API_KEY` is read only by the script, never shipped to the browser.
+
+**Honest feedback for 0G.** The API is genuinely drop-in — an OpenAI-shaped `POST
+/v1/chat/completions` and it worked first try. One thing cost us real time: an API key's **Trust
+mode** silently determines whether anything is reachable. On *Verified*, every mainstream model
+returned `503 no_provider_for_trust_mode: tier=verified`, and the one model that did have a
+verified provider (`0gm-1.0-35b-a3b`) returned `502 fetch provider quote: EOF` on every attempt.
+Nothing in the key UI warns that choosing Verified leaves most of the catalogue unreachable, and
+the failure only appears at inference time. Surfacing per-mode provider availability when the
+mode is chosen would have saved us an hour. `x_0g_trace` is excellent — request id, provider and
+billing in the response body is exactly what an auditable app needs, and we built our provenance
+UI directly on it.
+
+**Post-hackathon viability.** The call sits in a standalone script, so the natural next step is
+the watcher invoking it automatically on every detected change rather than an operator running
+it. Cost is about $0.001 per explanation, which is affordable at the rate real upgrades happen.
 
 ---
 

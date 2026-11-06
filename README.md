@@ -48,7 +48,8 @@ change with its transaction.
 registry ──► importer ──► Swarm: resolved descriptor bytes (746)  ◄── swarm_ref ── Arkiv: dg_descriptor (768) + dg_deployment (2,675)
 chain ─────► watcher ───► Arkiv: dg_current_state (10-min expiry), dg_latest_change
 writer ────► rebaseline ► Arkiv: dg_baseline (the trust anchor; never auto-replaced)
-browser ───► reads Arkiv once (bulk) + its own live slot read (direct; Anon-RPC/Nym opt-in) → GREEN / RED / NOT VERIFIED
+change ────► 0G ────────► Swarm: what-changed text ◄── summary_hash ── Arkiv: dg_change_note
+browser ───► reads Arkiv once (bulk) + its own live slot read (Anon-RPC/Nym by default) → GREEN / RED / NOT VERIFIED
 ```
 
 - **Watcher:** scans `Upgraded` / `AdminChanged` / `BeaconUpgraded` / `DiamondCut` events from a
@@ -67,9 +68,30 @@ npm ci && npm run dev    # http://localhost:5180
 | Screen | What it does |
 | --- | --- |
 | **Monitored contracts** | One bulk Arkiv read per trusted writer (the same for every visitor, so Arkiv doesn't learn which contract you care about). Shows status badge, protocol, proxy kind, detection mode, baseline vs current implementation, latest change with tx link, and the ERC-8176 descriptor hash. |
-| **Check a transaction** | Paste `{chainId, to, data}` or a raw transaction. Shows the raw calldata and the readable ERC-7730 intent. The descriptor's path, commit and hashes come from the **Arkiv registry mirror**, and the file is fetched and checked against them before `@ethereum-sourcify/clear-signing` renders it. Also shows risky-calldata flags (upgrades, `changeMasterCopy`, Safe `operation=1`) and a status from the watcher's Arkiv record plus a live code-identity read. |
+| **Check a transaction** | Paste `{chainId, to, data}` or a raw transaction. Shows the raw calldata and the readable ERC-7730 intent. The descriptor's path, commit and hashes come from the **Arkiv registry mirror**, and the file is fetched and checked against them before `@ethereum-sourcify/clear-signing` renders it. Also shows risky-calldata flags (upgrades, `changeMasterCopy`, Safe `operation=1`) and a status from the watcher's Arkiv record plus a live code-identity read. When a change has been explained, a **"What changed in the code"** panel shows it (see below). |
 | **Browse mirror** | Filter the mirrored registry by chain, protocol, descriptor kind, proxy kind and "monitored". Each filter is an Arkiv query, and the queries run are shown on screen. |
 | **Nym diagnostics** | Boots the Anon-RPC Nym worker and runs Test 4: 20 slot reads with boot time, success count, HTTP statuses, p50/p95. Last run: 60/60 over three runs, p95 2.4–3.6 s. |
+
+**What changed in the code (0G Private Computer).** Detecting a change leaves the reader with the
+question Argos could never answer: *what* changed? When a change is recorded,
+[`scripts/explain-change.ts`](scripts/explain-change.ts) recovers the 4-byte function selectors
+from the **deployed bytecode** of both implementations (no block explorer, no verified source —
+it works on unverified contracts), diffs them, and asks a model on **0G Private Computer** to
+describe the difference in two to four sentences.
+
+It is a description, **never a verdict**. The model is instructed not to say whether a change is
+safe, unsafe, malicious or benign, and the panel repeats that. Argos does not decide whether an
+upgrade is dangerous, and an AI confidence score would be the same unearned confidence this
+project exists to warn about.
+
+The text goes to **Swarm**; `dg_change_note` on Arkiv carries its keccak hash plus the facts —
+which implementations, how many selectors moved, whether the call surface is unchanged, the
+model, the **0G request id**, the provider and the cost. The browser renders the words only if
+they hash to the value on Arkiv, exactly as it treats a descriptor. Run log:
+[`docs/test-runs/zerog-explain-change.txt`](docs/test-runs/zerog-explain-change.txt).
+
+`ZEROG_API_KEY` is read only by that script and is never shipped to the browser, so the app stays
+keyless. Without it, Argos behaves exactly as before — it just can't explain a change.
 
 **Status badges.** Each state differs in colour, icon, border and wording:
 - **Verified · no change**: a fresh watcher record (≤ 5 min) matches the baseline, and any live read agrees. This means "no change seen as of block N", not "safe".

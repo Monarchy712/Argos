@@ -38,8 +38,9 @@ Last updated: **Nov 6 2026, 11:58 IST** (ETHGlobal Mumbai). **Freeze pass done �
   2. **EF** — submitted to **both** "Best CROPS App" (lead property **Security**) and "Best Use of
      Anon-RPC". EF's rule: *"One EF prize per project. You can submit to anon-rpc, the alt mempool
      and CROPS, but you will be placed in at most one."* Both share the one EF pick.
-  3. **Third pick: open.** Owner chose to pursue **0G Private Computer**, blocked on credits (see
-     *Waiting on the owner*).
+  3. **0G** "Build with 0G Private Computer" — **done and live** (see *Current state*). Scope was
+     fixed as a *descriptive* diff of what changed in the code, explicitly **not** a safety
+     verdict; keep it that way.
   CROPS rules worth remembering when editing docs: *"Apps do NOT need to excel equally in all four
   areas… structural depth in their lead property while maintaining the others"*, and criterion 3 is
   *"maintenance of the other three properties, with trade-offs clearly documented."*
@@ -132,6 +133,29 @@ The machine was re-cloned before this session, so the first job was `npm install
   HTML 302s to `bzz.link/forbidden` until a moderator approves the hash — documented in
   `arkiv/swarm.md`, not worked around. Commit `30f3185`.
 
+### 0G third pick: DONE and live (14:40–16:10)
+
+`scripts/explain-change.ts` + `packages/core/src/selectors.ts` + `dg_change_note` + a Check panel.
+Full rationale in UPDATES and SUBMISSION; the three things a later session must not undo:
+
+1. **It describes, it never judges.** The model is told not to call anything safe/unsafe/
+   malicious/benign and the UI repeats it. Do not "improve" this into a verdict or a score: it
+   would reproduce the failure Argos exists to warn about, is unfalsifiable, and would undercut
+   the CROPS Security lead.
+2. **Selectors come from deployed bytecode, not verified source.** That is why it works at all —
+   `DemoImplA`/`DemoImplB` are *not* verified on Sepolia, so the earlier worry about the video
+   having nothing to diff is resolved. Present it as a superset of the ABI, never as the ABI.
+3. **The browser stays keyless.** `ZEROG_API_KEY` is read only by the script. Never import it into
+   `web/`.
+
+Live values: 0G request `1d20f02c…`, provider `0x000000003f486c…`, $0.000914/run; summary on Swarm
+`35e4a454…`; Arkiv row tx `0x45dc9ece…`. Key trust mode must stay **Standard** — on *Verified*
+every mainstream model 503s with `no_provider_for_trust_mode`.
+
+**Note for after the video:** the current note describes **B→A** (the change actually on Arkiv).
+After the on-camera A→B upgrade, re-run to regenerate it:
+`node --env-file=.env scripts/explain-change.ts --chain 11155111 --address 0xb8E5…BFF5 --write`
+
 ### Live state right now
 
 - Video demo proxy `0xb8E5525eF80cEEC29Bf8598e303F71077361BFF5`: **ImplA** (`version() = "A"`,
@@ -140,10 +164,17 @@ The machine was re-cloned before this session, so the first job was `npm install
 - Guard demo proxy `0x3c93e603bbeD9Dc2Af817BC2D98Bc1D35CF1D669`: **ImplA** (`version() = "A"`),
   clean baseline at block 12074155.
 - Arkiv: **32 baselines, 32/32 fresh** (re-verified 11:46 IST).
-- Live watcher (Arkiv sink) restarted at 11:35 IST, detached via `setsid nohup`, logging to
-  `watcher/state/live.log`. Cycles are clean (`"failed":0`). It replayed Sepolia history from an
-  empty cursor on first start, which is expected on a fresh clone. **No leftover test watcher
-  exists any more** — that item from the previous session is moot.
+- **Watcher now runs under a supervisor** (`scripts/watcher-supervisor.sh`, started 16:03 IST):
+  ```bash
+  setsid nohup bash scripts/watcher-supervisor.sh >/dev/null 2>&1 < /dev/null & disown
+  ```
+  It died twice today from signals aimed at the process group of the shell that started it (once
+  at 15:08, unnoticed for ~55 min, which expired all 32 rows). The supervisor restarts it and logs
+  every restart into `watcher/state/live.log`, so gaps stay visible. Verified with `kill -9`:
+  logged exit 137 and restarted in 5 s. **Check both processes are alive**, not just one:
+  `ps aux | grep -E '[w]atcher-supervisor|[w]atcher/src/main'`.
+  Careful: `pkill -f 'watcher/src/main.ts'` matches the shell running it too — use
+  `pkill -f 'watcher/src/main[.]ts'`.
 - Dev server: `npm run dev -w web` on http://localhost:5180 (started this session via the
   preview tool, config in `.claude/launch.json`).
 - **Freeze pass re-verified in the browser at 11:57:** Monitored 32 / 32 verified / 0 changed /
@@ -169,31 +200,27 @@ The machine was re-cloned before this session, so the first job was `npm install
    fresh; every screen re-verified in the browser after a clean reload; README accuracy pass.
    **The owner has been told "ready to record".**
 
+5. ~~0G third pick~~ **done at 16:10** — see the section above. Credits were never the blocker in
+   the end; the key's Trust mode was.
+
+### Before the video
+
+1. **Re-publish the app to Swarm against the final build** — the current reference
+   `91c7ba78…ff8b95` predates the 0G panel, so it serves an app missing a feature we claim:
+   `npm run build && node scripts/publish-site.ts`, then update the reference in `arkiv/swarm.md`.
+2. Rebaseline the video proxy (its row still has `ever_changed_since_baseline = true`).
+
 ### After the video (next session picks up here)
 
-1. Record using `docs/VIDEO_SCRIPT.md` (rebaseline the video proxy first — its row still has
-   `ever_changed_since_baseline = true` from rehearsals).
-2. Fill the real timestamps into `docs/SUBMISSION.md` and `arkiv/swarm.md`.
+1. Record using `docs/VIDEO_SCRIPT.md`.
+2. Re-run `scripts/explain-change.ts … --write` so the change note describes the on-camera A→B
+   upgrade rather than the older B→A one.
+3. Fill the real timestamps into `docs/SUBMISSION.md` and `arkiv/swarm.md`.
 3. If the Swarm booth batch arrives, run the `--restamp` step in *Waiting on the owner* below.
 4. Submit on ethglobal.com before **09:00 Sat Nov 7**.
 5. Keep the watcher alive until judging ends; re-check `show-arkiv.ts | grep -c '"matches_baseline": true'` → 32.
 
 ## Waiting on the owner
-
-- **0G credits (blocking the third pick).** Owner chose the honest version of the 0G idea: on the
-  **Change-detected** path only, 0G Private Computer diffs the old and new implementation and
-  **describes what changed about the functions the descriptor documents** — shown with its request
-  ID, and **never a "safe / unsafe" verdict** (that was explicitly rejected: it contradicts the
-  honesty rule, is unfalsifiable under questioning, and would undercut the CROPS Security lead).
-  Blocked until `ZEROG_API_KEY` is in `.env` (base URL defaults to `https://router-api.0g.ai/v1`).
-  Routes: free credits via the 0G Telegram credits thread (a request message is drafted and was
-  given to the owner, using the already-public Sepolia deployer address
-  `0x060762aa5D602d1A6E9a5AecC3301cf804b7E42C`), or self-serve key + Stripe top-up at
-  https://pc.0g.ai. Estimated 3–4 h once unblocked; **if credits arrive after ~18:00, drop it** —
-  the video and the two solid picks matter more.
-  Open question for that work: mainnet implementations need verified source (Etherscan/Sourcify),
-  and our Sepolia `DemoImplA`/`DemoImplB` are **not verified**, so the video's change-detected
-  moment would have nothing to diff unless that is handled.
 
 - **Swarm booth batch (optional, improves the bonus):** if `BEE_API_URL` and `SWARM_POSTAGE_BATCH_ID`
   appear in `.env`, run `npm run swarm -w importer -- ../.cache/registry --restamp`. It re-uploads under

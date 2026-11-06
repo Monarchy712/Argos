@@ -361,3 +361,41 @@ way. Times are IST. Each entry points at the commits it covers.
   (prize picks, a new Anon-RPC partner section, CROPS C/P, feedback), PITCH Q12/Q13, ARCHITECTURE,
   TEST_REPORT (Test 4 retest consequence + a Swarm-hosted-app row), VIDEO_SCRIPT (an 8-second Nym
   line in moment (a), a clause in the close, and new pre-recording steps for the boot wait).
+
+### ~14:40–16:10 · Third prize pick: 0G Private Computer explains what changed
+- **The gap this closes.** Argos could say *that* the code behind a proxy changed and then told
+  the reader to go and work out what. Now the change-detected path answers it.
+- `packages/core/src/selectors.ts`: recovers 4-byte selectors from **deployed runtime bytecode**
+  (PUSH4 scan that skips push payloads), diffs two sets, and flags the "same surface, different
+  code" case. Chosen over verified source because that needs a block explorer and fails on
+  unverified contracts — including our own Sepolia demos. Documented as a *superset* of the ABI,
+  not the ABI; the two Solidity error selectors are filtered. 9 new tests, **47/47**.
+- `scripts/explain-change.ts`: reads the recorded change from Arkiv, `eth_getCode`s both
+  implementations, resolves selectors to signatures via openchain (keyless, best effort), and
+  asks 0G. Verified on Sepolia: `incrementBy(uint256)` added, `initialize(uint256)` removed, four
+  kept — which is exactly right for DemoImplA/B.
+- **Descriptive, never a verdict.** The model is instructed not to call anything safe, unsafe,
+  malicious or benign, and the UI repeats it. An AI confidence score would reproduce the precise
+  failure Argos exists to warn about, and there is no ground truth to validate a threshold
+  against. Recorded in the handover so a later session doesn't "improve" it into a verdict.
+- **Storage reuses the descriptor pattern.** An Arkiv `str` caps at 128 bytes, so the text goes to
+  Swarm and `dg_change_note` carries its keccak hash plus facts: implementations, selector counts,
+  `same_surface`, model, **0G request id**, provider, cost. The browser renders the words only if
+  they hash to the Arkiv value.
+- End to end on live services: 0G request `1d20f02c…`, provider `0x000000003f486c…`, $0.000914;
+  text on Swarm `35e4a454…`, read back and hash-checked; Arkiv row in tx `0x45dc9ece…`; the panel
+  renders in the browser with the summary fetched through Nym and verified.
+- The app stays keyless — `ZEROG_API_KEY` is read only by the script, never shipped to the
+  browser. Without it Argos behaves exactly as before.
+- **Found for 0G:** a key's Trust mode silently decides whether anything is reachable. On
+  *Verified* every mainstream model returned `503 no_provider_for_trust_mode`, and the only model
+  with a verified provider returned `502 fetch provider quote: EOF`. Nothing warns you at the
+  point of choosing. Written up in SUBMISSION as partner feedback.
+- Run log: `docs/test-runs/zerog-explain-change.txt`.
+
+### ~16:03 · Watcher supervisor (after losing it twice)
+- The watcher died at 15:08 from a signal sent to its process group and went unnoticed for ~55
+  minutes; all 32 `current_state` rows expired and every contract read NOT VERIFIED. Correct
+  fail-closed behaviour, bad timing if a judge is looking.
+- `scripts/watcher-supervisor.sh` restarts it and logs every restart into `watcher/state/live.log`,
+  so a gap stays visible afterwards. Proven by `kill -9`: logged exit 137 and restarted in 5 s.

@@ -1,0 +1,14 @@
+0G Private Computer — change explanation
+ETHGlobal Mumbai, 2026-11-06 16:06 IST
+Router: https://router-api.0g.ai/v1 · model gemini-2.5-flash · key trust mode: Standard
+
+$ node --env-file=.env scripts/explain-change.ts --chain 11155111 --address 0xb8E5525eF80cEEC29Bf8598e303F71077361BFF5
+
+{"t":"2026-11-06T10:36:41.154Z","msg":"comparing","chainId":11155111,"proxy":"0xb8E5525eF80cEEC29Bf8598e303F71077361BFF5","from":"0x1F31ab6fE4C931Ab7413523f75D490E1e0b63B4B","to":"0xcEa0520134a8C0fCAdc139Bcd9fAf5D3F712910F","changeBlock":"12074047"}
+{"t":"2026-11-06T10:36:41.635Z","msg":"selectors","before":5,"after":5,"added":1,"removed":1,"sameSurface":false}
+{"t":"2026-11-06T10:36:44.062Z","msg":"asking 0G","model":"gemini-2.5-flash","baseUrl":"https://router-api.0g.ai/v1"}
+{"t":"2026-11-06T10:36:48.142Z","msg":"0G answered","model":"gemini-2.5-flash","requestId":"1d20f02c-e851-4b6e-9a0d-72d3dc4de5fa","provider":"0x000000003f486c7198d6203568a98d02b91f8044","costUsdMicro":"914","ms":4079}
+
+The function `incrementBy(uint256)` is no longer present in the new code. A new function, `initialize(uint256)`, has been added. The functions `initialized()`, `version()`, `counter()`, and `increment()` are still callable. No ERC-7730 descriptor is bound to this proxy.
+
+{"t":"2026-11-06T10:36:48.142Z","msg":"not published","hint":"pass --write to put the text on Swarm and a dg_change_note row on Arkiv"}
