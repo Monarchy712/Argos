@@ -242,3 +242,9 @@ way. Times are IST. Each entry points at the commits it covers.
   prints the tx and the new implementation slot).
 - **Rehearsed on Sepolia:** A→B tx mined in 14 s, and the watcher logged the change from the `Upgraded` event
   and wrote it to Arkiv ~70 s after the tx. Then back to A. The proxy is at ImplA.
+
+### ~09:40 · Submission text and finalist pitch (P7, P8)
+- `docs/SUBMISSION.md`: short and long descriptions, "how it's made", per-partner use and honest
+  feedback (Arkiv, Swarm, EF/CROPS), and a video timestamp table to fill in.
+- `docs/PITCH.md`: a 4-minute live demo (no live waits longer than the upgrade itself) and 20 hard
+  questions with answers drawn only from numbers in the repo.
