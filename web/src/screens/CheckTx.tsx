@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { computeStatus, riskyCalldataFlags, PROXY_KINDS, type ProxyKind, type LiveEvidence, type RiskFlag, type StatusResult } from "@driftguard/core";
 import { format, type DisplayModel } from "@ethereum-sourcify/clear-signing";
-import { encodeFunctionData, getAddress, isAddress, isHex, parseAbi, parseTransaction, serializeTransaction, type Hex } from "viem";
+import { BaseError, ContractFunctionRevertedError, encodeFunctionData, getAddress, isAddress, isHex, parseAbi, parseTransaction, serializeTransaction, type Address, type Hex } from "viem";
 import { idOf, readArkiv, type ArkivSnapshot } from "../lib/arkiv.ts";
 import { clientFor, liveIdentity } from "../lib/chain.ts";
-import { CHAINS, DEMO_PROXY } from "../lib/config.ts";
+import { CHAINS, DEMO_PROXY, GUARD_DEMO } from "../lib/config.ts";
 import { RegistryFallbackSource, SwarmFirstSource, descriptorFor, makeResolver, type FetchRecord, type RegistryManifest } from "../lib/descriptors.ts";
 import { loadMirror, lookupContract, type Mirror } from "../lib/mirror.ts";
 import { routeLabel } from "../lib/transport.ts";
@@ -34,6 +34,7 @@ const demoUpgrade = encodeFunctionData({
 const EXAMPLES: { label: string; value: string }[] = [
   { label: "Aave v3: supply 100 USDC (mainnet, monitored)", value: JSON.stringify({ chainId: 1, to: AAVE_POOL, data: aaveSupply }, null, 2) },
   { label: "Demo proxy: increment() (Sepolia, monitored)", value: JSON.stringify({ chainId: DEMO_PROXY.chainId, to: DEMO_PROXY.address, data: demoIncrement }, null, 2) },
+  { label: "Guard demo proxy: increment() (Sepolia, check-and-call guard)", value: JSON.stringify({ chainId: GUARD_DEMO.chainId, to: GUARD_DEMO.proxy, data: demoIncrement }, null, 2) },
   { label: "ProxyAdmin: upgrade the demo proxy (risky calldata)", value: JSON.stringify({ chainId: DEMO_PROXY.chainId, to: "0x26c64D91f0d2e8AE6449Adf774f5Abe610e80d13", data: demoUpgrade }, null, 2) },
   {
     label: "Raw transaction hex (Aave supply, EIP-1559)",
@@ -63,6 +64,37 @@ function parseInput(text: string): Tx {
 
 const erc20 = parseAbi(["function decimals() view returns (uint8)", "function symbol() view returns (string)", "function name() view returns (string)"]);
 
+const guardAbi = parseAbi([
+  "function checkAndCall(address proxy, address expectedImplementation, bytes data) payable returns (bytes)",
+  "error ImplementationChanged(address proxy, address expected, address actual)",
+]);
+
+/** Controlled demo: what ArgosGuard.checkAndCall would do right now, by eth_call (nothing is sent). */
+type GuardSim =
+  | { state: "ok"; expected: Address; guardedData: Hex; block: bigint }
+  | { state: "reverted"; expected: Address; actual: Address; guardedData: Hex; block: bigint }
+  | { state: "error"; expected: Address; guardedData: Hex; error: string };
+
+async function simulateGuard(tx: Tx, expected: Address): Promise<GuardSim> {
+  const guardedData = encodeFunctionData({ abi: guardAbi, functionName: "checkAndCall", args: [getAddress(tx.to), expected, tx.data] });
+  const client = clientFor(tx.chainId);
+  const block = await client.getBlockNumber().catch(() => 0n);
+  try {
+    await client.call({ to: GUARD_DEMO.guard, data: guardedData, value: tx.value });
+    return { state: "ok", expected, guardedData, block };
+  } catch (err) {
+    try {
+      await client.simulateContract({ address: GUARD_DEMO.guard, abi: guardAbi, functionName: "checkAndCall", args: [getAddress(tx.to), expected, tx.data], value: tx.value });
+    } catch (e2) {
+      const rev = e2 instanceof BaseError ? e2.walk((x) => x instanceof ContractFunctionRevertedError) : null;
+      if (rev instanceof ContractFunctionRevertedError && rev.data?.errorName === "ImplementationChanged") {
+        return { state: "reverted", expected, actual: (rev.data.args as Address[])[2]!, guardedData, block };
+      }
+    }
+    return { state: "error", expected, guardedData, error: (err instanceof Error ? err.message : String(err)).split("\n")[0]! };
+  }
+}
+
 interface Result {
   tx: Tx;
   flags: RiskFlag[];
@@ -73,6 +105,8 @@ interface Result {
   fetches: FetchRecord[];
   descriptor: { path: string; descriptorHash: string | null; attestation: "valid" | "stale" | "none"; commit: string; owner: string; arkivKey?: string; swarmRef?: string } | null;
   baselineDescriptorHash: string | null;
+  /** controlled demo only: set when the target is the guard demo proxy */
+  guard?: GuardSim | null;
   /** where the descriptor metadata (path, commit, hashes) came from */
   provenance: { source: "arkiv-bulk" | "arkiv-targeted" | "bundled"; note: string };
 }
@@ -220,8 +254,10 @@ export function CheckTxScreen({ snap: snapshot, manifest }: { snap: ArkivSnapsho
         )
       : Promise.resolve({ display: null, displayError: "no descriptor index available (Arkiv mirror and bundled index both unavailable)" });
 
-    const [live, shown] = await Promise.all([livePromise, displayPromise]);
-    setResult({ ...base, live, status: evaluate(live), ...shown, fetches: source?.log ?? [] });
+    const isGuardDemo = tx.chainId === GUARD_DEMO.chainId && tx.to.toLowerCase() === GUARD_DEMO.proxy.toLowerCase();
+    const guardPromise: Promise<GuardSim | null> = isGuardDemo && baseline ? simulateGuard(tx, getAddress(baseline.implementation)) : Promise.resolve(null);
+    const [live, shown, guard] = await Promise.all([livePromise, displayPromise, guardPromise]);
+    setResult({ ...base, live, status: evaluate(live), ...shown, fetches: source?.log ?? [], guard });
     setBusy(false);
   }
 
@@ -313,6 +349,8 @@ function ResultView({ r }: { r: Result }) {
           {r.status.reasons.map((x) => <li key={x}>{x}</li>)}
         </ul>
       </div>
+
+      {r.guard && <GuardPanel g={r.guard} />}
 
       {r.flags.length > 0 && (
         <div className="card card-pad">
@@ -408,6 +446,35 @@ function ResultView({ r }: { r: Result }) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function GuardPanel({ g }: { g: GuardSim }) {
+  const impl = (a: string) => <AddressLink chainId={GUARD_DEMO.chainId} address={a} />;
+  return (
+    <div className={`card card-pad ${g.state === "reverted" ? "tile-red" : ""}`}>
+      <div className="tile-label">Check-and-call guard · controlled demo</div>
+      <p className="small muted" style={{ margin: "6px 0 10px" }}>
+        This proxy's own fixed code reports its implementation, so a guard contract can check it and make the call in the same
+        transaction: an upgrade can't land in between. Only this demo proxy supports it; registry contracts don't. The target sees
+        the guard as the sender. Simulated with <code>eth_call</code>; nothing is sent.
+      </p>
+      <dl className="kv">
+        <dt>send to</dt><dd>{impl(GUARD_DEMO.guard)} <span className="muted">(ArgosGuard)</span></dd>
+        <dt>expected implementation</dt><dd>{impl(g.expected)} <span className="muted">(the Argos baseline on Arkiv)</span></dd>
+        <dt>result now</dt>
+        <dd>
+          {g.state === "ok" && <b style={{ color: "var(--ok-bg)" }}>would succeed: implementation matches the baseline (block {g.block.toString()})</b>}
+          {g.state === "reverted" && (
+            <b style={{ color: "var(--bad-bg)" }}>
+              would revert: ImplementationChanged. Live implementation {impl(g.actual)} ≠ baseline. The call would not run.
+            </b>
+          )}
+          {g.state === "error" && <span className="muted">simulation failed: {g.error}</span>}
+        </dd>
+      </dl>
+      <div className="hex small" style={{ marginTop: 8 }} title="checkAndCall(proxy, expectedImplementation, data)">{g.guardedData}</div>
     </div>
   );
 }

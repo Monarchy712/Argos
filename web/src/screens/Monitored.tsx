@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { computeStatus, PROXY_KINDS, type Status, type StatusResult } from "@driftguard/core";
 import { readArkiv, idOf, ArkivRateLimitedError, type ArkivSnapshot, type BaselineRow, type ChangeRow, type CurrentRow } from "../lib/arkiv.ts";
-import { ARKIV_EXPLORER, ARKIV_REFRESH_MS, DEMO_PROXY, TRUSTED_CREATORS } from "../lib/config.ts";
+import { ARKIV_EXPLORER, ARKIV_REFRESH_MS, DEMO_PROXY, GUARD_DEMO, TRUSTED_CREATORS } from "../lib/config.ts";
 import { descriptorFor, loadManifest, type RegistryManifest } from "../lib/descriptors.ts";
 import { AddressLink, ArkivLink, StatusBadge, TxLink, ago, chainName, short, useNow } from "../components/common.tsx";
 
@@ -34,6 +34,7 @@ export function buildRows(snap: ArkivSnapshot, manifest: RegistryManifest | null
       const change = chg.get(id) ?? null;
       const desc = manifest ? descriptorFor(manifest, b.chainId, b.address) : null;
       const isDemo = id === idOf(DEMO_PROXY.chainId, DEMO_PROXY.address);
+      const isGuardDemo = id === idOf(GUARD_DEMO.chainId, GUARD_DEMO.proxy);
       const supported = (PROXY_KINDS as readonly string[]).includes(b.proxyKind);
       const status = computeStatus({
         now,
@@ -55,7 +56,7 @@ export function buildRows(snap: ArkivSnapshot, manifest: RegistryManifest | null
         id,
         chainId: b.chainId,
         address: b.address,
-        protocol: isDemo ? DEMO_PROXY.label : desc ? desc.owner || desc.entity : "—",
+        protocol: isDemo ? DEMO_PROXY.label : isGuardDemo ? GUARD_DEMO.label : desc ? desc.owner || desc.entity : "—",
         attested: !!desc?.attested,
         proxyKind: b.proxyKind,
         detection: current?.detection || detectionFor(b.proxyKind),
@@ -68,7 +69,7 @@ export function buildRows(snap: ArkivSnapshot, manifest: RegistryManifest | null
       };
     })
     .sort((a, b) => {
-      const demo = (r: MonitoredRow) => (r.protocol === DEMO_PROXY.label ? 0 : 1);
+      const demo = (r: MonitoredRow) => (r.protocol === DEMO_PROXY.label ? 0 : r.protocol === GUARD_DEMO.label ? 1 : 2);
       return demo(a) - demo(b) || ORDER[a.status.status] - ORDER[b.status.status] || a.protocol.localeCompare(b.protocol);
     });
 }

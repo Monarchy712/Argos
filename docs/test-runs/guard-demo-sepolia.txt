@@ -1,0 +1,16 @@
+[09:39:02] Argos baseline on Arkiv (0x7dc66e58…, block 12074101): expected implementation 0xcEa0520134a8C0fCAdc139Bcd9fAf5D3F712910F (ImplA)
+[09:39:02] proxy 0x3c93e603bbeD9Dc2Af817BC2D98Bc1D35CF1D669: argosImplementation() = ImplA, version() = "A", counter = 0
+[09:39:15] guarded call OK: checkAndCall(proxy, ImplA, increment()) mined in block 12074110, tx 0xcbcf8714aaed7093b70c83922045e829bb779a1f7e0664aba81fd1b703f2cd7b
+[09:39:15] proxy 0x3c93e603bbeD9Dc2Af817BC2D98Bc1D35CF1D669: argosImplementation() = ImplA, version() = "A", counter = 1
+[09:39:15] upgrading the guard proxy to ImplB…
+[09:39:16] proxy 0x3c93e603bbeD9Dc2Af817BC2D98Bc1D35CF1D669 → ImplB
+  to implementation 0x1F31ab6fE4C931Ab7413523f75D490E1e0b63B4B
+[09:39:25] implementation slot now: 0x1f31ab6fe4c931ab7413523f75d490e1e0b63b4b  (block 12074111)
+[09:39:26] proxy 0x3c93e603bbeD9Dc2Af817BC2D98Bc1D35CF1D669: argosImplementation() = ImplB, version() = "B", counter = 1
+[09:39:26] guarded call REVERTED: ImplementationChanged(expected ImplA, actual ImplB). increment() did not run.
+[09:39:26] proxy 0x3c93e603bbeD9Dc2Af817BC2D98Bc1D35CF1D669: argosImplementation() = ImplB, version() = "B", counter = 1
+[09:39:26] restoring ImplA…
+[09:39:26] proxy 0x3c93e603bbeD9Dc2Af817BC2D98Bc1D35CF1D669 → ImplA
+  to implementation 0xcEa0520134a8C0fCAdc139Bcd9fAf5D3F712910F
+[09:39:38] implementation slot now: 0xcea0520134a8c0fcadc139bcd9faf5d3f712910f  (block 12074112)
+[09:39:39] proxy 0x3c93e603bbeD9Dc2Af817BC2D98Bc1D35CF1D669: argosImplementation() = ImplA, version() = "A", counter = 1

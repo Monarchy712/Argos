@@ -1,0 +1,19 @@
+No files changed, compilation skipped
+Script ran successfully.
+
+== Logs ==
+  guardable proxy 0x3c93e603bbeD9Dc2Af817BC2D98Bc1D35CF1D669
+  guard 0x32189Bb40fD8E565a870d6b513F1E32e6832E46a
+  proxyAdmin 0x7e887afF80839fb17F139D9a0A02E572BE8f912A
+
+SKIPPING ON CHAIN SIMULATION.
+
+
+==========================
+
+ONCHAIN EXECUTION COMPLETE & SUCCESSFUL.
+
+Transactions saved to: C:/Users/samya/OneDrive/Desktop/Argos/contracts/broadcast\DeployGuardDemo.s.sol\11155111\run-latest.json
+
+Sensitive values saved to: C:/Users/samya/OneDrive/Desktop/Argos/contracts/cache\DeployGuardDemo.s.sol\11155111\run-latest.json
+

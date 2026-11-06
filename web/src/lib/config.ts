@@ -51,3 +51,16 @@ export const ARKIV_REFRESH_MS = 90_000;
  * equal the ERC-8176 hash on the writer's Arkiv row, or the descriptor is rejected.
  */
 export const SWARM_GATEWAY = (import.meta.env.VITE_SWARM_GATEWAY as string | undefined) ?? "https://api.gateway.ethswarm.org";
+
+/**
+ * CONTROLLED DEMO: a second Sepolia proxy whose own (non-upgradeable) code reports its
+ * implementation, plus ArgosGuard, which checks that implementation and makes the call in one
+ * transaction (contracts/src/ArgosGuardableProxy.sol, ArgosGuard.sol;
+ * contracts/deployments/11155111-guard.json). No registry contract has this getter.
+ */
+export const GUARD_DEMO = {
+  chainId: 11155111,
+  proxy: "0x3c93e603bbeD9Dc2Af817BC2D98Bc1D35CF1D669",
+  guard: "0x32189Bb40fD8E565a870d6b513F1E32e6832E46a",
+  label: "Argos guard demo proxy",
+} as const;

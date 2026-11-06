@@ -9,12 +9,13 @@ import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.s
 /// Points the demo proxy at ImplA or ImplB through its ProxyAdmin.
 ///
 /// Usage: DEPLOYER_PRIVATE_KEY=... TARGET=B forge script script/UpgradeDemo.s.sol --rpc-url <url> --broadcast
+/// Set DEPLOYMENT=<chainId>-guard.json to upgrade the guard demo proxy instead.
 contract UpgradeDemo is Script {
     function run() external {
         uint256 pk = vm.envUint("DEPLOYER_PRIVATE_KEY");
         string memory target = vm.envString("TARGET");
-        string memory json =
-            vm.readFile(string.concat("./deployments/", vm.toString(block.chainid), ".json"));
+        string memory file = vm.envOr("DEPLOYMENT", string.concat(vm.toString(block.chainid), ".json"));
+        string memory json = vm.readFile(string.concat("./deployments/", file));
 
         address proxy = vm.parseJsonAddress(json, ".proxy");
         address proxyAdmin = vm.parseJsonAddress(json, ".proxyAdmin");
