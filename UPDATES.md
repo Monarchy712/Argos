@@ -210,3 +210,13 @@ way. Times are IST. Each entry points at the commits it covers.
 - `friction.md`: expected / happened / reproduce for each breakage.
 - `schema.md`: Swarm fields and queries. Corrected a wrong claim: importer re-runs don't renew expiry
   (a patch never moves it). Renewal is `npm run renew` only.
+
+### ~09:45 · CROPS requirements (P4)
+- README **CROPS** section rewritten in the EF format: one short line each for S (lead), C, O, P, then
+  details and the three stated trade-offs (one watcher, direct Arkiv reads, direct live reads).
+- A "What each third party can learn" table now covers Ethereum RPC, the Swarm gateway, GitHub raw, our
+  (nonexistent) server, and analytics (none), alongside the Arkiv table.
+- No trackers or analytics: grep of `web/` plus the browser's resource list (only Arkiv RPC, Ethereum RPC,
+  the Swarm gateway, and GitHub raw on fallback).
+- **Quick start (no keys)** added at the top of the README. Verified from a fresh clone with no `.env`:
+  `npm ci`, typecheck, 38/38 tests, build, `show-arkiv` (31 contracts fresh), `query-mirror stale` (3 rows).

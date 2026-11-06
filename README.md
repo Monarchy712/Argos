@@ -11,6 +11,19 @@ on purpose: renaming them would orphan the records already on Arkiv.*
 > Status: hackathon build in progress (ETHGlobal Mumbai, from-scratch track). Progress log:
 > [UPDATES.md](UPDATES.md) · risk tests: [docs/TEST_REPORT.md](docs/TEST_REPORT.md).
 
+## Quick start (no keys needed)
+
+```bash
+git clone https://github.com/Monarchy712/Argos && cd Argos
+npm ci
+npm run dev                          # web app on http://localhost:5180
+node scripts/show-arkiv.ts           # every monitored contract's status, read from Arkiv
+node scripts/query-mirror.ts stale   # a query on the registry mirror
+```
+
+Requires Node ≥ 22.10. Reading needs no wallet or API key. Writing (watcher, importer) needs
+keys in `.env`; see [Setup](#setup).
+
 ## Problem
 
 An [ERC-7730](https://eips.ethereum.org/EIPS/eip-7730) descriptor tells a wallet how to show a
@@ -135,6 +148,8 @@ cp .env.example .env   # fill in keys locally; never commit .env
 | `npm run renew -w watcher` | extend long-lived Arkiv rows expiring within 30 days |
 | `npm run import -w importer -- ../.cache/registry [--dry]` | mirror the registry checkout into Arkiv (idempotent, resumable; writer key) |
 | `npm run verify -w importer -- ../.cache/registry` | verify the mirror: counts + random spot-checks against GitHub (no key) |
+| `npm run swarm -w importer -- ../.cache/registry [--public-gateway] [--restamp]` | put descriptor content on Swarm and record `swarm_ref` on Arkiv (writer key; `--dry` needs none) |
+| `node scripts/query-mirror.ts stale|deployments <chain> <addr>|protocol <dir>` | read-only queries on the registry mirror (no key) |
 | `bash scripts/test3.sh local\|sepolia` | Test 3: proxy-upgrade detection end to end |
 | `node --env-file=.env scripts/test2.ts` | Test 2: Arkiv record lifecycle |
 | `bash scripts/e2e-arkiv.sh` | watcher → Arkiv end to end on the Sepolia demo proxy |
@@ -151,49 +166,44 @@ Built with an AI coding assistant (Claude Code). Details per file: [AI_USAGE.md]
 
 ## CROPS
 
-Submitted for **EF Best CROPS App**. The lead property is **Security**: *verify, don't trust*. Every
+Submitted for **EF Best CROPS App**. Lead property: **Security**, i.e. *verify, don't trust*. Every
 claim Argos shows can be checked independently, and when evidence is missing it fails closed
-instead of showing a stale green.
+(**Not verified**) instead of showing a stale green.
 
-- **S (security, the lead):**
-  - **Descriptors are hash-checked before rendering.** The file's keccak256 must equal the hash
-    published on Arkiv by our writer; a tampered file is rejected and nothing is rendered (demo
-    toggle on the Check screen). At import, each ERC-8176 hash is computed twice (our JCS and the
-    reference library) and compared with auditors' attestations. That found **3 stale
-    attestations** in the registry.
-  - **Trust is explicit:** clients accept rows only from two published `$creator` keys. The watcher
-    key can write state but never baselines (separate writer key).
-  - **Fails closed:** a stopped or broken watcher's records expire within 10 minutes, and status
-    becomes **Not verified**, never a stale green. Unsupported proxies are never green. A failed
-    live read is never green.
-  - **An independent cross-check:** the user's own live read of the implementation slot must agree
-    with the baseline. Any mismatch is RED.
-  - The browser holds no keys. Operator keys live only in a gitignored `.env`, and logged errors are
-    redacted (the Arkiv SDK puts the access key in the URL).
-  - **Limits:** a status is "as of block N". An upgrade can land between check and execution
-    ([TOCTOU](docs/ARCHITECTURE.md#6-toctou-and-other-limitations-stated-plainly-in-the-readme)). We
-    trust our two keys and the RPC answers (cross-checked by the live read).
-- **C (censorship resistance):** What users depend on: our watcher (one process, one key) and writer
-  key. If the watcher stops or is censored, contracts turn **Not verified** within 10 minutes; they
-  don't show false information. Baselines and the registry mirror stay readable on Arkiv for ~182 days.
-  The app is static (any host or IPFS), and anyone can run a watcher with their own key and have clients
-  trust that `$creator`. Remaining dependencies: the Arkiv Rabdi testnet, public Ethereum RPCs, and
-  the Swarm gateway for descriptor bytes (hash-checked), with GitHub raw as the labelled fallback.
-- **O (open source):** MIT. Builds from this repo alone (`npm ci`, exact-pinned npm deps, Foundry deps
-  as pinned submodules). ERC-7730 data is CC0. No closed services.
-- **P (privacy), stated honestly:** live chain reads and descriptor downloads are **direct by default**,
-  so the RPC provider and GitHub see your IP and which contract you check. Nym (Anon-RPC) is opt-in and
-  fails closed, but didn't boot at the event. Arkiv reads are direct and keyless (the node sees your IP)
-  but bulk and contract-independent, so Arkiv can't tell which contract you care about. No trackers or
-  analytics.
+- **S (security, the lead):** a descriptor renders only if `keccak256(bytes)` equals the ERC-8176 hash our writer published on Arkiv (tampered bytes are rejected, demo on the Check screen). Status comes from rows by two published `$creator` keys, which expire 10 minutes after a dead watcher's last write, and from the user's own live slot read, which must agree. The browser holds no keys; operator keys stay in a gitignored `.env`. Trust assumptions: our two keys, and RPC answers (cross-checked by the live read). Status is "as of block N" ([TOCTOU](docs/ARCHITECTURE.md#6-toctou-and-other-limitations-stated-plainly-in-the-readme)).
+- **C (censorship resistance):** you depend on our watcher process and writer key, the Arkiv Rabdi testnet, a public Ethereum RPC, and the Swarm gateway. If the watcher stops or refuses you, contracts turn **Not verified** within 10 minutes (no false green). Baselines, the mirror and Swarm content stay readable without us, and the static app runs from any host. A forked watcher with its own keys can replace ours.
+- **O (open source):** MIT ([LICENSE](LICENSE)); descriptors are CC0. Builds and runs from this repo alone: `npm ci && npm run dev`, no keys needed to use the app or run the read-only queries. Exact-pinned npm deps; Foundry deps as pinned submodules.
+- **P (privacy):** no trackers or analytics. Live chain reads go **direct by default** (labelled "not anonymized"), so the RPC provider sees your IP and the contract you check. The Swarm gateway (or GitHub, on fallback) sees your IP and which descriptor you fetch. Arkiv sees your IP but not the contract (bulk, contract-independent reads; see the table below). Nym (Anon-RPC) is opt-in and fails closed, but didn't boot at the event.
+
+### Details and trade-offs
+
+- **Two hashes, two layers.** At import each ERC-8176 hash is computed twice (our JCS and the
+  reference library) and compared with auditors' attestations in `sigs/`. That found **3 stale
+  attestations** in the registry. At read time, the bytes from Swarm must match that hash; the
+  registry fallback must match `file_sha`. A mismatch never falls back.
+- **Separation of duties.** The watcher key can write state but never baselines (separate writer
+  key). Unsupported proxies are never green, and a failed live read is never green.
+- **Redacted logs.** The Arkiv SDK puts the access key in the URL path; every logged error passes
+  through `describeError()`, which redacts it.
+- **Trade-off: one watcher.** It's a single process with one key. Expiry makes its failure visible
+  (Not verified), not invisible. Running two independent watchers and requiring agreement is a
+  client change we haven't built.
+- **Trade-off: direct Arkiv reads.** Arkiv's RPC didn't answer through the Nym exit in our spike,
+  so the app reads Arkiv directly, in bulk, keyless, with identical queries for every visitor.
+- **Trade-off: direct live reads.** Nym was meant to be the default for chain reads and descriptor
+  downloads. Its worker never became ready at the venue
+  ([Test 4](docs/TEST_REPORT.md#test-4--anon-rpc-over-nym--fail-2026-11-06-0800-ist)), so we chose
+  working-and-labelled over silently-broken.
 
 ### Demo moments (video)
-1. A descriptor passes its hash check against Arkiv, and the intent renders (Check → Aave supply).
+1. A descriptor **fetched from Swarm** passes its hash check against Arkiv, and the intent renders (Check → Aave supply).
 2. The same descriptor, tampered in the browser, is **rejected** (Check → "Demo: tamper…").
 3. A live A→B upgrade of the Sepolia demo proxy turns the badge **RED** within one watcher cycle.
 4. Stopping the watcher makes the status expire to **NOT VERIFIED** instead of a stale GREEN.
 
-### What the Arkiv node can learn
+### What each third party can learn
+
+Arkiv RPC node:
 
 | Read | When | What it reveals to the Arkiv RPC node |
 | --- | --- | --- |
@@ -201,3 +211,13 @@ instead of showing a stale green.
 | Registry mirror (dg_descriptor + dg_deployment, ~36 paged bulk queries) | first "Check" in a session, then cached | IP address, and that the mirror was loaded. Not which contract. |
 | Targeted mirror lookup | only if the keyless budget refuses the bulk read; **shown on screen when it happens** | IP address **and the contract being checked**. |
 | Browse mirror | only when the user runs a filter | IP address and the filter (chain, protocol, …). |
+
+Others:
+
+| Third party | When | What it learns |
+| --- | --- | --- |
+| Ethereum RPC (PublicNode by default; set `VITE_MAINNET_RPC_URL` / `VITE_SEPOLIA_RPC_URL` to use your own) | each Check of a monitored contract (live slot read); token metadata for rendering | IP address and the contract being checked (direct mode). Through Nym (opt-in): neither. |
+| Swarm gateway (`api.gateway.ethswarm.org`; set `VITE_SWARM_GATEWAY` for your own Bee node) | each Check with a descriptor | IP address and which descriptor (so roughly which dapp). |
+| GitHub raw | only if Swarm is unreachable (shown on screen) | IP address and which descriptor file. |
+| Our server | none exists | nothing. The app is static files. |
+| Analytics / trackers | none | nothing. |
