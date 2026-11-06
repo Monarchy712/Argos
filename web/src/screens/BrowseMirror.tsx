@@ -24,6 +24,8 @@ const CHAIN_NAMES: Record<number, string> = {
 const chainLabel = (id: number) => `${CHAIN_NAMES[id] ?? "chain"} (${id})`;
 const PROXY_KINDS = ["eip1967", "beacon", "diamond", "safe", "none", "no-code", "unknown", "unchecked"];
 const PAGE = 50;
+/** Upper bound for protocol/kind queries, to stay well inside the keyless Arkiv budget. */
+const MAX_ROWS = 500;
 
 interface Filters {
   chain: string;
@@ -47,7 +49,7 @@ export function BrowseMirrorScreen({ manifest }: { manifest: RegistryManifest | 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [queryText, setQueryText] = useState<string[]>([]);
-  const [stats, setStats] = useState<{ queries: number; ms: number; more: boolean } | null>(null);
+  const [stats, setStats] = useState<{ queries: number; ms: number; more: boolean; capped?: boolean } | null>(null);
   const [offset, setOffset] = useState(0);
 
   // Filter options from the bundled index (same pinned commit as the mirror).
@@ -73,6 +75,7 @@ export function BrowseMirrorScreen({ manifest }: { manifest: RegistryManifest | 
 
       let deployments: MirrorDeployment[] = [];
       let more = false;
+      let capped = false;
       const descByHash = new Map<string, MirrorDescriptor>();
 
       if (f.protocol || f.kind) {
@@ -92,9 +95,19 @@ export function BrowseMirrorScreen({ manifest }: { manifest: RegistryManifest | 
         for (let i = 0; i < hashes.length; i += 15) {
           const chunk = hashes.slice(i, i + 15);
           const hashExpr: Expr = chunk.length === 1 ? eq("descriptor_hash", chunk[0]!) : or(chunk.map((h) => eq("descriptor_hash", h)));
-          queries++;
-          const page = await client.select().from(DeploymentSchema).where(all([...depWhere, hashExpr])!).createdBy(TRUSTED_CREATORS.writer).orderBy(asc("$key")).limit(100).fetch();
-          deployments.push(...page.entities.map((r) => toDeployment(r as never)));
+          // page through this chunk's matches (Arkiv pages hold at most 100 rows)
+          for (let o = 0; deployments.length < MAX_ROWS; ) {
+            queries++;
+            const page = await client.select().from(DeploymentSchema).where(all([...depWhere, hashExpr])!).createdBy(TRUSTED_CREATORS.writer).orderBy(asc("$key")).limit(100).offset(o).fetch();
+            deployments.push(...page.entities.map((r) => toDeployment(r as never)));
+            const covered = page.entities.length + page.skipped;
+            if (covered < 100) break;
+            o += covered;
+          }
+          if (deployments.length >= MAX_ROWS) {
+            capped = true;
+            break;
+          }
         }
         text.push(`dg_deployment WHERE ${[...depText, `descriptor_hash IN (${hashes.length} hashes)`].join(" AND ")} CREATED BY writer`);
       } else {
@@ -122,7 +135,7 @@ export function BrowseMirrorScreen({ manifest }: { manifest: RegistryManifest | 
       setRows(nextOffset ? [...rows, ...out] : out);
       setOffset(nextOffset);
       setQueryText(text);
-      setStats({ queries, ms: Math.round(performance.now() - t0), more });
+      setStats({ queries, ms: Math.round(performance.now() - t0), more, capped });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setError(/429/.test(msg) ? "Arkiv rate-limited this browser's keyless reads; try again in a few minutes." : msg.split("\n")[0]!);
@@ -189,7 +202,7 @@ export function BrowseMirrorScreen({ manifest }: { manifest: RegistryManifest | 
       {queryText.length > 0 && (
         <div className="hex small" style={{ marginTop: 12 }}>
           {queryText.map((q) => <div key={q}>{q}</div>)}
-          {stats && <div className="muted">→ {rows.length} rows · {stats.queries} Arkiv {stats.queries === 1 ? "query" : "queries"} · {stats.ms} ms</div>}
+          {stats && <div className="muted">→ {rows.length} rows{stats.capped ? ` (first ${MAX_ROWS}; narrow the filter for the rest)` : ""} · {stats.queries} Arkiv {stats.queries === 1 ? "query" : "queries"} · {stats.ms} ms</div>}
         </div>
       )}
 

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { computeStatus, riskyCalldataFlags, PROXY_KINDS, type ProxyKind, type LiveEvidence, type RiskFlag, type StatusResult } from "@driftguard/core";
 import { format, type DisplayModel } from "@ethereum-sourcify/clear-signing";
 import { encodeFunctionData, getAddress, isAddress, isHex, parseAbi, parseTransaction, serializeTransaction, type Hex } from "viem";
@@ -6,7 +6,7 @@ import { idOf, readArkiv, type ArkivSnapshot } from "../lib/arkiv.ts";
 import { clientFor, liveIdentity } from "../lib/chain.ts";
 import { CHAINS, DEMO_PROXY } from "../lib/config.ts";
 import { RegistryFallbackSource, descriptorFor, makeResolver, type FetchRecord, type RegistryManifest } from "../lib/descriptors.ts";
-import { lookupContract } from "../lib/mirror.ts";
+import { loadMirror, lookupContract, type Mirror } from "../lib/mirror.ts";
 import { routeLabel } from "../lib/transport.ts";
 import { AddressLink, StatusBadge, chainName, short, useTransport } from "../components/common.tsx";
 
@@ -83,6 +83,19 @@ export function CheckTxScreen({ snap: snapshot, manifest }: { snap: ArkivSnapsho
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<Result | null>(null);
+  // Warm the Arkiv registry mirror as soon as this screen opens (bulk, contract-independent,
+  // ~35 paged keyless queries, ~11 s), so the first check doesn't wait for it.
+  const [mirror, setMirror] = useState<{ state: "loading" | "ready" | "failed"; m?: Mirror; error?: string }>({ state: "loading" });
+  useEffect(() => {
+    let live = true;
+    loadMirror().then(
+      (m) => live && setMirror({ state: "ready", m }),
+      (e) => live && setMirror({ state: "failed", error: e instanceof Error ? e.message.split(/\r?\n/)[0] : String(e) }),
+    );
+    return () => {
+      live = false;
+    };
+  }, []);
   const preview = useMemo(() => {
     try {
       return parseInput(input);
@@ -228,6 +241,11 @@ export function CheckTxScreen({ snap: snapshot, manifest }: { snap: ArkivSnapsho
             </select>
           </div>
           {error && <div className="callout callout-red">{error}</div>}
+          <div className="small muted">
+            {mirror.state === "loading" && "Loading the ERC-7730 registry mirror from Arkiv (bulk read, the same for every visitor)…"}
+            {mirror.state === "ready" && mirror.m && `Registry mirror loaded from Arkiv: ${mirror.m.descriptors.length} descriptors, ${mirror.m.deployments.length} deployments @ ${mirror.m.commit.slice(0, 7)} (${mirror.m.queries} queries, ${(mirror.m.ms / 1000).toFixed(1)} s).`}
+            {mirror.state === "failed" && `Registry mirror bulk read failed (${mirror.error}); checks will look up the one contract instead and say so.`}
+          </div>
           {!snapshot && <div className="callout">Arkiv data is still loading; monitored status will show as Not verified until it arrives.</div>}
         </div>
 
