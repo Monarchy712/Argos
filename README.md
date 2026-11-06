@@ -48,7 +48,7 @@ change with its transaction.
 registry ──► importer ──► Swarm: resolved descriptor bytes (746)  ◄── swarm_ref ── Arkiv: dg_descriptor (768) + dg_deployment (2,675)
 chain ─────► watcher ───► Arkiv: dg_current_state (10-min expiry), dg_latest_change
 writer ────► rebaseline ► Arkiv: dg_baseline (the trust anchor; never auto-replaced)
-browser ───► reads Arkiv once (bulk) + live slot reads over Anon-RPC/Nym → GREEN / RED / NOT VERIFIED
+browser ───► reads Arkiv once (bulk) + its own live slot read (direct; Anon-RPC/Nym opt-in) → GREEN / RED / NOT VERIFIED
 ```
 
 - **Watcher:** scans `Upgraded` / `AdminChanged` / `BeaconUpgraded` / `DiamondCut` events from a
@@ -156,13 +156,17 @@ the registry yourself (counts + 10 random files against GitHub raw, no key):
 
 ## Setup
 
-Requirements: Node ≥ 22.10 (tested on 24.12), Foundry 1.5.x, Git.
+Requirements: Node ≥ 22.10, Foundry, Git. Last verified end to end on Node 24.10.0 and
+Foundry 1.7.1 (`forge test` 11/11).
 
 ```bash
 git clone --recurse-submodules https://github.com/Monarchy712/Argos && cd Argos
 npm ci
 cp .env.example .env   # fill in keys locally; never commit .env
 ```
+
+If you already cloned without `--recurse-submodules`, run `git submodule update --init --recursive`
+before `forge test` — the contract tests need `forge-std` and `openzeppelin-contracts`.
 
 | Command | What it does |
 | --- | --- |
@@ -249,7 +253,7 @@ Others:
 | Third party | When | What it learns |
 | --- | --- | --- |
 | Ethereum RPC (PublicNode by default; set `VITE_MAINNET_RPC_URL` / `VITE_SEPOLIA_RPC_URL` to use your own) | each Check of a monitored contract (live slot read); token metadata for rendering | IP address and the contract being checked (direct mode). Through Nym (opt-in): neither. |
-| Swarm gateway (`api.gateway.ethswarm.org`; set `VITE_SWARM_GATEWAY` for your own Bee node) | each Check with a descriptor | IP address and which descriptor (so roughly which dapp). |
-| GitHub raw | only if Swarm is unreachable (shown on screen) | IP address and which descriptor file. |
+| Swarm gateway (`api.gateway.ethswarm.org`; set `VITE_SWARM_GATEWAY` for your own Bee node) | each Check with a descriptor | IP address and which descriptor (so roughly which dapp), in direct mode. Through Nym (opt-in): neither — verified in the Test 4 retest. |
+| GitHub raw | only if Swarm is unreachable (shown on screen) | IP address and which descriptor file (direct mode). Through Nym (opt-in): neither. |
 | Our server | none exists | nothing. The app is static files. |
 | Analytics / trackers | none | nothing. |

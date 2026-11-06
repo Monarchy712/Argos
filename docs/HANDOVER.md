@@ -4,7 +4,7 @@
 the *Current state* and *Next steps* sections below and commit. Judges read `UPDATES.md` (the
 build log); this file is for whoever is driving the build next.
 
-Last updated: **Nov 6 2026, 11:50 IST** (ETHGlobal Mumbai).
+Last updated: **Nov 6 2026, 11:58 IST** (ETHGlobal Mumbai). **Freeze pass done — ready to record.**
 
 ---
 
@@ -122,6 +122,13 @@ The machine was re-cloned before this session, so the first job was `npm install
   exists any more** — that item from the previous session is moot.
 - Dev server: `npm run dev -w web` on http://localhost:5180 (started this session via the
   preview tool, config in `.claude/launch.json`).
+- **Freeze pass re-verified in the browser at 11:57:** Monitored 32 / 32 verified / 0 changed /
+  0 not verified; Check → Aave supply green with the Swarm hash check; Check → guard demo proxy
+  shows "would succeed"; tamper toggle rejects the descriptor; Browse and How it works render;
+  no console errors; no horizontal scroll at 1280 px.
+- **Git remote is now SSH** (`git@github.com:Monarchy712/Argos.git`). The fresh clone had no HTTPS
+  credentials and `gh` isn't installed; the existing `~/.ssh/id_ed25519` authenticates as
+  Monarchy712, so pushes work again.
 - Deployer Sepolia balance: ~0.012 ETH. Writer tGLM: enough (patches cost ~0.0005 each).
 - `contracts/foundry.lock` is now gitignored: `forge` regenerates it from the submodule revisions
   that `.gitmodules` already pins.
@@ -133,11 +140,19 @@ The machine was re-cloned before this session, so the first job was `npm install
 1. ~~Finish the guard UI check~~ done.
 2. ~~Document P9 (1)~~ done.
 3. ~~P9 (2): one more Nym attempt~~ done — it **passed**; see the section above.
-4. **Freeze pass (by 22:00):** in progress. All five checks already green on this fresh clone at
-   11:40 IST — `npm run typecheck`, `npm test` (38/38), `npm run build`,
-   `(cd contracts && forge test)` (11/11), `(cd web && npx tsc --noEmit -p .)`. Remaining: all 32
-   fresh on Arkiv immediately before handing over, a final README read-through, push, and tell the
-   owner **"ready to record"**.
+4. ~~Freeze pass~~ **done at 11:57 IST.** All five checks green on the fresh clone
+   (`typecheck`, `npm test` 38/38, `build`, web `tsc --noEmit`, `forge test` 11/11); Arkiv 32/32
+   fresh; every screen re-verified in the browser after a clean reload; README accuracy pass.
+   **The owner has been told "ready to record".**
+
+### After the video (next session picks up here)
+
+1. Record using `docs/VIDEO_SCRIPT.md` (rebaseline the video proxy first — its row still has
+   `ever_changed_since_baseline = true` from rehearsals).
+2. Fill the real timestamps into `docs/SUBMISSION.md` and `arkiv/swarm.md`.
+3. If the Swarm booth batch arrives, run the `--restamp` step in *Waiting on the owner* below.
+4. Submit on ethglobal.com before **09:00 Sat Nov 7**.
+5. Keep the watcher alive until judging ends; re-check `show-arkiv.ts | grep -c '"matches_baseline": true'` → 32.
 
 ## Waiting on the owner
 

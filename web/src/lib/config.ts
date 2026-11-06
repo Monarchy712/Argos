@@ -1,6 +1,7 @@
 /**
  * Browser-side configuration. No secrets here: the web app holds no keys. Arkiv is read keyless,
- * and chain reads go through Anon-RPC (Nym) unless the viewer explicitly picks direct mode.
+ * and chain reads go direct unless the viewer explicitly opts in to Anon-RPC (Nym); see
+ * lib/transport.ts for why direct is the default.
  */
 export { TRUSTED_CREATORS } from "@driftguard/core";
 

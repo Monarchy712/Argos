@@ -300,3 +300,22 @@ way. Times are IST. Each entry points at the commits it covers.
   feedback), PITCH Q13.
 - Freeze-pass checks all green on the fresh clone: `npm run typecheck`, `npm test` **38/38**,
   `npm run build`, `web` `tsc --noEmit`, `forge test` **11/11**.
+
+### 11:57 · Freeze pass on the fresh clone
+- All checks green: `npm run typecheck`, `npm test` **38/38**, `npm run build`,
+  `(cd web && npx tsc --noEmit -p .)`, `(cd contracts && forge test)` **11/11**.
+- Arkiv: **32/32 fresh**, watcher cycling with `"failed":0`.
+- Every screen re-verified in the browser after a clean reload, no console errors, no horizontal
+  scroll at 1280 px: Monitored (32 / 32 verified / 0 changed / 0 not verified), Browse mirror,
+  How it works, Nym diagnostics, and on Check — Aave supply (`VERIFIED · NO CHANGE`, Swarm bytes
+  hash-checked), the guard demo proxy (guard panel: "would succeed: implementation matches the
+  baseline (block 12074784)"), and the tamper toggle (`Descriptor rejected: integrity check failed`,
+  expected `0xf11301c7…` vs got `0x31348010…`, no fallback).
+- Video beat 4 ("stop the watcher → NOT VERIFIED") was confirmed by accident at 11:34: the watcher
+  had been down since the re-clone, and all 32 rows read NOT VERIFIED rather than a stale green.
+- README accuracy pass: the data-flow line said browser reads go "over Anon-RPC/Nym" (they are
+  direct by default); Setup claimed "tested on 24.12 / Foundry 1.5.x" where today's verified
+  versions are Node 24.10.0 and Foundry 1.7.1; added the `git submodule update --init --recursive`
+  note that a non-recursive clone needs before `forge test`; the third-party table now says what
+  the Swarm gateway and GitHub raw learn in Nym mode. One stale comment fixed in
+  `web/src/lib/config.ts` (it still described Nym as the default). No behaviour changes.
