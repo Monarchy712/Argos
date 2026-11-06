@@ -1,127 +1,183 @@
 /**
- * About / How it works: one diagram of the data flow, what each badge means, what Argos does not
- * do, and links to check every claim yourself (Arkiv entities, a Swarm reference, the repo).
+ * How Argos works, for someone who has not read the architecture doc.
+ *
+ * The flow is the product's actual data path, in order, with one plain sentence per component and
+ * the honest limitation attached to it. Nym is shown where it really sits — on the read path —
+ * rather than as a logo in a list.
  */
-import { StatusBadge, ArkivLink, SwarmLink, short } from "../components/common.tsx";
-import { ARKIV_EXPLORER, TRUSTED_CREATORS } from "../lib/config.ts";
+import { NymDiagnosticsScreen } from "./NymDiagnostics.tsx";
+import { PageHead } from "../components/Shell.tsx";
+import { Badge, Callout, Card, CardHead } from "../components/common.tsx";
+import { Icon, type IconName } from "../components/icons.tsx";
 
-/** Example rows, also cited in arkiv/swarm.md: Aave v3 Pool's descriptor. */
-const EXAMPLE = {
-  descriptorKey: "0x495d23d3c4677d440698729634c5557cbd71b106abf9d1d805e10cf57bdee4f8",
-  swarmRef: "7d65ee6ba97951c31444de4d7e88ce768fc8eaf1887966e3b451c10b2af63a04",
-  descriptorHash: "0xf11301c71b26b892d49d820260f565cc776d8d54c89538f6b439272519322683",
-};
-const REPO = "https://github.com/Monarchy712/Argos";
-
-function Box({ x, y, w, h, title, lines, tone }: { x: number; y: number; w: number; h: number; title: string; lines: string[]; tone: "src" | "proc" | "store" | "user" }) {
-  return (
-    <g className={`dg-box dg-${tone}`}>
-      <rect x={x} y={y} width={w} height={h} rx={10} />
-      <text x={x + 14} y={y + 24} className="dg-title">{title}</text>
-      {lines.map((l, i) => (
-        <text key={l} x={x + 14} y={y + 46 + i * 19} className="dg-line">{l}</text>
-      ))}
-    </g>
-  );
+interface Node {
+  kind: "chain" | "argos" | "store" | "ai";
+  icon: IconName;
+  title: string;
+  tag?: string;
+  desc: string;
+  edge?: string;
 }
 
-function Arrow({ d, label, lx, ly }: { d: string; label?: string; lx?: number; ly?: number }) {
-  return (
-    <g className="dg-arrow">
-      <path d={d} markerEnd="url(#dg-head)" />
-      {label && <text x={lx} y={ly} className="dg-label">{label}</text>}
-    </g>
-  );
-}
-
-function Diagram() {
-  return (
-    <svg viewBox="0 0 1000 470" className="diagram" role="img" aria-label="Argos data flow: the registry and Ethereum feed the importer and watcher, which write to Swarm and Arkiv; the browser reads Arkiv and Swarm, checks hashes, and shows a status.">
-      <defs>
-        <marker id="dg-head" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-          <path d="M0,0 L10,5 L0,10 z" className="dg-headfill" />
-        </marker>
-      </defs>
-      <Box x={20} y={16} w={300} h={78} tone="src" title="ERC-7730 registry (EF, CC0)" lines={["768 descriptor files, pinned commit"]} />
-      <Box x={680} y={16} w={300} h={78} tone="src" title="Ethereum" lines={["proxy slots + Upgraded events"]} />
-
-      <Box x={20} y={140} w={300} h={98} tone="proc" title="importer  (writer key)" lines={["resolve includes → JCS bytes", "ERC-8176 hash, computed twice", "attestation check vs sigs/"]} />
-      <Box x={680} y={140} w={260} h={98} tone="proc" title="watcher  (watcher key)" lines={["events from a cursor + slot reads", "every 60 s; writes every 120 s", "or at once on a change"]} />
-
-      <Box x={20} y={284} w={240} h={78} tone="store" title="Swarm" lines={["resolved descriptor bytes (746)"]} />
-      <Box x={300} y={284} w={640} h={78} tone="store" title="Arkiv (Rabdi)" lines={["writer: dg_descriptor (+ swarm_ref) · dg_deployment · dg_baseline", "watcher: dg_current_state (expires in 10 min) · dg_latest_change"]} />
-
-      <Box x={190} y={398} w={620} h={62} tone="user" title="Your browser: Argos" lines={["bytes must hash to the Arkiv value · your own live slot read → badge"]} />
-
-      <Arrow d="M170 94 V140" />
-      <Arrow d="M810 94 V140" />
-      <Arrow d="M120 238 V284" label="upload" lx={128} ly={266} />
-      <Arrow d="M290 238 Q 330 262 400 284" label="metadata + swarm_ref" lx={318} ly={262} />
-      <Arrow d="M810 238 V284" label="state, changes" lx={818} ly={266} />
-      <Arrow d="M140 362 Q 150 392 250 398" label="GET /bytes/ref" lx={40} ly={392} />
-      <Arrow d="M640 362 V398" label="bulk read, by $creator" lx={648} ly={388} />
-      <Arrow d="M965 94 V429 H812" label="live read" lx={822} ly={448} />
-    </svg>
-  );
-}
+const FLOW: Node[] = [
+  {
+    kind: "chain", icon: "chain", title: "The Ethereum contract", tag: "on chain",
+    desc: "An upgradeable contract keeps its address forever, but the code behind that address can be replaced at any time. You sign transactions to the address; the code is what actually runs.",
+    edge: "read every 60 s",
+  },
+  {
+    kind: "argos", icon: "eye", title: "The Argos watcher", tag: "always running",
+    desc: "A service that reads the contract's storage slots and scans its upgrade events from a saved position, so nothing is missed between restarts. It records what it sees — never an opinion about it.",
+    edge: "compare",
+  },
+  {
+    kind: "argos", icon: "shieldCheck", title: "Comparison against your baseline",
+    desc: "Your baseline is the implementation you reviewed and chose to trust. Every reading is compared against it. Matching means no change was seen at that block; it never means the contract is safe. Argos never replaces a baseline on its own.",
+    edge: "publish",
+  },
+  {
+    kind: "store", icon: "database", title: "Arkiv records the monitoring state", tag: "public, queryable",
+    desc: "The baseline, the latest reading and the latest change are published as records anyone can query and whose author they can check. Readings expire after ten minutes, so if the watcher stops, contracts turn to Not verified instead of quietly staying green.",
+    edge: "store content",
+  },
+  {
+    kind: "store", icon: "cloud", title: "Swarm stores the content", tag: "addressed by hash",
+    desc: "Descriptor files and change explanations live on Swarm, referenced by a hash recorded on Arkiv. Argos re-computes that hash on everything it downloads and refuses to display anything that does not match.",
+    edge: "describe the diff",
+  },
+  {
+    kind: "ai", icon: "spark", title: "0G describes what changed in the code", tag: "description, not a verdict",
+    desc: "When an implementation changes, a model compares the 4-byte function selectors found in both versions of the deployed code and writes a few plain sentences about what moved. It is a description of observed differences — not a security audit, and never a judgement about intent.",
+    edge: "present",
+  },
+  {
+    kind: "argos", icon: "overview", title: "The Argos dashboard",
+    desc: "What you are looking at. It reads the records, verifies every hash itself, and shows a status with the block it was observed at — plus all the underlying evidence, so you never have to take its word for anything.",
+  },
+];
 
 export function HowItWorksScreen() {
   return (
-    <section className="stack">
-      <h1 className="section-title">How Argos works</h1>
-      <p className="section-sub">
-        ERC-7730 descriptors tell wallets how to show a transaction in plain language. They are bound to a contract address. For an
-        upgradeable proxy that address stays the same when the code behind it changes, so a wallet keeps showing a confident,
-        readable intent for code nobody reviewed. <b>314 of 652</b> mainnet contracts in the registry (48%) are such proxies. Argos
-        records each monitored contract&apos;s code at a baseline, watches for upgrades, and publishes what it sees on Arkiv, where
-        anyone can check it.
+    <div className="page">
+      <PageHead
+        title="How Argos works"
+        sub="Argos watches the code behind contracts you interact with and tells you when it changes. It detects, verifies and warns. It does not block transactions, and it never claims a contract is safe."
+      />
+
+      <Card stripe="info">
+        <div className="card-body">
+          <p className="prose" style={{ fontSize: 16, color: "var(--ink)", maxWidth: "70ch" }}>
+            <b>The problem in one sentence.</b> A wallet decides what to show you based on the contract's{" "}
+            <i>address</i> — but an upgradeable contract can swap out its code while keeping that address, so the wallet
+            keeps showing a confident, readable description of code that is no longer the code being run.
+          </p>
+          <p className="prose" style={{ marginTop: "var(--s-3)" }}>
+            Argos records what the code was when you decided to trust it, watches for it changing, and shows you the
+            evidence when it does. That is the whole product.
+          </p>
+        </div>
+      </Card>
+
+      <Card>
+        <CardHead title="The path your monitoring data takes" sub="Each step, in order, with what it can and cannot tell you." icon="layers" />
+        <div className="card-body">
+          <div className="flow">
+            {FLOW.map((n, i) => (
+              <div key={n.title}>
+                <div className={`flow-node k-${n.kind}`}>
+                  <span className="n-glyph"><Icon name={n.icon} size={19} /></span>
+                  <div>
+                    <div className="n-title">
+                      {n.title}
+                      {n.tag && <Badge tone={n.kind === "ai" ? "warn" : n.kind === "store" ? "info" : undefined}>{n.tag}</Badge>}
+                    </div>
+                    <p className="n-desc">{n.desc}</p>
+                  </div>
+                </div>
+
+                {i === 0 && (
+                  <div className="flow-side" style={{ margin: "var(--s-3) 0 var(--s-3) var(--s-9)" }}>
+                    <Icon name="lock" size={15} style={{ color: "var(--accent-2)", marginTop: 1 }} />
+                    <span>
+                      <b style={{ color: "var(--ink)" }}>Nym, where enabled.</b> Reads your browser makes can travel through
+                      the Nym mixnet, so the node answering them sees a Nym exit instead of your IP address — it learns that
+                      someone asked about a contract, not that <i>you</i> did. This is on by default; you can switch it off
+                      in the sidebar, and every result stays labelled with the route it took.
+                    </span>
+                  </div>
+                )}
+
+                {n.edge && (
+                  <div className="flow-arrow" style={{ height: 40 }}>
+                    <Icon name="arrowDown" size={14} />
+                    <span className="label">{n.edge}</span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </Card>
+
+      <div className="metrics" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))" }}>
+        <Card>
+          <div className="card-body stack-s">
+            <span className="eyebrow">What Argos tells you</span>
+            <ul className="reasons">
+              <li>The code behind this address changed, at this block, in this transaction.</li>
+              <li>These 4-byte function selectors were added or removed.</li>
+              <li>The descriptor your wallet would use no longer matches the one recorded at your baseline.</li>
+              <li>Monitoring data is missing or stale, so nothing can be confirmed right now.</li>
+            </ul>
+          </div>
+        </Card>
+        <Card>
+          <div className="card-body stack-s">
+            <span className="eyebrow">What Argos never tells you</span>
+            <ul className="reasons">
+              <li>That a contract is safe, trustworthy or audited.</li>
+              <li>That a change is malicious, or that no change means anything about future blocks.</li>
+              <li>A score, a rating or a certification. Argos has none to give.</li>
+              <li>That an AI explanation is a security verdict. It describes observed differences.</li>
+            </ul>
+          </div>
+        </Card>
+        <Card>
+          <div className="card-body stack-s">
+            <span className="eyebrow">Why a status can say Not verified</span>
+            <ul className="reasons">
+              <li>The watcher stopped, so its reading expired.</li>
+              <li>The newest reading is older than five minutes.</li>
+              <li>The contract's upgrade mechanism is not one Argos can read.</li>
+              <li>A live read failed. Argos reports the failure rather than assuming nothing changed.</li>
+            </ul>
+          </div>
+        </Card>
+      </div>
+
+      <Callout tone="warn" icon="alert">
+        <b>Monitoring is not protection.</b> Argos tells you what it last observed. It cannot stop a contract being
+        upgraded between the moment you check and the moment your transaction executes. The Transaction Guard tab on a
+        supported contract demonstrates a check-and-call flow that closes that gap — for one proxy architecture, as a
+        controlled demonstration, not as general protection.
+      </Callout>
+
+      <details className="disclose">
+        <summary>
+          <Icon name="chevronRight" size={13} className="chev" />
+          Privacy routing diagnostics
+          <span className="push" />
+          <Badge tone="info" icon="lock">Nym</Badge>
+        </summary>
+        <div className="d-body">
+          <NymDiagnosticsScreen />
+        </div>
+      </details>
+
+      <p className="t-12 dimmer" style={{ lineHeight: 1.7 }}>
+        Argos detects, verifies and warns. It does not block transactions or guarantee safety, and an upgrade is not a sign
+        of malice. Code: MIT. Descriptors: ERC-7730 registry (CC0).
       </p>
-
-      <div className="card card-pad">
-        <Diagram />
-      </div>
-
-      <div className="grid-2">
-        <div className="card card-pad">
-          <div className="tile-label">What the badges mean</div>
-          <dl className="legend">
-            <dt><StatusBadge status="GREEN" /></dt>
-            <dd>A fresh watcher record (at most 5 minutes old) matches the baseline, and your live read agrees. It means <i>no change seen as of block N</i>, not &quot;safe&quot;.</dd>
-            <dt><StatusBadge status="RED" /></dt>
-            <dd>The watcher or your live read shows code that differs from the baseline. Check whether the descriptor still describes this code. It never means &quot;malicious&quot;.</dd>
-            <dt><StatusBadge status="NOT_VERIFIED" /></dt>
-            <dd>No record, an expired or stale record (for example the watcher stopped), an unsupported proxy, a failed live read, or a contract Argos doesn&apos;t monitor. The reason is always shown.</dd>
-          </dl>
-        </div>
-        <div className="card card-pad">
-          <div className="tile-label">Check it yourself</div>
-          <ul className="reason-list small">
-            <li>
-              Trusted writers: baselines and mirror{" "}
-              <a className="addr" href={`${ARKIV_EXPLORER}/address/${TRUSTED_CREATORS.writer}`} target="_blank" rel="noreferrer">{short(TRUSTED_CREATORS.writer)}</a>, watcher{" "}
-              <a className="addr" href={`${ARKIV_EXPLORER}/address/${TRUSTED_CREATORS.watcher}`} target="_blank" rel="noreferrer">{short(TRUSTED_CREATORS.watcher)}</a>. Rows from anyone else are ignored.
-            </li>
-            <li>
-              Example: Aave v3 Pool&apos;s descriptor <ArkivLink entityKey={EXAMPLE.descriptorKey} label="on Arkiv" /> points to its bytes{" "}
-              <SwarmLink swarmRef={EXAMPLE.swarmRef} label="on Swarm" />. keccak256 of those bytes is{" "}
-              <span className="mono" title={EXAMPLE.descriptorHash}>{short(EXAMPLE.descriptorHash, 10, 8)}</span>, the hash on the Arkiv row.
-            </li>
-            <li>
-              Without this app: <code>node scripts/show-arkiv.ts</code> prints every status from Arkiv, and{" "}
-              <code>node scripts/query-mirror.ts stale</code> queries the registry mirror. No keys needed.
-            </li>
-            <li>
-              Source (MIT): <a href={REPO} target="_blank" rel="noreferrer">{REPO.replace("https://", "")}</a>
-            </li>
-          </ul>
-          <div className="tile-label" style={{ marginTop: 14 }}>What Argos does not do</div>
-          <ul className="reason-list small">
-            <li>It doesn&apos;t block transactions or judge whether an upgrade is good or bad.</li>
-            <li>A status is &quot;as of block N&quot;: an upgrade can still land between your check and your transaction.</li>
-            <li>Live reads are direct RPC by default (not anonymized). Nym is opt-in and fails closed.</li>
-          </ul>
-        </div>
-      </div>
-    </section>
+    </div>
   );
 }

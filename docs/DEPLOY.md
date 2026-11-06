@@ -28,8 +28,21 @@ watcher looks broken. Deploy the watcher, not just the site.
 
 ## Vercel (the web app)
 
-`vercel.json` holds everything: build with `npm install --no-audit --no-fund && npm run build`,
-publish `web/dist`. Import the GitHub repo in Vercel and accept the detected settings.
+The project's **Root Directory is `web`** (Settings → General). That one setting decides how
+everything else in `vercel.json` is read, and getting it wrong is how this broke before:
+
+- `vercel.json` is still read from the **repository root**, but `buildCommand` runs with the
+  working directory set to `web/`, and `outputDirectory` resolves relative to `web/` too.
+- So the correct values are `"buildCommand": "npm run build"` and `"outputDirectory": "dist"` —
+  *not* `web/dist`, which would resolve to `web/web/dist`.
+- A build command of `… && rm -rf dist && cp -r web/dist dist` fails for the same reason: run from
+  `web/`, `rm -rf dist` deletes the output that was just built and the `cp` then has nothing to
+  copy. Commit `babf37d` did exactly that, and every production deploy errored until it was
+  reverted — the live site silently kept serving the last build that predated it.
+
+Import the GitHub repo in Vercel, set Root Directory to `web`, and accept the rest. Installation
+is left to Vercel so its dependency cache is used; `npm install` inside `web/` still resolves the
+`@driftguard/core` workspace because the whole repo is cloned.
 
 **No environment variables.** The browser does all the reading itself, which is the CROPS
 "no keys needed" claim. Three optional overrides exist — `VITE_MAINNET_RPC_URL`,
@@ -37,8 +50,11 @@ publish `web/dist`. Import the GitHub repo in Vercel and accept the detected set
 so there is no reason to set them. If you ever do: anything prefixed `VITE_` is compiled into the
 public bundle, so never put a keyed RPC URL there.
 
-There are deliberately **no rewrites**. The app has no client-side routing (the tabs are React
-state, not URLs), so a catch-all rewrite to `index.html` would only hide genuine 404s.
+There are deliberately **no rewrites**. The app does have client-side routing now — the contract
+workspace is `#/c/<chainId>/<address>/<tab>` — but it is **hash** routing, and a fragment is never
+sent to the server: every URL is a request for `/`. That was the reason for choosing it, since the
+same build is also published as a static Swarm collection, which cannot rewrite paths at all. A
+catch-all rewrite to `index.html` would therefore buy nothing and would only hide genuine 404s.
 
 `scripts/serve-static.ts` is not used by Vercel. It stays for self-hosting — see the last section.
 

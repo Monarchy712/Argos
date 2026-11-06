@@ -32,15 +32,19 @@ const PUSH4 = 0x63;
 export function selectorsFromBytecode(runtimeBytecode: string): Selector[] {
   const hex = runtimeBytecode.startsWith("0x") ? runtimeBytecode.slice(2) : runtimeBytecode;
   if (hex.length === 0 || hex.length % 2 !== 0 || !/^[0-9a-fA-F]*$/.test(hex)) return [];
-  const code = Buffer.from(hex, "hex");
+  // Uint8Array rather than Buffer: the web app runs this on deployed bytecode in the browser, and
+  // both callers must read selectors with exactly the same heuristic.
+  const code = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < code.length; i++) code[i] = Number.parseInt(hex.substr(i * 2, 2), 16);
   const found = new Set<Selector>();
+  const toHex = (bytes: Uint8Array) => [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
   for (let i = 0; i < code.length; i++) {
     const op = code[i]!;
     if (op < PUSH1 || op > PUSH32) continue;
     const width = op - PUSH1 + 1;
     // Only a complete operand counts; a truncated tail at the end of the code is ignored.
     if (op === PUSH4 && i + 4 < code.length) {
-      found.add(`0x${code.subarray(i + 1, i + 5).toString("hex")}` as Selector);
+      found.add(`0x${toHex(code.subarray(i + 1, i + 5))}` as Selector);
     }
     i += width; // skip the operand so its bytes are never read as opcodes
   }

@@ -1,93 +1,148 @@
-import { useEffect, useState, useSyncExternalStore, type ReactElement } from "react";
+/**
+ * Shared primitives. Three rules hold everywhere in Argos and are enforced here rather than
+ * remembered per screen:
+ *
+ *  1. A status is never colour alone. Every badge carries a glyph, a word and a border style.
+ *  2. A status is never timeless. `<AsOf>` sits next to it with the block it was observed at.
+ *  3. Chain data is monospace. Addresses, hashes, blocks and selectors never render in the UI face.
+ */
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import type { Status } from "@driftguard/core";
 import { ARKIV_EXPLORER, CHAINS, SWARM_GATEWAY } from "../lib/config.ts";
-import { transport, routeLabel, restartNym, type TransportSnapshot } from "../lib/transport.ts";
+import { transport, type TransportSnapshot } from "../lib/transport.ts";
+import { Icon, type IconName } from "./icons.tsx";
 
-// ---- status badge: colour + icon + wording + border style all differ ------------------------
-const BADGE: Record<Status, { cls: string; label: string; icon: ReactElement }> = {
-  GREEN: {
-    cls: "badge-green",
-    label: "Verified · no change",
-    icon: (
-      <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden>
-        <path d="M5 13l4 4 10-11" stroke="currentColor" strokeWidth="3.4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    ),
-  },
-  RED: {
-    cls: "badge-red",
-    label: "Change detected",
-    icon: (
-      <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden>
-        <path d="M12 3L2 21h20L12 3z" fill="currentColor" />
-        <path d="M12 10v5M12 18v.01" stroke="#b91c1c" strokeWidth="2.6" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-  NOT_VERIFIED: {
-    cls: "badge-unverified",
-    label: "Not verified",
-    icon: (
-      <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden>
-        <circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" strokeWidth="2.6" />
-        <path d="M9.3 9.4a2.8 2.8 0 1 1 3.6 2.7c-.6.2-.9.7-.9 1.3v.6M12 17.2v.01" stroke="currentColor" strokeWidth="2.4" fill="none" strokeLinecap="round" />
-      </svg>
-    ),
-  },
+export type Tone = "ok" | "bad" | "warn" | "info" | "neutral";
+
+/* ------------------------------------------------------------------ status */
+
+const STATUS: Record<Status, { tone: Tone; label: string; icon: IconName }> = {
+  GREEN: { tone: "ok", label: "Verified", icon: "check" },
+  RED: { tone: "bad", label: "Change detected", icon: "alert" },
+  NOT_VERIFIED: { tone: "warn", label: "Not verified", icon: "question" },
 };
 
+const TONE_CLASS: Record<Tone, string> = { ok: "b-ok", bad: "b-bad", warn: "b-warn", info: "b-info", neutral: "" };
+
 export function StatusBadge({ status, large }: { status: Status; large?: boolean }) {
-  const b = BADGE[status];
+  const s = STATUS[status];
   return (
-    <span className={`badge ${b.cls}${large ? " badge-lg" : ""}`} role="status" aria-label={b.label}>
-      {b.icon}
-      {b.label}
+    <span className={`badge ${TONE_CLASS[s.tone]}${large ? " lg" : ""}`} role="status">
+      <Icon name={s.icon} size={large ? 16 : 13} />
+      {s.label}
     </span>
   );
 }
 
-// ---- addresses / hashes / links -------------------------------------------------------------
-/** Link to one Arkiv entity on the Rabdi explorer (anyone can open it and check $creator). */
-export function ArkivLink({ entityKey, label }: { entityKey: string; label: string }) {
+export function Badge({ tone = "neutral", icon, children, large }: { tone?: Tone; icon?: IconName; children: ReactNode; large?: boolean }) {
   return (
-    <a className="ext-link ext-arkiv" href={`${ARKIV_EXPLORER}/entity/${entityKey}`} target="_blank" rel="noreferrer" title={`Arkiv entity ${entityKey}`}>
-      {label}
-    </a>
+    <span className={`badge ${TONE_CLASS[tone]}${large ? " lg" : ""}`}>
+      {icon && <Icon name={icon} size={large ? 16 : 13} />}
+      {children}
+    </span>
   );
 }
 
-/** Link to the raw bytes of a Swarm reference on the gateway the app reads from. */
-export function SwarmLink({ swarmRef, label = "Swarm" }: { swarmRef: string; label?: string }) {
+export const statusTone = (s: Status): Tone => STATUS[s].tone;
+export const statusLabel = (s: Status): string => STATUS[s].label;
+/** `s-ok` / `s-bad` / `s-warn`, for the severity stripe on rows and cards. */
+export const stripeClass = (s: Status) => `s-${STATUS[s].tone}`;
+
+/**
+ * The line that must accompany every status. A monitoring result is an observation at a block,
+ * not a standing property of the contract, and the UI says so every single time.
+ */
+export function AsOf({ block, at, now, prefix = "as of" }: { block?: bigint | null; at?: number | null; now?: number; prefix?: string }) {
+  if (block == null && at == null) return <span className="asof">no observation recorded</span>;
   return (
-    <a className="ext-link ext-swarm" href={`${SWARM_GATEWAY}/bytes/${swarmRef}`} target="_blank" rel="noreferrer" title={`Swarm reference ${swarmRef}`}>
-      {label}
-    </a>
+    <span className="asof">
+      {prefix}{" "}
+      {block != null && <>block <b>{block.toString()}</b></>}
+      {block != null && at != null && " · "}
+      {at != null && <>checked {ago(at, now)}</>}
+    </span>
   );
 }
+
+/* --------------------------------------------------------------- addresses */
 
 export const short = (v: string, head = 6, tail = 4) => (v && v.length > head + tail + 2 ? `${v.slice(0, head)}…${v.slice(-tail)}` : v);
 
-export function AddressLink({ chainId, address, full }: { chainId: number; address: string; full?: boolean }) {
-  const explorer = CHAINS[chainId]?.explorer;
-  const text = full ? address : short(address, 8, 6);
-  return explorer ? (
-    <a className="addr" href={`${explorer}/address/${address}`} target="_blank" rel="noreferrer" title={address}>
-      {text}
-    </a>
-  ) : (
-    <span className="addr" title={address}>{text}</span>
+export function CopyButton({ value, label }: { value: string; label: string }) {
+  const [done, setDone] = useState(false);
+  const timer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+  return (
+    <button
+      type="button"
+      className={`copy${done ? " done" : ""}`}
+      aria-label={done ? `${label} copied` : `Copy ${label}`}
+      onClick={(e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        void navigator.clipboard.writeText(value).then(
+          () => {
+            setDone(true);
+            toast(`${label} copied`);
+            window.clearTimeout(timer.current);
+            timer.current = window.setTimeout(() => setDone(false), 1400);
+          },
+          () => toast("Clipboard unavailable"),
+        );
+      }}
+    >
+      <Icon name={done ? "check" : "copy"} size={12} />
+    </button>
   );
 }
 
-export function TxLink({ chainId, tx }: { chainId: number; tx: string }) {
+export function AddressLink({
+  chainId, address, full, tone, copy = true, head = 8, tail = 6,
+}: { chainId: number; address: string; full?: boolean; tone?: "bad" | "ok" | "muted"; copy?: boolean; head?: number; tail?: number }) {
   const explorer = CHAINS[chainId]?.explorer;
-  if (!tx) return <span className="muted small">found by slot read (no tx)</span>;
-  return explorer ? (
-    <a className="addr" href={`${explorer}/tx/${tx}`} target="_blank" rel="noreferrer" title={tx}>
-      tx {short(tx, 8, 6)}
+  const text = full ? address : short(address, head, tail);
+  return (
+    <span className={`addr${tone ? ` ${tone}` : ""}`}>
+      {explorer ? (
+        <a className="val" href={`${explorer}/address/${address}`} target="_blank" rel="noreferrer" title={address}>{text}</a>
+      ) : (
+        <span className="val" title={address}>{text}</span>
+      )}
+      {copy && <CopyButton value={address} label="Address" />}
+    </span>
+  );
+}
+
+export function TxLink({ chainId, tx, head = 10, tail = 8 }: { chainId: number; tx: string; head?: number; tail?: number }) {
+  if (!tx) return <span className="dimmer t-12">found by slot read (no transaction)</span>;
+  const explorer = CHAINS[chainId]?.explorer;
+  return (
+    <span className="addr">
+      {explorer ? (
+        <a className="val" href={`${explorer}/tx/${tx}`} target="_blank" rel="noreferrer" title={tx}>{short(tx, head, tail)}</a>
+      ) : (
+        <span className="val" title={tx}>{short(tx, head, tail)}</span>
+      )}
+      <CopyButton value={tx} label="Transaction hash" />
+    </span>
+  );
+}
+
+export function ArkivLink({ entityKey, label = "Arkiv record" }: { entityKey: string; label?: string }) {
+  return (
+    <a className="addr" href={`${ARKIV_EXPLORER}/entity/${entityKey}`} target="_blank" rel="noreferrer" title={`Arkiv entity ${entityKey}`}>
+      <span className="val">{label}</span>
+      <Icon name="external" size={11} />
     </a>
-  ) : (
-    <span className="addr">{short(tx)}</span>
+  );
+}
+
+export function SwarmLink({ swarmRef, label = "Swarm content" }: { swarmRef: string; label?: string }) {
+  return (
+    <a className="addr" href={`${SWARM_GATEWAY}/bytes/${swarmRef}`} target="_blank" rel="noreferrer" title={`Swarm reference ${swarmRef}`}>
+      <span className="val">{label}</span>
+      <Icon name="external" size={11} />
+    </a>
   );
 }
 
@@ -95,13 +150,153 @@ export const chainName = (id: number) => CHAINS[id]?.name ?? `chain ${id}`;
 
 export function ago(unixSeconds: number, now = Date.now() / 1000): string {
   const s = Math.max(0, Math.round(now - unixSeconds));
-  if (s < 90) return `${s} s ago`;
-  if (s < 5400) return `${Math.round(s / 60)} min ago`;
-  if (s < 172800) return `${Math.round(s / 3600)} h ago`;
-  return `${Math.round(s / 86400)} d ago`;
+  if (s < 90) return `${s}s ago`;
+  if (s < 5400) return `${Math.round(s / 60)}m ago`;
+  if (s < 172800) return `${Math.round(s / 3600)}h ago`;
+  return `${Math.round(s / 86400)}d ago`;
 }
 
-// ---- hooks ---------------------------------------------------------------------------------
+/* ------------------------------------------------------------------ layout */
+
+export function Card({ children, className = "", stripe }: { children: ReactNode; className?: string; stripe?: Tone }) {
+  return <div className={`card${stripe ? ` striped s-${stripe}` : ""} ${className}`}>{children}</div>;
+}
+
+export function CardHead({ title, sub, actions, icon }: { title: ReactNode; sub?: ReactNode; actions?: ReactNode; icon?: IconName }) {
+  return (
+    <div className="card-head">
+      {icon && <Icon name={icon} size={16} style={{ color: "var(--ink-3)" }} />}
+      <div className="grow">
+        <div className="sec-title">{title}</div>
+        {sub && <div className="sec-sub" style={{ marginTop: 2 }}>{sub}</div>}
+      </div>
+      {actions}
+    </div>
+  );
+}
+
+export function Metric({ label, value, note, tone, tip }: { label: string; value: ReactNode; note?: ReactNode; tone?: Tone; tip?: string }) {
+  return (
+    <div className={`card metric striped${tone ? ` s-${tone}` : ""}`}>
+      <div className="m-label">
+        <span className="eyebrow">{label}</span>
+        {tip && <Tip text={tip} />}
+      </div>
+      <div className="m-value">{value}</div>
+      {note && <div className="m-note">{note}</div>}
+    </div>
+  );
+}
+
+export function Tip({ text }: { text: ReactNode }) {
+  return (
+    <span className="tip">
+      <button type="button" className="tip-trigger" aria-label="What this means">?</button>
+      <span className="tip-body" role="tooltip">{text}</span>
+    </span>
+  );
+}
+
+export function Callout({ tone = "neutral", icon, children }: { tone?: Tone | "accent"; icon?: IconName; children: ReactNode }) {
+  const cls = tone === "accent" ? "c-accent" : tone === "neutral" ? "" : `c-${tone}`;
+  const fallback: IconName = tone === "bad" ? "alert" : tone === "warn" ? "question" : tone === "ok" ? "check" : "info";
+  return (
+    <div className={`callout ${cls}`}>
+      <Icon name={icon ?? fallback} size={15} />
+      <div>{children}</div>
+    </div>
+  );
+}
+
+/** The AI disclaimer. Deliberately the same plain component on every surface that shows model output. */
+export function AiNote() {
+  return (
+    <div className="ai-note">
+      <Icon name="info" size={12} />
+      <span>AI-generated explanations are informational and are not a security audit or a security verdict.</span>
+    </div>
+  );
+}
+
+export function Empty({ icon = "inbox", title, children, action }: { icon?: IconName; title: string; children?: ReactNode; action?: ReactNode }) {
+  return (
+    <div className="empty">
+      <div className="e-glyph"><Icon name={icon} size={22} /></div>
+      <h3>{title}</h3>
+      {children && <p>{children}</p>}
+      {action}
+    </div>
+  );
+}
+
+export function Skeleton({ lines = 3 }: { lines?: number }) {
+  return (
+    <div className="stack-s" aria-busy="true" aria-live="polite">
+      <span className="sr-only">Loading</span>
+      {Array.from({ length: lines }, (_, i) => (
+        <div key={i} className={`sk h-14 ${i === lines - 1 ? "w-60" : i % 2 ? "w-80" : ""}`} />
+      ))}
+    </div>
+  );
+}
+
+export function SkeletonRows({ rows = 4, cols = 6 }: { rows?: number; cols?: number }) {
+  return (
+    <>
+      {Array.from({ length: rows }, (_, r) => (
+        <tr key={r}>
+          <td className="stripe"><span /></td>
+          {Array.from({ length: cols }, (_, c) => (
+            <td key={c}><div className={`sk h-14 ${c === 0 ? "w-80" : "w-60"}`} /></td>
+          ))}
+        </tr>
+      ))}
+    </>
+  );
+}
+
+/* ---------------------------------------------- the signature comparison rail
+   Baseline on the left, observation on the right, the verdict in the gutter. The same component
+   serves the contract overview, the investigation view and the guard, so the mental model never
+   has to be relearned. */
+
+export function Compare({
+  tone, glyph, verdict, left, right,
+}: {
+  tone: Tone;
+  glyph: IconName;
+  verdict: ReactNode;
+  left: { title: string; sub?: ReactNode; body: ReactNode };
+  right: { title: string; sub?: ReactNode; body: ReactNode };
+}) {
+  return (
+    <div className={`compare v-${tone}`}>
+      <div className="compare-side">
+        <div className="side-head">
+          <span className="eyebrow">{left.title}</span>
+          <Tip text="The implementation you reviewed and chose to trust. Argos never sets this for you." />
+        </div>
+        {left.sub}
+        {left.body}
+      </div>
+      <div className="compare-gutter">
+        <div className="verdict-glyph"><Icon name={glyph} size={19} /></div>
+        {verdict}
+      </div>
+      <div className="compare-side">
+        <div className="side-head">
+          <span className="eyebrow">{right.title}</span>
+          <Tip text="What the watcher last read from the chain, with the block it read at." />
+        </div>
+        {right.sub}
+        {right.body}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------- hooks */
+
 export function useTransport(): TransportSnapshot {
   return useSyncExternalStore(transport.subscribe, transport.get);
 }
@@ -116,61 +311,59 @@ export function useNow(ms = 15_000): number {
   return now;
 }
 
-// ---- transport pill (header) ---------------------------------------------------------------
-export function TransportPill() {
-  const t = useTransport();
-  const [explaining, setExplaining] = useState(false);
-  const nymText =
-    t.nym.state === "ready" ? `ready${t.nym.bootMs ? ` (booted in ${(t.nym.bootMs / 1000).toFixed(1)} s)` : ""}`
-    : t.nym.state === "booting" ? "booting…"
-    : t.nym.state === "failed" ? "failed: checks show Not verified"
-    : "starting…";
+/** Close on outside click or Escape — used by the header menus. */
+export function useDismiss<T extends HTMLElement>(open: boolean, onClose: () => void) {
+  const ref = useRef<T>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open, onClose]);
+  return ref;
+}
+
+/* ------------------------------------------------------------------ toasts */
+
+let toastId = 0;
+const toastListeners = new Set<() => void>();
+let toasts: { id: number; text: string }[] = [];
+
+export function toast(text: string) {
+  const id = ++toastId;
+  toasts = [...toasts, { id, text }];
+  toastListeners.forEach((l) => l());
+  setTimeout(() => {
+    toasts = toasts.filter((t) => t.id !== id);
+    toastListeners.forEach((l) => l());
+  }, 2000);
+}
+
+export function Toasts() {
+  const items = useSyncExternalStore(
+    useCallback((cb: () => void) => {
+      toastListeners.add(cb);
+      return () => toastListeners.delete(cb);
+    }, []),
+    () => toasts,
+    () => toasts,
+  );
+  if (!items.length) return null;
   return (
-    <div className="transport-pill" style={{ position: "relative" }}>
-      <div className="row small">
-        <span className={t.mode === "direct" ? "kind kind-warn" : "kind"} title={routeLabel(t.mode)}>
-          {t.mode === "nym" ? `Live reads: Anon-RPC / Nym · ${nymText}` : "Live reads: direct RPC (not anonymized)"}
-        </span>
-        {t.mode === "nym" ? (
-          <>
-            {t.nym.state === "failed" && (
-              <button className="btn btn-small" onClick={() => void restartNym().catch(() => {})}>
-                Retry Nym
-              </button>
-            )}
-            <button className="btn btn-small" onClick={() => setExplaining((v) => !v)} aria-expanded={explaining}>
-              Use direct RPC
-            </button>
-          </>
-        ) : (
-          <button className="btn btn-small" onClick={() => transport.setMode("nym")}>
-            Back to Nym
-          </button>
-        )}
-      </div>
-      {explaining && t.mode === "nym" && (
-        <div className="card card-pad popover" role="dialog" aria-label="Switch live reads to direct RPC">
-          <div style={{ fontWeight: 700, marginBottom: 6 }}>Switch live reads to direct RPC?</div>
-          <p className="small" style={{ margin: "0 0 10px", color: "var(--text-2)" }}>
-            Live reads go through the Nym mixnet by default, so the RPC provider and the Swarm gateway see a Nym exit instead of
-            your IP. Direct mode is faster (no ~10&nbsp;s tunnel setup) but <b>not anonymized</b>: the provider sees your IP and
-            which contract you are checking. Every result stays labelled with the route it took, and you can switch back at any
-            time. Not saved: a reload returns to Nym.
-          </p>
-          <div className="row">
-            <button
-              className="btn btn-small btn-primary"
-              onClick={() => {
-                transport.setMode("direct");
-                setExplaining(false);
-              }}
-            >
-              Use direct RPC
-            </button>
-            <button className="btn btn-small" onClick={() => setExplaining(false)}>Cancel</button>
-          </div>
+    <div className="toasts" aria-live="polite">
+      {items.map((t) => (
+        <div className="toast" key={t.id}>
+          <Icon name="check" size={13} />
+          {t.text}
         </div>
-      )}
+      ))}
     </div>
   );
 }
