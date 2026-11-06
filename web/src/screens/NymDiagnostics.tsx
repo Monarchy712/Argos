@@ -7,7 +7,7 @@
 import { useEffect, useState } from "react";
 import { IMPLEMENTATION_SLOT } from "@driftguard/core";
 import { CHAINS, DEMO_PROXY, NYM_SPECIFIER } from "../lib/config.ts";
-import { nymOnlyFetch, restartNym, startNym, workerLogs } from "../lib/transport.ts";
+import { nymOnlyFetch, restartNym, startNym, selectHarness, workerLogs, type HarnessVersion } from "../lib/transport.ts";
 import { short, useTransport } from "../components/common.tsx";
 
 /** The demo implementations (contracts/deployments/11155111.json). */
@@ -103,6 +103,7 @@ export function NymDiagnosticsScreen() {
     specifier: NYM_SPECIFIER,
     rpc: RPC_URL,
     target: { chainId: DEMO_PROXY.chainId, proxy: DEMO_PROXY.address, slot: IMPLEMENTATION_SLOT },
+    harness: t.nym.harness,
     bootMs: t.nym.bootMs,
     ok: `${okCount}/${runs.length}`,
     httpStatuses: statuses,
@@ -128,6 +129,19 @@ export function NymDiagnosticsScreen() {
           <dl className="kv">
             <dt>specifier</dt><dd className="mono">{short(NYM_SPECIFIER, 10, 6)} (mainnet)</dd>
             <dt>state</dt><dd><b>{t.nym.state}</b>{t.nym.error ? ` · ${t.nym.error}` : ""}</dd>
+            <dt>harness</dt>
+            <dd>
+              <select
+                aria-label="Harness version"
+                value={t.nym.harness}
+                disabled={running || t.nym.state === "booting"}
+                onChange={(e) => void selectHarness(e.target.value as HarnessVersion).catch(() => {})}
+                style={{ width: "auto", fontFamily: "var(--sans)", padding: "2px 6px" }}
+              >
+                <option value="0.4.0">@anon-rpc/browser-harness 0.4.0 (current)</option>
+                <option value="0.3.3">@anon-rpc/browser-harness 0.3.3 (spike-era)</option>
+              </select>
+            </dd>
             <dt>boot time</dt><dd>{t.nym.bootMs !== null ? `${(t.nym.bootMs / 1000).toFixed(1)} s` : "—"}</dd>
             <dt>page live reads</dt><dd>{t.mode === "nym" ? "Nym (default)" : "direct (switched by viewer)"}</dd>
           </dl>

@@ -11,20 +11,24 @@
  * the spike, so they go direct as one bulk, contract-independent read (see lib/arkiv.ts).
  */
 import { AnonRpcWorker } from "@anon-rpc/browser-harness";
+// Test 4 A/B: harness 0.3.3 (the version the feasibility spike booted Nym with), installed under
+// an npm alias, selectable from the diagnostics screen. Default stays 0.4.0 (current).
+import { AnonRpcWorker as AnonRpcWorkerV033 } from "@anon-rpc/browser-harness-v033";
 import { BOOTSTRAP_RPC_URL, NYM_SPECIFIER } from "./config.ts";
 
 export type Mode = "nym" | "direct";
 export type NymState = "idle" | "booting" | "ready" | "failed";
+export type HarnessVersion = "0.4.0" | "0.3.3";
 
 export interface TransportSnapshot {
   mode: Mode;
-  nym: { state: NymState; bootMs: number | null; error: string | null; startedAt: number | null };
+  nym: { state: NymState; bootMs: number | null; error: string | null; startedAt: number | null; harness: HarnessVersion };
 }
 
 const BOOT_TIMEOUT_MS = 120_000;
 const REQUEST_TIMEOUT_MS = 30_000;
 
-let snapshot: TransportSnapshot = { mode: "nym", nym: { state: "idle", bootMs: null, error: null, startedAt: null } };
+let snapshot: TransportSnapshot = { mode: "nym", nym: { state: "idle", bootMs: null, error: null, startedAt: null, harness: "0.4.0" } };
 const listeners = new Set<() => void>();
 const set = (next: { mode?: Mode; nym?: Partial<TransportSnapshot["nym"]> }) => {
   snapshot = { ...snapshot, ...next, nym: { ...snapshot.nym, ...(next.nym ?? {}) } };
@@ -56,7 +60,13 @@ function hostLog(level: string, text: string) {
 }
 
 // ---- Nym worker lifecycle --------------------------------------------------------------------
-let worker: AnonRpcWorker | null = null;
+interface WorkerLike {
+  ready: Promise<void>;
+  fetch: (url: string, init?: Record<string, unknown>) => Promise<Response>;
+  acceptLog: () => Promise<{ level: string; args: unknown[] }>;
+  close: () => void;
+}
+let worker: WorkerLike | null = null;
 let booting: Promise<void> | null = null;
 
 /** Plain JSON-RPC over direct fetch, used ONLY for the harness bootstrap (specifier read). */
@@ -77,10 +87,12 @@ export function startNym(): Promise<void> {
   if (booting) return booting;
   const startedAt = performance.now();
   set({ nym: { state: "booting", error: null, startedAt: Date.now(), bootMs: null } });
-  hostLog("info", `booting Nym worker (specifier ${NYM_SPECIFIER}, timeout ${BOOT_TIMEOUT_MS / 1000} s)`);
+  const version = snapshot.nym.harness;
+  hostLog("info", `booting Nym worker with harness ${version} (specifier ${NYM_SPECIFIER}, timeout ${BOOT_TIMEOUT_MS / 1000} s)`);
   booting = (async () => {
     try {
-      worker = new AnonRpcWorker({ address: NYM_SPECIFIER, preExisting: { rpcProvider: bootstrapProvider } });
+      const Ctor = (version === "0.3.3" ? AnonRpcWorkerV033 : AnonRpcWorker) as unknown as new (init: object) => WorkerLike;
+      worker = new Ctor({ address: NYM_SPECIFIER, preExisting: { rpcProvider: bootstrapProvider } });
       void collectLogs(worker);
       await withTimeout(worker.ready, BOOT_TIMEOUT_MS, `Nym worker not ready after ${BOOT_TIMEOUT_MS / 1000} s`);
       set({ nym: { state: "ready", bootMs: Math.round(performance.now() - startedAt) } });
@@ -99,6 +111,12 @@ export function startNym(): Promise<void> {
   return booting;
 }
 
+/** Switch harness version (Test 4 A/B) and reboot the worker with it. */
+export function selectHarness(version: HarnessVersion): Promise<void> {
+  set({ nym: { harness: version } });
+  return restartNym();
+}
+
 export function restartNym(): Promise<void> {
   worker?.close();
   worker = null;
@@ -106,7 +124,7 @@ export function restartNym(): Promise<void> {
   return startNym();
 }
 
-async function collectLogs(w: AnonRpcWorker) {
+async function collectLogs(w: WorkerLike) {
   try {
     for (;;) {
       const { level, args } = await w.acceptLog();
