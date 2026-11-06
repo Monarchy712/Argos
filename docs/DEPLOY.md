@@ -2,10 +2,14 @@
 
 Two deployable pieces, and they are deliberately separate:
 
-| Service | What it is | Needs secrets? |
-| --- | --- | --- |
-| **web** | the built static app, served by [`scripts/serve-static.ts`](../scripts/serve-static.ts) | **no** |
-| **watcher** | `watcher/src/main.ts`, the process that writes `dg_current_state` / `dg_latest_change` to Arkiv | **yes** — one key |
+| Piece | Where | Why there | Needs secrets? |
+| --- | --- | --- | --- |
+| **web** | **Vercel** | static files; free, CDN-served, zero config for a Vite build | **no** |
+| **watcher** | **Railway** | a persistent process. Vercel only runs serverless functions that time out, so it cannot host this at all | **yes** — one key |
+
+Don't put the site on Railway: it bills uptime for what is five static files, and Railway's $5
+credit is better spent on the watcher. Don't try to put the watcher on Vercel: it is a loop that
+must stay running.
 
 The web service holds no keys and talks to nothing: the browser reads Arkiv, Swarm and the chain
 itself. The watcher is the only part that signs anything.
@@ -22,23 +26,29 @@ because `dg_current_state` rows expire. That is the intended fail-closed behavio
 rather say "I don't know" than show a stale green — but it means a hosted site with a dead
 watcher looks broken. Deploy the watcher, not just the site.
 
-## Railway
+## Vercel (the web app)
 
-Both services live in one Railway project. The repo carries two config files because a Railway
-service picks one:
+`vercel.json` holds everything: build with `npm install --no-audit --no-fund && npm run build`,
+publish `web/dist`. Import the GitHub repo in Vercel and accept the detected settings — no
+environment variables, because the browser does all the reading itself.
 
-- `railway.json` → the **web** service (`npm ci && npm run build`, then `node scripts/serve-static.ts`)
-- `railway.watcher.json` → the **watcher** service (`npm ci`, then `node watcher/src/main.ts`)
+There are deliberately **no rewrites**. The app has no client-side routing (the tabs are React
+state, not URLs), so a catch-all rewrite to `index.html` would only hide genuine 404s.
 
-Point the watcher service at the second file with **Settings → Config-as-code →
-`railway.watcher.json`**.
+`scripts/serve-static.ts` is not used by Vercel. It stays for self-hosting — see the last section.
+
+## Railway (the watcher)
+
+`railway.json` is the **watcher** config, because the watcher is the only thing Railway runs.
+Railway reads that filename by default, so a service connected to this repo picks it up with no
+config-as-code setting to hunt for. (`railway.web.json` is kept only for anyone who wants to host
+the site on Railway too.)
 
 ### Steps
 
-1. Create an empty Railway project, then two services inside it named `web` and `watcher`.
-2. Connect both to this GitHub repo.
-3. On `watcher`, set config-as-code to `railway.watcher.json`.
-4. Set the watcher's variables (dashboard, not the CLI — a private key on a command line ends up
+1. Create a Railway project with one service connected to this repo.
+2. Do **not** generate a domain for it — the watcher has no HTTP port.
+3. Set its variables (dashboard, not the CLI — a private key on a command line ends up
    in the process list):
 
    | Variable | Why |
@@ -49,8 +59,10 @@ Point the watcher service at the second file with **Settings → Config-as-code 
    | `MAINNET_RPC_URL` | reads the 30 mainnet proxies |
    | `SEPOLIA_RPC_URL` | reads the 2 Sepolia demo proxies |
 
-   The `web` service needs **no variables at all**.
-5. Deploy. `web` gets a public URL; `watcher` has no port and should not be given one.
+4. Deploy, then confirm in the logs that cycles are running with `"failed":0`.
+
+Run only **one** watcher at a time. Two processes signing with the same key race to write the
+same `dg_current_state` rows, so stop the local one once Railway's is live.
 
 ### Two Nixpacks gotchas we hit, and why the config looks like it does
 
