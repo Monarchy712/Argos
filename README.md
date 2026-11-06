@@ -69,7 +69,7 @@ npm ci && npm run dev    # http://localhost:5180
 | **Monitored contracts** | One bulk Arkiv read per trusted writer (the same for every visitor, so Arkiv doesn't learn which contract you care about). Shows status badge, protocol, proxy kind, detection mode, baseline vs current implementation, latest change with tx link, and the ERC-8176 descriptor hash. |
 | **Check a transaction** | Paste `{chainId, to, data}` or a raw transaction. Shows the raw calldata and the readable ERC-7730 intent. The descriptor's path, commit and hashes come from the **Arkiv registry mirror**, and the file is fetched and checked against them before `@ethereum-sourcify/clear-signing` renders it. Also shows risky-calldata flags (upgrades, `changeMasterCopy`, Safe `operation=1`) and a status from the watcher's Arkiv record plus a live code-identity read. |
 | **Browse mirror** | Filter the mirrored registry by chain, protocol, descriptor kind, proxy kind and "monitored". Each filter is an Arkiv query, and the queries run are shown on screen. |
-| **Nym diagnostics** | Boots the Anon-RPC Nym worker and runs Test 4: 20 slot reads with boot time, success count, HTTP statuses, p50/p95. |
+| **Nym diagnostics** | Boots the Anon-RPC Nym worker and runs Test 4: 20 slot reads with boot time, success count, HTTP statuses, p50/p95. Last run: 60/60 over three runs, p95 2.4–3.6 s. |
 
 **Status badges.** Each state differs in colour, icon, border and wording:
 - **Verified · no change**: a fresh watcher record (≤ 5 min) matches the baseline, and any live read agrees. This means "no change seen as of block N", not "safe".
@@ -77,7 +77,7 @@ npm ci && npm run dev    # http://localhost:5180
 - **Not verified**: no record, an expired or stale record, an unsupported proxy, a failed live read, or a contract that isn't monitored. The reason is always shown.
 - A contract that went A→B→A shows *"Matches baseline now, but a change was previously detected (block N)."*
 
-**Privacy routing.** Live chain reads and descriptor downloads go **direct by default**, labelled "direct RPC (not anonymized)" in the header and on every result. **Try Nym (experimental)** routes them through Anon-RPC over the Nym mixnet instead. In that mode a check **fails closed** (Not verified, with the reason) if the Nym worker isn't ready, and never falls back to direct on its own. Nym was meant to be the default, but at ETHGlobal Mumbai its worker never became ready (two networks, three harness versions; see [Test 4](docs/TEST_REPORT.md#test-4--anon-rpc-over-nym--fail-2026-11-06-0800-ist)). Arkiv reads are always direct, keyless, bulk and contract-independent (see below).
+**Privacy routing.** Live chain reads and descriptor downloads go **direct by default**, labelled "direct RPC (not anonymized)" in the header and on every result. **Try Nym (experimental)** routes them through Anon-RPC over the Nym mixnet instead. In that mode a check **fails closed** (Not verified, with the reason) if the Nym worker isn't ready, and never falls back to direct on its own. Nym was meant to be the default. Its worker never became ready for most of the event ([Test 4](docs/TEST_REPORT.md#test-4--anon-rpc-over-nym--fail-2026-11-06-0800-ist)), then on a retest at 11:37–11:43 IST it worked: **60/60 reads, p95 2.4–3.6 s, 4/5 cold boots ready**, including a full Check where both the chain read and the Swarm descriptor download went through the mixnet and the descriptor still passed its hash check ([retest](docs/test-runs/test4-nym-pass.txt)). Direct stays the default because a cold boot costs 10–14 s, the first read another ~15 s, and 1 boot in 5 failed outright — not because the path is broken. Arkiv reads are always direct, keyless, bulk and contract-independent (see below).
 
 **Descriptor storage.** Descriptor metadata (path, registry commit, raw-file keccak, ERC-8176 hash, attestation status, **Swarm reference**) comes from the Arkiv mirror written by the [importer](importer/src/import.ts). The descriptor itself is fetched **from Swarm** by the `swarm_ref` on its Arkiv row ([`importer/src/swarm.ts`](importer/src/swarm.ts) uploads the resolved JCS bytes), and `keccak256(bytes)` must equal the ERC-8176 hash on that row, or it is rejected. If Swarm can't be reached, the app falls back to the registry file at the pinned commit (checked against `file_sha`), and the provenance panel says so. A hash mismatch never falls back. A copy of the index ships with the app ([`web/public/registry-index.json`](web/public/registry-index.json)) and is used, with a visible label, only if Arkiv can't be reached. Details: [arkiv/swarm.md](arkiv/swarm.md).
 
@@ -203,7 +203,7 @@ claim Argos shows can be checked independently, and when evidence is missing it 
 - **S (security, the lead):** a descriptor renders only if `keccak256(bytes)` equals the ERC-8176 hash our writer published on Arkiv (tampered bytes are rejected, demo on the Check screen). Status comes from rows by two published `$creator` keys, which expire 10 minutes after a dead watcher's last write, and from the user's own live slot read, which must agree. The browser holds no keys; operator keys stay in a gitignored `.env`. Trust assumptions: our two keys, and RPC answers (cross-checked by the live read). Status is "as of block N" ([TOCTOU](docs/ARCHITECTURE.md#6-toctou-and-other-limitations-stated-plainly-in-the-readme)).
 - **C (censorship resistance):** you depend on our watcher process and writer key, the Arkiv Rabdi testnet, a public Ethereum RPC, and the Swarm gateway. If the watcher stops or refuses you, contracts turn **Not verified** within 10 minutes (no false green). Baselines, the mirror and Swarm content stay readable without us, and the static app runs from any host. A forked watcher with its own keys can replace ours.
 - **O (open source):** MIT ([LICENSE](LICENSE)); descriptors are CC0. Builds and runs from this repo alone: `npm ci && npm run dev`, no keys needed to use the app or run the read-only queries. Exact-pinned npm deps; Foundry deps as pinned submodules.
-- **P (privacy):** no trackers or analytics. Live chain reads go **direct by default** (labelled "not anonymized"), so the RPC provider sees your IP and the contract you check. The Swarm gateway (or GitHub, on fallback) sees your IP and which descriptor you fetch. Arkiv sees your IP but not the contract (bulk, contract-independent reads; see the table below). Nym (Anon-RPC) is opt-in and fails closed, but didn't boot at the event.
+- **P (privacy):** no trackers or analytics. Live chain reads go **direct by default** (labelled "not anonymized"), so the RPC provider sees your IP and the contract you check. The Swarm gateway (or GitHub, on fallback) sees your IP and which descriptor you fetch. Arkiv sees your IP but not the contract (bulk, contract-independent reads; see the table below). Nym (Anon-RPC) is opt-in and fails closed; it is verified working (60/60 reads on retest) and hides your IP from both the RPC provider and the Swarm gateway, at the cost of a 10–14 s boot.
 
 ### Details and trade-offs
 
@@ -221,9 +221,11 @@ claim Argos shows can be checked independently, and when evidence is missing it 
 - **Trade-off: direct Arkiv reads.** Arkiv's RPC didn't answer through the Nym exit in our spike,
   so the app reads Arkiv directly, in bulk, keyless, with identical queries for every visitor.
 - **Trade-off: direct live reads.** Nym was meant to be the default for chain reads and descriptor
-  downloads. Its worker never became ready at the venue
-  ([Test 4](docs/TEST_REPORT.md#test-4--anon-rpc-over-nym--fail-2026-11-06-0800-ist)), so we chose
-  working-and-labelled over silently-broken.
+  downloads. Its worker never became ready for most of the event
+  ([Test 4](docs/TEST_REPORT.md#test-4--anon-rpc-over-nym--fail-2026-11-06-0800-ist)); a retest at
+  11:37 IST passed 60/60. We kept direct as the default on the retest numbers: 10–14 s to boot the
+  tunnel, ~15 s for the first read, and 1 of 5 boots failing — a Nym-by-default build would greet
+  some visitors with Not verified. Nym is one click away, labelled, and fails closed.
 
 ### Demo moments (video)
 1. A descriptor **fetched from Swarm** passes its hash check against Arkiv, and the intent renders (Check → Aave supply).

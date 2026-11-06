@@ -8,9 +8,55 @@ output is committed under `docs/test-runs/`.
 | 3 — proxy detection | **PASS** on Sepolia (10/10) and local anvil | [sepolia](test-runs/test3-sepolia.txt) · [sepolia phase 2](test-runs/test3-sepolia-phase2.txt) · [local](test-runs/test3-local.txt) |
 | 2 — Arkiv records | **PASS** (9/9, keyed run: 0×429; keyless run found the 429 cost limit) | [keyed](test-runs/test2-rabdi-keyed.txt) · [keyless](test-runs/test2-rabdi.txt) |
 | E2E — watcher → Arkiv (Sepolia) | **PASS** (5/5 + expiry) | [e2e-arkiv-sepolia.txt](test-runs/e2e-arkiv-sepolia.txt) |
-| 4 — Nym reads | **FAIL**: the Nym worker never became ready (venue Wi-Fi and a phone hotspot, harness 0.4.0 and 0.3.3) → EF target switches to CROPS | see below |
+| 4 — Nym reads | **PASS on retest** (11:37–11:43 IST): 60/60 reads, p95 2.4–3.6 s per run, 4/5 cold boots ready. It had **FAILED** at ~08:00 IST (worker never ready); both records are kept below | [retest](test-runs/test4-nym-pass.txt) · see below |
 | Guard demo (controlled) | **PASS**: forge 11/11; on Sepolia a guarded call passes at ImplA and reverts with `ImplementationChanged` at ImplB (nothing runs); UI simulation shows both | [deploy](test-runs/guard-deploy-sepolia.txt) · [demo](test-runs/guard-demo-sepolia.txt) · see below |
 | 1 — Swarm | **PASS** via the public gateway (gateway stamp): 746/746 uploaded, each read back and keccak-checked, refs on Arkiv, browser reads Swarm first. Own batch: pending the booth | [swarm-upload-gateway.txt](test-runs/swarm-upload-gateway.txt) · see below |
+
+---
+
+## Test 4 (retest) — Anon-RPC over Nym — PASS (2026-11-06 11:37–11:43 IST)
+
+Same goal and same pass bar as the 08:00 run below: 20 sequential `eth_getStorageAt` reads of the
+Sepolia demo proxy's implementation slot through the Nym worker, ≥ 18/20 ok and p95 < 10 s.
+Raw output: [test4-nym-pass.txt](test-runs/test4-nym-pass.txt).
+
+**Result: PASS, three times over.** Nothing in Argos changed between the FAIL and this retest — the
+laptop was re-cloned from scratch this morning and the code is identical. The difference is on the
+Nym/CDN side, not ours.
+
+| Run | Boot before it | Success | p50 | p95 | HTTP |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 14.3 s | **20/20** | 0.77 s | 2.42 s | 200×20 |
+| 2 | 12.7 s | **20/20** | 0.92 s | 2.51 s | 200×20 |
+| 3 | 9.9 s | **20/20** | 0.78 s | 3.60 s | 200×20 |
+
+**Cold boots:** 5 attempted, **4 reached ready** (14.3 s, 12.7 s, 9.9 s, 9.9 s). The one failure was
+`Failed to fetch` after ~5 s while the harness downloaded the ~18 MB worker bundle from the CDN —
+it fails fast and a Restart fixed it, and it is not a mixnet failure. Every successful boot logged
+`nym tunnel ready`, a line that never appeared in any of the four 08:00 attempts.
+
+**Cost shape:** the *first* read after a cold boot consistently costs 14.0–15.7 s; every read after
+that is 0.59–3.60 s (p50 ~0.8 s over the other 57 reads). So the price of anonymized reads here is a
+one-off ~10–15 s tunnel setup plus ~15 s on the first request, then roughly a second per read.
+
+**End to end in the app, not just the diagnostics screen.** With the header switched to Nym, Check →
+"Aave v3: supply 100 USDC" returned `VERIFIED · NO CHANGE`, "Live check at block 26353926 · 12267 ms ·
+via Anon-RPC (Nym mixnet)", the intent rendered ("Supply · 100 USDC · recipient 0x…dEaD"), and the
+descriptor was fetched **from Swarm through the mixnet** and still passed its hash check:
+`✓ Swarm registry/aave/calldata-lpv3.json · resolved JCS bytes match the ERC-8176 hash on Arkiv`.
+
+**What we did *not* change, and why.** Live reads still default to **direct RPC, labelled
+"not anonymized"**, with Nym one click away and failing closed. Three reasons, all measured above:
+a cold boot costs 10–14 s before the first check can even start, the first read adds another ~15 s,
+and 1 of 5 boots failed outright — a visitor who lands on a Nym-by-default build during that failure
+sees Not verified instead of a result. Working-and-labelled still beats slower-and-sometimes-broken
+as a default. What changed is the honesty of the claim: Nym is now a **verified working** option
+rather than an untested one.
+
+**Still open:** why the worker hung at 08:00 and not now. We did not establish a cause, so we can't
+claim it is fixed — only that it worked 4/5 times across 20 minutes at 11:37–11:43 IST. The ask to
+the anon-rpc / Nym teams is unchanged and is in [`arkiv/friction.md`](../arkiv/friction.md) §6: a
+boot-progress or heartbeat log, so a silent hang can be told apart from a slow one.
 
 ---
 
@@ -298,6 +344,11 @@ writes), so its 1.92 tGLM last ~40 h. Enough for the deadline, but a top-up is a
 
 ## Test 4 — Anon-RPC over Nym — FAIL (2026-11-06 ~08:00 IST)
 
+> **Superseded by the 11:37–11:43 retest above, which passed.** This record is kept because it is
+> what we actually saw for most of the event, and because the investigation below is still the only
+> evidence we have about *why* the worker can hang. (The heading is left unchanged so existing links
+> to this section keep working.)
+
 **Goal:** 20 sequential `eth_getStorageAt` reads of the Sepolia demo proxy's implementation slot
 through the Nym worker, ≥ 18/20 ok and p95 < ~10 s.
 
@@ -342,4 +393,9 @@ mixnet client further.
 The app is unchanged in one respect: in Nym mode a check fails closed (Not verified, with the reason)
 and never falls back silently. Changes to the fix were committed: fail fast after a failed boot,
 boot-progress display, and a harness A/B switch.
+
+**Update (11:43 IST):** the retest above passed 60/60. The EF target stays **Best CROPS App** — the
+CROPS work is what we actually built and documented over the day — and direct stays the default for
+the reasons measured in the retest. Nym is now an opt-in path we have verified end to end rather
+than one we only tried.
 

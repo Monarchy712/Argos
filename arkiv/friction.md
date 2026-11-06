@@ -112,21 +112,40 @@ large" (or split it automatically).
 - **Arkiv's RPC didn't answer through the Nym exit** in our spike (0/25), while Ethereum RPCs did. So
   we designed Arkiv reads as one bulk, contract-independent, keyless read. If Arkiv endpoints
   accepted mixnet exits, a privacy-focused app could read Arkiv anonymously too.
-- **At the event, the Nym Anon-RPC worker never became ready at all** (Test 4). We timeboxed it to 45
-  minutes; full detail is in [`docs/TEST_REPORT.md`](../docs/TEST_REPORT.md#test-4--anon-rpc-over-nym--fail-2026-11-06-0800-ist).
-  - Same result on venue Wi-Fi and a phone hotspot, with `@anon-rpc/browser-harness` 0.4.0, 0.3.3
-    and 0.3.2 (the version that booted in 10 s in our spike a day earlier).
-  - Everything before the worker runs works: the specifier returns the expected `workerHash`, the
-    18 MB bundle downloads in 0.3 s and matches it, the Nym API serves the topology (629 entry gateways),
-    and sampled gateways accept TCP on 9000/9001/443.
-  - The worker's outer layer only logs when `setupMixTunnel` throws, and we saw no log lines and no
-    console errors. So the nested tunnel worker (a blob Worker inside the sandboxed iframe's worker)
-    hangs silently. Chrome reported 5–10 s main-thread tasks while the worker was being set up.
-  - **Consequence:** live reads default to direct RPC, labelled "not anonymized". Nym stays one click
-    away and fails closed. We changed our EF target from Anon-RPC to CROPS.
+- **The Nym Anon-RPC worker never became ready for most of the event — then, on the same laptop and
+  the same code, it suddenly did.** At ~08:00 it failed four times in a row (Test 4). At 11:37–11:43
+  it booted 4 times out of 5 and served **60/60 reads** at p95 2.4–3.6 s, including a full
+  Check in the app where both the chain read and the Swarm descriptor download went through the
+  mixnet and the descriptor still passed its ERC-8176 hash check. Full detail:
+  [`docs/TEST_REPORT.md`](../docs/TEST_REPORT.md) (the retest section, and the original FAIL below it).
+  - **We never established what changed.** Nothing in Argos did. That is itself the friction: with no
+    progress signal from the worker, "hung" and "slow" and "CDN blip" are indistinguishable, so we
+    could neither debug the failure nor explain the recovery.
+  - The failure mode we *could* name: one of the five retest boots died with `Failed to fetch` after
+    ~5 s while pulling the ~18 MB worker bundle from the CDN. That one is legible, fails fast, and a
+    retry fixed it.
+  - **Cost shape, now that it works:** ~10–14 s cold boot, then ~15 s for the first request, then
+    ~0.8 s per read. The one-off setup, not the per-read cost, is what makes it unsuitable as a
+    default for a page a judge opens once.
+  - Detail from the original failing run (still the only evidence about the hang itself):
+    - Same result on venue Wi-Fi and a phone hotspot, with `@anon-rpc/browser-harness` 0.4.0, 0.3.3
+      and 0.3.2 (the version that booted in 10 s in our spike a day earlier).
+    - Everything before the worker runs worked: the specifier returned the expected `workerHash`, the
+      18 MB bundle downloaded in 0.3 s and matched it, the Nym API served the topology (629 entry
+      gateways), and sampled gateways accepted TCP on 9000/9001/443.
+    - The worker's outer layer only logs when `setupMixTunnel` throws, and we saw no log lines and no
+      console errors. So the nested tunnel worker (a blob Worker inside the sandboxed iframe's worker)
+      hung silently. Chrome reported 5–10 s main-thread tasks while the worker was being set up.
+    - Every *successful* boot in the retest logged `nym tunnel ready`. That line never appeared in any
+      of the four failing attempts — so the hang is inside tunnel setup, before that point.
+  - **Consequence:** live reads still default to direct RPC, labelled "not anonymized", because of the
+    boot cost above, not because Nym is broken. Nym is one click away, fails closed, and is now
+    verified end to end. Our EF target stays CROPS, which is what we built and documented.
   - **Ask (to the anon-rpc / Nym teams):** a boot-progress or heartbeat log from the worker (or a
     harness-level boot timeout that reports the last phase reached). A silent hang is the hardest
-    failure to debug in a sandboxed, nested worker.
+    failure to debug in a sandboxed, nested worker — and it is what kept us from explaining either
+    the 08:00 failure or the 11:37 recovery. A second ask, smaller: make the bundle download a
+    distinct, retryable error, since that one *is* legible and we hit it once in five boots.
 
 ## What worked well
 

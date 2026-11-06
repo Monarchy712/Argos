@@ -263,3 +263,40 @@ way. Times are IST. Each entry points at the commits it covers.
 - Fixed while testing: `demo-upgrade.sh` uses `cast send` (forge hit repeated `block not found` from the
   load-balanced RPC) and waits for 2 confirmations, after a rebaseline in the same block recorded the old
   implementation (re-run correctly).
+
+### 11:34 · Session restart on a fresh clone; watcher back up
+- The machine had been re-cloned: no `node_modules`, no `.cache/`, no `watcher/state/`, nothing
+  running. `npm install`, then restarted the live watcher (Arkiv sink) detached.
+- Every `dg_current_state` row had expired while the watcher was down, so Arkiv showed **32 baselines
+  but 0 fresh states** — which is the system behaving as designed: a dead watcher reads as
+  NOT VERIFIED, never as a stale green. Two cycles later all **32/32** were fresh again
+  (30 mainnet written, 2 Sepolia, 0 failed).
+- Both Sepolia demo proxies confirmed on-chain at **ImplA** (`version() = "A"`): the video proxy
+  `0xb8E5…BFF5` and the guard proxy `0x3c93…D669`.
+- `git submodule update --init --recursive` was needed before `forge test` (fresh clone).
+
+### 11:43 · P9 (2): Anon-RPC over Nym retested — now PASSES (Test 4)
+- Same laptop, same venue, **identical code** to the ~08:00 run that failed four times. Nothing in
+  Argos changed between them.
+- Three runs of 20 reads: **60/60 ok, HTTP 200×60**, p95 **2.42 / 2.51 / 3.60 s** — all under the
+  10 s bar. 4 of 5 cold boots reached ready (14.3, 12.7, 9.9, 9.9 s); the one failure was
+  `Failed to fetch` on the ~18 MB worker-bundle download, which fails fast and retries cleanly.
+  Every successful boot logged `nym tunnel ready`, a line absent from all four 08:00 attempts.
+- **End to end in the app, not just the diagnostics screen:** with the header switched to Nym,
+  Check → Aave v3 supply returned `VERIFIED · NO CHANGE`, "Live check at block 26353926 · 12267 ms ·
+  via Anon-RPC (Nym mixnet)", the intent rendered, and the descriptor was fetched **from Swarm
+  through the mixnet** and still passed its ERC-8176 hash check.
+- **Default unchanged: direct RPC, labelled.** On the retest numbers a cold boot costs 10–14 s, the
+  first read another ~15 s, and 1 boot in 5 fails — a Nym-by-default build would greet some visitors
+  with Not verified. What changed is the honesty of the claim: Nym is now a *verified working*
+  opt-in path, not an untested one. EF target stays **Best CROPS App**.
+- **We did not establish why it failed at 08:00 or why it works now**, and we don't claim it is
+  fixed. That gap is the feedback to the anon-rpc / Nym teams: without a boot-progress or heartbeat
+  log, "hung", "slow" and "CDN blip" are indistinguishable.
+- Raw output: `docs/test-runs/test4-nym-pass.txt`. The original FAIL write-up is kept in
+  `docs/TEST_REPORT.md` under its original heading, with the retest above it.
+- Updated: TEST_REPORT (summary row + retest section), `arkiv/friction.md` §6, README (privacy
+  routing, CROPS "P", trade-offs, screens table), SUBMISSION (what-didn't-work, CROPS P, EF
+  feedback), PITCH Q13.
+- Freeze-pass checks all green on the fresh clone: `npm run typecheck`, `npm test` **38/38**,
+  `npm run build`, `web` `tsc --noEmit`, `forge test` **11/11**.

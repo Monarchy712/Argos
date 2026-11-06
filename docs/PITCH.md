@@ -106,9 +106,13 @@ queries and filters locally. The README has a table of what each third party lea
 reads are direct by default and labelled "not anonymized".
 
 **13. You targeted Anon-RPC and it didn't work. Why should we believe the privacy story?**
-We don't sell a privacy story; Security is the lead. We tried Nym for 45 minutes across two
-networks and three harness versions, wrote up where it hangs, and chose working-and-labelled over
-silently-broken. Nym stays one click away and fails closed. It never falls back to direct silently.
+We don't sell a privacy story; Security is the lead. Nym's worker wouldn't boot for most of the
+event — two networks, three harness versions — so we shipped direct-and-labelled rather than
+silently-broken. It then started working on a retest: 4 of 5 cold boots, 60/60 reads, p95 2.4–3.6 s,
+and a full Check with both the chain read and the Swarm descriptor fetch over the mixnet. You can
+run that yourself on the Nym diagnostics tab. We kept direct as the default on the numbers, not the
+mood: 10–14 s to boot, ~15 s for the first read, 1 boot in 5 failing. Nym is one click away, labelled,
+and fails closed — it never falls back to direct silently.
 
 **14. How do you know your mirror is correct?**
 Every ERC-8176 hash is computed twice (our JCS and the reference library); any mismatch aborts.

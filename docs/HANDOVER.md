@@ -4,7 +4,7 @@
 the *Current state* and *Next steps* sections below and commit. Judges read `UPDATES.md` (the
 build log); this file is for whoever is driving the build next.
 
-Last updated: **Nov 6 2026, 09:51 IST** (ETHGlobal Mumbai).
+Last updated: **Nov 6 2026, 11:50 IST** (ETHGlobal Mumbai).
 
 ---
 
@@ -91,16 +91,40 @@ Owner chose: **guard on a new, separate Sepolia proxy** (the video's demo proxy 
 - `scripts/demo-upgrade.sh` now uses `cast send` with retries (forge hit `block not found`) and waits for 2
   confirmations, so a rebaseline right after it records the new implementation.
 
+### P9 (2) Nym retest: DONE — Test 4 now PASSES (11:37–11:43 IST)
+
+The machine was re-cloned before this session, so the first job was `npm install`,
+`git submodule update --init --recursive`, and restarting the watcher.
+
+- **60/60 reads over three runs**, HTTP 200×60, p95 2.42 / 2.51 / 3.60 s (bar: ≥18/20, p95 < 10 s).
+  4 of 5 cold boots ready (14.3, 12.7, 9.9, 9.9 s); the one failure was `Failed to fetch` on the
+  18 MB bundle download, not the mixnet. Code identical to the 08:00 FAIL run.
+- Verified **end to end in the app**: Check → Aave supply in Nym mode gave `VERIFIED · NO CHANGE`,
+  live read at block 26353926 in 12.3 s via the mixnet, and the Swarm descriptor fetch *also* went
+  through Nym and still passed its ERC-8176 hash check.
+- **Default deliberately unchanged** (direct RPC, labelled): 10–14 s boot + ~15 s first read + 1-in-5
+  boot failures would mean some visitors land on Not verified. EF target stays **Best CROPS App**.
+- Cause of the original failure / the recovery: **not established**, and not claimed to be fixed.
+- Raw: `docs/test-runs/test4-nym-pass.txt`. Docs updated: TEST_REPORT (row + retest section above the
+  preserved FAIL section), `arkiv/friction.md` §6, README ×4, SUBMISSION ×2, PITCH Q13.
+
 ### Live state right now
 
-- Video demo proxy `0xb8E5525eF80cEEC29Bf8598e303F71077361BFF5`: **ImplA** (version "A").
-  Its Arkiv row has `ever_changed_since_baseline = true` from rehearsals; the video script rebaselines it before recording.
-- Guard demo proxy: **ImplA**, clean baseline at block 12074155.
-- Live watcher (Arkiv sink) runs in the background as `node --env-file=.env watcher/src/main.ts`,
-  logging to `watcher/state/live.log`. A leftover test watcher (`node watcher/src/main.ts`, started
-  by `scripts/test3.sh`, file sink only, harmless) is also running; the owner should stop it.
-- Dev server: `npm run dev` on http://localhost:5180 (already running in the owner's terminal).
+- Video demo proxy `0xb8E5525eF80cEEC29Bf8598e303F71077361BFF5`: **ImplA** (`version() = "A"`,
+  checked on-chain 11:35 IST). Its Arkiv row has `ever_changed_since_baseline = true` from
+  rehearsals; the video script rebaselines it before recording.
+- Guard demo proxy `0x3c93e603bbeD9Dc2Af817BC2D98Bc1D35CF1D669`: **ImplA** (`version() = "A"`),
+  clean baseline at block 12074155.
+- Arkiv: **32 baselines, 32/32 fresh** (re-verified 11:46 IST).
+- Live watcher (Arkiv sink) restarted at 11:35 IST, detached via `setsid nohup`, logging to
+  `watcher/state/live.log`. Cycles are clean (`"failed":0`). It replayed Sepolia history from an
+  empty cursor on first start, which is expected on a fresh clone. **No leftover test watcher
+  exists any more** — that item from the previous session is moot.
+- Dev server: `npm run dev -w web` on http://localhost:5180 (started this session via the
+  preview tool, config in `.claude/launch.json`).
 - Deployer Sepolia balance: ~0.012 ETH. Writer tGLM: enough (patches cost ~0.0005 each).
+- `contracts/foundry.lock` is now gitignored: `forge` regenerates it from the submodule revisions
+  that `.gitmodules` already pins.
 
 ---
 
@@ -108,14 +132,22 @@ Owner chose: **guard on a new, separate Sepolia proxy** (the video's demo proxy 
 
 1. ~~Finish the guard UI check~~ done.
 2. ~~Document P9 (1)~~ done.
-3. **P9 (2): one more Nym attempt, strict 30-minute timebox.** Record the result in TEST_REPORT
-   (Test 4) and friction.md either way. Don't change the direct-by-default behaviour unless Nym works
-   reliably (≥18/20 reads, p95 < 10 s on the Nym diagnostics screen).
-4. **Freeze pass (by 22:00):** `npm run typecheck`, `npm test`, `npm run build`,
-   `(cd contracts && forge test)`, `(cd web && npx tsc --noEmit -p .)`; all 32 fresh on Arkiv; final
-   README read-through; push; tell the owner **"ready to record"**.
+3. ~~P9 (2): one more Nym attempt~~ done — it **passed**; see the section above.
+4. **Freeze pass (by 22:00):** in progress. All five checks already green on this fresh clone at
+   11:40 IST — `npm run typecheck`, `npm test` (38/38), `npm run build`,
+   `(cd contracts && forge test)` (11/11), `(cd web && npx tsc --noEmit -p .)`. Remaining: all 32
+   fresh on Arkiv immediately before handing over, a final README read-through, push, and tell the
+   owner **"ready to record"**.
 
 ## Waiting on the owner
+
+- **Nym now works — does that change anything you want?** The EF target is currently **Best CROPS
+  App** and live reads are direct-by-default. The retest numbers (60/60 reads, but a 10–14 s boot
+  and 1-in-5 boot failures) support keeping both as they are, which is what the docs now say.
+  Options if you disagree: (a) keep as is — recommended, lowest risk at T-10h and the CROPS work is
+  what we actually built; (b) keep direct default but add a Nym beat to the video, ~20 s of extra
+  runtime, no code change; (c) switch the default to Nym — needs a code change inside the freeze and
+  risks a Not-verified first impression. I have written everything up as (a).
 
 - **Swarm booth batch (optional, improves the bonus):** if `BEE_API_URL` and `SWARM_POSTAGE_BATCH_ID`
   appear in `.env`, run `npm run swarm -w importer -- ../.cache/registry --restamp`. It re-uploads under

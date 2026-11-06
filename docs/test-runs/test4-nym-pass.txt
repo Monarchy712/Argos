@@ -1,0 +1,152 @@
+Test 4 — Anon-RPC over Nym — RETEST
+ETHGlobal Mumbai, 2026-11-06, 11:37–11:43 IST
+Recorded from the Argos "Nym diagnostics" screen (http://localhost:5180), Chromium.
+
+Harness:    @anon-rpc/browser-harness 0.4.0
+Specifier:  0x3aCD9742C68F6d993066Ae25533e09b9e1f60eD0 (mainnet)
+Target:     eth_getStorageAt(0xb8E5525eF80cEEC29Bf8598e303F71077361BFF5, EIP-1967 impl slot)
+            on Sepolia via ethereum-sepolia-rpc.publicnode.com, sequential
+Pass bar:   >= 18/20 ok and p95 < 10 s
+
+Network/venue note: same laptop and venue as the 2026-11-06 ~08:00 IST FAIL run, on a
+machine re-cloned from scratch this morning (fresh node_modules). Nothing in Argos changed
+between the FAIL and this retest.
+
+----------------------------------------------------------------------------------
+WORKER BOOTS (cold, via "Restart worker")
+----------------------------------------------------------------------------------
+#   time        result                                  boot
+1   11:37:05    ready                                   14263 ms
+2   11:38:30    failed: "Failed to fetch" after ~5 s    —        (worker-bundle download, not the mixnet)
+3   11:38:58    ready                                   12659 ms
+4   11:41:49    ready                                    9927 ms
+5   11:42:07    ready                                    9872 ms
+
+4/5 cold boots reached ready; median of the successful boots ~12.7 s.
+The one failure was the harness fetching the ~18 MB worker bundle from the CDN, which
+fails fast and is retried by clicking Restart. It was not a mixnet/tunnel failure.
+
+Host log lines (verbatim):
+  [11:37:05 AM] host info: booting Nym worker with harness 0.4.0 (specifier 0x3aCD9742C68F6d993066Ae25533e09b9e1f60eD0, timeout 120 s)
+  [11:37:19 AM] host info: Nym worker ready in 14263 ms
+  [11:37:19 AM] info: nym tunnel ready
+  [11:38:30 AM] host info: booting Nym worker with harness 0.4.0 (specifier 0x3aCD9742C68F6d993066Ae25533e09b9e1f60eD0, timeout 120 s)
+  [11:38:35 AM] host error: Nym worker failed: Failed to fetch
+  [11:38:58 AM] host info: booting Nym worker with harness 0.4.0 (specifier 0x3aCD9742C68F6d993066Ae25533e09b9e1f60eD0, timeout 120 s)
+  [11:39:11 AM] host info: Nym worker ready in 12659 ms
+  [11:41:49 AM] host info: Nym worker ready in 9927 ms
+  [11:42:07 AM] host info: Nym worker ready in 9872 ms
+
+The 2026-11-06 ~08:00 FAIL runs produced "Nym worker not ready after 120 s" and no
+`nym tunnel ready` line. That line is present in every successful boot above.
+
+----------------------------------------------------------------------------------
+RUN 1 — after boot #1 (14.3 s)       VERDICT: PASS
+----------------------------------------------------------------------------------
+Success 20/20   p50 0.77 s   p95 2.42 s   HTTP 200 x 20
+
+#   RESULT  HTTP  TIME      IMPLEMENTATION
+1   ok      200   14024 ms  ImplA 0xcea052…12910f
+2   ok      200     613 ms  ImplA 0xcea052…12910f
+3   ok      200    2361 ms  ImplA 0xcea052…12910f
+4   ok      200     612 ms  ImplA 0xcea052…12910f
+5   ok      200     615 ms  ImplA 0xcea052…12910f
+6   ok      200     707 ms  ImplA 0xcea052…12910f
+7   ok      200     789 ms  ImplA 0xcea052…12910f
+8   ok      200     673 ms  ImplA 0xcea052…12910f
+9   ok      200     743 ms  ImplA 0xcea052…12910f
+10  ok      200     998 ms  ImplA 0xcea052…12910f
+11  ok      200     812 ms  ImplA 0xcea052…12910f
+12  ok      200     772 ms  ImplA 0xcea052…12910f
+13  ok      200     671 ms  ImplA 0xcea052…12910f
+14  ok      200     862 ms  ImplA 0xcea052…12910f
+15  ok      200     766 ms  ImplA 0xcea052…12910f
+16  ok      200    2424 ms  ImplA 0xcea052…12910f
+17  ok      200     782 ms  ImplA 0xcea052…12910f
+18  ok      200     635 ms  ImplA 0xcea052…12910f
+19  ok      200     787 ms  ImplA 0xcea052…12910f
+20  ok      200     847 ms  ImplA 0xcea052…12910f
+
+----------------------------------------------------------------------------------
+RUN 2 — after boot #3 (12.7 s)       VERDICT: PASS
+----------------------------------------------------------------------------------
+Success 20/20   p50 0.92 s   p95 2.51 s   HTTP 200 x 20
+
+#   RESULT  HTTP  TIME      IMPLEMENTATION
+1   ok      200   15222 ms  ImplA 0xcea052…12910f
+2   ok      200    1113 ms  ImplA 0xcea052…12910f
+3   ok      200     875 ms  ImplA 0xcea052…12910f
+4   ok      200    1318 ms  ImplA 0xcea052…12910f
+5   ok      200     841 ms  ImplA 0xcea052…12910f
+6   ok      200     873 ms  ImplA 0xcea052…12910f
+7   ok      200     995 ms  ImplA 0xcea052…12910f
+8   ok      200     916 ms  ImplA 0xcea052…12910f
+9   ok      200     823 ms  ImplA 0xcea052…12910f
+10  ok      200     790 ms  ImplA 0xcea052…12910f
+11  ok      200     825 ms  ImplA 0xcea052…12910f
+12  ok      200     800 ms  ImplA 0xcea052…12910f
+13  ok      200    1859 ms  ImplA 0xcea052…12910f
+14  ok      200    2509 ms  ImplA 0xcea052…12910f
+15  ok      200    1762 ms  ImplA 0xcea052…12910f
+16  ok      200     727 ms  ImplA 0xcea052…12910f
+17  ok      200    1006 ms  ImplA 0xcea052…12910f
+18  ok      200     803 ms  ImplA 0xcea052…12910f
+19  ok      200    1117 ms  ImplA 0xcea052…12910f
+20  ok      200     967 ms  ImplA 0xcea052…12910f
+
+----------------------------------------------------------------------------------
+RUN 3 — after boot #5 (9.9 s)        VERDICT: PASS
+----------------------------------------------------------------------------------
+Success 20/20   p50 0.78 s   p95 3.60 s   HTTP 200 x 20
+
+#   RESULT  HTTP  TIME      IMPLEMENTATION
+1   ok      200   15693 ms  ImplA 0xcea052…12910f
+2   ok      200     700 ms  ImplA 0xcea052…12910f
+3   ok      200     740 ms  ImplA 0xcea052…12910f
+4   ok      200     972 ms  ImplA 0xcea052…12910f
+5   ok      200    1207 ms  ImplA 0xcea052…12910f
+6   ok      200     689 ms  ImplA 0xcea052…12910f
+7   ok      200     804 ms  ImplA 0xcea052…12910f
+8   ok      200     653 ms  ImplA 0xcea052…12910f
+9   ok      200     769 ms  ImplA 0xcea052…12910f
+10  ok      200     735 ms  ImplA 0xcea052…12910f
+11  ok      200     803 ms  ImplA 0xcea052…12910f
+12  ok      200     590 ms  ImplA 0xcea052…12910f
+13  ok      200     776 ms  ImplA 0xcea052…12910f
+14  ok      200     967 ms  ImplA 0xcea052…12910f
+15  ok      200    3601 ms  ImplA 0xcea052…12910f
+16  ok      200     878 ms  ImplA 0xcea052…12910f
+17  ok      200     651 ms  ImplA 0xcea052…12910f
+18  ok      200     939 ms  ImplA 0xcea052…12910f
+19  ok      200     720 ms  ImplA 0xcea052…12910f
+20  ok      200    1272 ms  ImplA 0xcea052…12910f
+
+----------------------------------------------------------------------------------
+TOTALS
+----------------------------------------------------------------------------------
+60/60 reads ok, HTTP 200 x 60, every read returned the expected implementation (ImplA).
+Per-run p95: 2.42 s / 2.51 s / 3.60 s — all under the 10 s bar.
+Consistent pattern: the FIRST read after a cold boot costs 14.0–15.7 s; every read after
+that is 0.59–3.60 s. Excluding each run's first read, p50 is ~0.8 s over 57 reads.
+
+----------------------------------------------------------------------------------
+END-TO-END IN THE APP (not just the diagnostics screen)
+----------------------------------------------------------------------------------
+Header switched to "Try Nym (experimental)" -> confirm -> "Live reads: Anon-RPC / Nym ·
+ready (booted in 12.7 s)". Check -> "Aave v3: supply 100 USDC (mainnet, monitored)":
+
+  VERIFIED · NO CHANGE
+  Live check at block 26353926 · 12267 ms · via Anon-RPC (Nym mixnet)
+  Watcher verified at block 26353917, 2 min ago, no change from baseline.
+  A live read at block 26353926 matches the baseline.
+  This is no change seen as of that block, not a guarantee about future blocks.
+
+  Readable intent (ERC-7730): Supply · Amount to supply 100 USDC ·
+  Collateral recipient 0x000000000000000000000000000000000000dEaD
+
+  Files fetched via Anon-RPC (Nym mixnet), each checked against the keccak256 on Arkiv:
+  ✓ Swarm registry/aave/calldata-lpv3.json · resolved JCS bytes match the ERC-8176 hash on Arkiv
+
+So both the live chain read AND the Swarm descriptor download went through the mixnet, and
+the descriptor still passed its ERC-8176 hash check. Arkiv reads stayed direct by design
+(one bulk, contract-independent, keyless read — see arkiv/friction.md §6).

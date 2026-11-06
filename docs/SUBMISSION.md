@@ -79,9 +79,13 @@ TypeScript end to end, Node 24, npm workspaces, everything exact-pinned.
   A Windows CRLF checkout changed every file hash; the browser's own integrity check caught it on its
   first run. The public Swarm gateway turned out to accept stampless uploads, which got content on
   Swarm before we had our own postage batch.
-- **What didn't work:** Anon-RPC over Nym was meant to be the default for live reads. Its worker
-  never became ready at the venue (two networks, three harness versions), so live reads are
-  direct by default, labelled "not anonymized", and Nym is opt-in and fails closed.
+- **What didn't work, then did:** Anon-RPC over Nym was meant to be the default for live reads. Its
+  worker never became ready for most of the event (two networks, three harness versions), so we made
+  live reads direct by default, labelled "not anonymized", with Nym opt-in and failing closed. On a
+  retest at 11:37 IST the same code booted 4 times out of 5 and served 60/60 reads at p95 2.4–3.6 s,
+  including a Check where both the chain read and the Swarm descriptor download went through the
+  mixnet. We never found out what changed, so we kept direct as the default — a 10–14 s boot plus a
+  ~15 s first read is the wrong thing to put in front of someone opening the page once.
 
 ---
 
@@ -131,15 +135,19 @@ without us. The other three properties, with honest trade-offs:
 **C:** static app, public data on Arkiv and Swarm; if our watcher stops or refuses you, you see Not verified, not a stale green.
 **O:** MIT, builds and runs from the repo with no keys.
 **P:** no trackers. Arkiv reads are bulk and contract-independent. Live chain reads are direct by default
-(labelled), because Anon-RPC/Nym didn't boot at the event; Nym stays opt-in and fails closed.
-The full CROPS section and a per-third-party privacy table are in the README.
+(labelled) because of Anon-RPC/Nym's boot cost, not its correctness; Nym is opt-in, fails closed, and
+is verified working (60/60 reads). The full CROPS section and a per-third-party privacy table are in the README.
 
 **Feedback (EF / Anon-RPC).** The specifier lookup, the 18 MB bundle download and its hash check
 all worked. The Nym worker then hung silently, with no log lines and no console errors, on venue
-Wi-Fi and a phone hotspot, with harness 0.4.0, 0.3.3 and 0.3.2. A boot-progress log or a harness-level
-boot timeout that reports the last phase reached would have turned an hour of guessing into a
-bug report. Arkiv's RPC didn't answer through the Nym exit in our spike either, so mixed
-anonymized/direct apps need endpoint support on both sides. Details: `docs/TEST_REPORT.md` (Test 4).
+Wi-Fi and a phone hotspot, with harness 0.4.0, 0.3.3 and 0.3.2 — and then, hours later, the same
+code booted fine 4 times out of 5 and served 60/60 reads at p95 2.4–3.6 s. We could explain neither
+the failure nor the recovery, which is the actual feedback: a boot-progress log, or a harness-level
+boot timeout that reports the last phase reached, would have turned an hour of guessing into a bug
+report. (One boot in five died with `Failed to fetch` on the bundle download — that error *is*
+legible and retryable, and we'd like the tunnel to fail the same way.) Arkiv's RPC didn't answer
+through the Nym exit in our spike either, so mixed anonymized/direct apps need endpoint support on
+both sides. Details: `docs/TEST_REPORT.md` (Test 4 and the retest above it).
 
 ---
 
