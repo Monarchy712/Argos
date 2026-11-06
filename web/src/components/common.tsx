@@ -1,7 +1,7 @@
 import { useEffect, useState, useSyncExternalStore, type ReactElement } from "react";
 import type { Status } from "@driftguard/core";
 import { ARKIV_EXPLORER, CHAINS, SWARM_GATEWAY } from "../lib/config.ts";
-import { transport, routeLabel, type TransportSnapshot } from "../lib/transport.ts";
+import { transport, routeLabel, restartNym, type TransportSnapshot } from "../lib/transport.ts";
 
 // ---- status badge: colour + icon + wording + border style all differ ------------------------
 const BADGE: Record<Status, { cls: string; label: string; icon: ReactElement }> = {
@@ -124,40 +124,48 @@ export function TransportPill() {
     t.nym.state === "ready" ? `ready${t.nym.bootMs ? ` (booted in ${(t.nym.bootMs / 1000).toFixed(1)} s)` : ""}`
     : t.nym.state === "booting" ? "booting…"
     : t.nym.state === "failed" ? "failed: checks show Not verified"
-    : "starts on first live read";
+    : "starting…";
   return (
     <div className="transport-pill" style={{ position: "relative" }}>
       <div className="row small">
         <span className={t.mode === "direct" ? "kind kind-warn" : "kind"} title={routeLabel(t.mode)}>
           {t.mode === "nym" ? `Live reads: Anon-RPC / Nym · ${nymText}` : "Live reads: direct RPC (not anonymized)"}
         </span>
-        {t.mode === "direct" ? (
-          <button className="btn btn-small" onClick={() => setExplaining((v) => !v)} aria-expanded={explaining}>
-            Try Nym (experimental)
-          </button>
+        {t.mode === "nym" ? (
+          <>
+            {t.nym.state === "failed" && (
+              <button className="btn btn-small" onClick={() => void restartNym().catch(() => {})}>
+                Retry Nym
+              </button>
+            )}
+            <button className="btn btn-small" onClick={() => setExplaining((v) => !v)} aria-expanded={explaining}>
+              Use direct RPC
+            </button>
+          </>
         ) : (
-          <button className="btn btn-small" onClick={() => transport.setMode("direct")}>
-            Back to direct
+          <button className="btn btn-small" onClick={() => transport.setMode("nym")}>
+            Back to Nym
           </button>
         )}
       </div>
-      {explaining && t.mode === "direct" && (
-        <div className="card card-pad popover" role="dialog" aria-label="Route live reads through Nym">
-          <div style={{ fontWeight: 700, marginBottom: 6 }}>Route live reads through Anon-RPC / Nym?</div>
+      {explaining && t.mode === "nym" && (
+        <div className="card card-pad popover" role="dialog" aria-label="Switch live reads to direct RPC">
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>Switch live reads to direct RPC?</div>
           <p className="small" style={{ margin: "0 0 10px", color: "var(--text-2)" }}>
-            Chain reads and descriptor downloads would go through the Nym mixnet, so providers see a Nym exit instead of your IP.
-            If the Nym worker can't start, checks <b>fail closed</b> (Not verified); they never quietly fall back to direct. In our
-            tests at ETHGlobal Mumbai the worker didn't become ready, so this is experimental. Not saved: a reload returns to direct.
+            Live reads go through the Nym mixnet by default, so the RPC provider and the Swarm gateway see a Nym exit instead of
+            your IP. Direct mode is faster (no ~10&nbsp;s tunnel setup) but <b>not anonymized</b>: the provider sees your IP and
+            which contract you are checking. Every result stays labelled with the route it took, and you can switch back at any
+            time. Not saved: a reload returns to Nym.
           </p>
           <div className="row">
             <button
               className="btn btn-small btn-primary"
               onClick={() => {
-                transport.setMode("nym");
+                transport.setMode("direct");
                 setExplaining(false);
               }}
             >
-              Use Nym
+              Use direct RPC
             </button>
             <button className="btn btn-small" onClick={() => setExplaining(false)}>Cancel</button>
           </div>

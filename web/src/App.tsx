@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { TransportPill } from "./components/common.tsx";
+import { primeNym } from "./lib/transport.ts";
 import { MonitoredScreen, useArkiv, useManifest } from "./screens/Monitored.tsx";
 import { CheckTxScreen } from "./screens/CheckTx.tsx";
 import { NymDiagnosticsScreen } from "./screens/NymDiagnostics.tsx";
@@ -19,6 +20,8 @@ export function App() {
   const [tab, setTab] = useState<Tab>("monitored");
   const arkiv = useArkiv();
   const manifest = useManifest();
+  // Boot the Nym worker while the viewer reads this page, so the first check doesn't wait for it.
+  useEffect(() => primeNym(), []);
   return (
     <div className="app">
       <header className="topbar">

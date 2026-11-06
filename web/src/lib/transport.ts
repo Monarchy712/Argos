@@ -1,14 +1,18 @@
 /**
  * How the app reaches chains and descriptor mirrors.
  *
- *  - "direct" (default since Test 4 failed, see docs/TEST_REPORT.md): plain fetch, labelled
- *    "direct RPC, not anonymized" on every result and in the header.
- *  - "nym" (opt-in): every request goes through an AnonRpcWorker running the Nym anon-client in
- *    a sandboxed null-origin iframe. If Nym isn't ready or fails, the request FAILS. There is no
- *    silent fallback to direct RPC; the UI then shows NOT VERIFIED with the reason. In our tests
- *    the Nym worker never became ready (two networks, three harness versions), so this stays
- *    available for retesting, not as the default. The choice is never saved: a reload returns
- *    to direct.
+ *  - "nym" (DEFAULT): every request goes through an AnonRpcWorker running the Nym anon-client in
+ *    a sandboxed null-origin iframe, so the RPC provider and the Swarm gateway see a Nym exit
+ *    instead of the viewer's IP. If Nym isn't ready or fails, the request FAILS. There is no
+ *    silent fallback to direct RPC; the UI then shows NOT VERIFIED with the reason.
+ *  - "direct" (explicit opt-out): plain fetch, labelled "direct RPC, not anonymized" on every
+ *    result and in the header. Neither choice is saved: a reload returns to the Nym default.
+ *
+ * Why Nym is the default again. It was demoted to opt-in when the worker wouldn't boot at all
+ * (Test 4, ~08:00 IST). The 11:37 retest passed 60/60 reads at p95 2.4-3.6 s, and the only boot
+ * failure in five was a CDN error fetching the worker bundle, which a retry fixed. So we boot the
+ * worker EAGERLY on page load (while the viewer reads the page, long before they press Check) and
+ * RETRY fast failures automatically. See docs/TEST_REPORT.md.
  *
  * Arkiv reads are the one disclosed exception: Arkiv's RPC didn't answer through the Nym exit in
  * the spike, so they go direct as one bulk, contract-independent read (see lib/arkiv.ts).
@@ -31,8 +35,16 @@ export interface TransportSnapshot {
 
 const BOOT_TIMEOUT_MS = 120_000;
 const REQUEST_TIMEOUT_MS = 30_000;
+/** Boot attempts before we give up and fail closed. */
+const BOOT_ATTEMPTS = 3;
+/**
+ * A boot that fails faster than this is the worker-bundle download (the one failure we saw in five
+ * retest boots was `Failed to fetch` after ~5 s), not the mixnet. Those are worth retrying; a full
+ * 120 s tunnel timeout is not, so retrying only fast failures keeps the worst case at one timeout.
+ */
+const FAST_FAILURE_MS = 30_000;
 
-let snapshot: TransportSnapshot = { mode: "direct", nym: { state: "idle", bootMs: null, error: null, startedAt: null, harness: "0.4.0" } };
+let snapshot: TransportSnapshot = { mode: "nym", nym: { state: "idle", bootMs: null, error: null, startedAt: null, harness: "0.4.0" } };
 const listeners = new Set<() => void>();
 const set = (next: { mode?: Mode; nym?: Partial<TransportSnapshot["nym"]> }) => {
   snapshot = { ...snapshot, ...next, nym: { ...snapshot.nym, ...(next.nym ?? {}) } };
@@ -94,25 +106,42 @@ export function startNym(): Promise<void> {
   const version = snapshot.nym.harness;
   hostLog("info", `booting Nym worker with harness ${version} (specifier ${NYM_SPECIFIER}, timeout ${BOOT_TIMEOUT_MS / 1000} s)`);
   booting = (async () => {
-    try {
-      const Ctor = (version === "0.3.2" ? AnonRpcWorkerV032 : version === "0.3.3" ? AnonRpcWorkerV033 : AnonRpcWorker) as unknown as new (init: object) => WorkerLike;
-      worker = new Ctor({ address: NYM_SPECIFIER, preExisting: { rpcProvider: bootstrapProvider } });
-      void collectLogs(worker);
-      await withTimeout(worker.ready, BOOT_TIMEOUT_MS, `Nym worker not ready after ${BOOT_TIMEOUT_MS / 1000} s`);
-      set({ nym: { state: "ready", bootMs: Math.round(performance.now() - startedAt) } });
-      hostLog("info", `Nym worker ready in ${Math.round(performance.now() - startedAt)} ms`);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      set({ nym: { state: "failed", error: message } });
-      hostLog("error", `Nym worker failed: ${message}`);
-      worker?.close();
-      worker = null;
-      // Keep the rejected promise: later requests fail immediately instead of each waiting out
-      // another boot timeout. Only an explicit restart (button / switching back to Nym) retries.
-      throw err;
+    for (let attempt = 1; ; attempt++) {
+      const attemptStart = performance.now();
+      try {
+        const Ctor = (version === "0.3.2" ? AnonRpcWorkerV032 : version === "0.3.3" ? AnonRpcWorkerV033 : AnonRpcWorker) as unknown as new (init: object) => WorkerLike;
+        worker = new Ctor({ address: NYM_SPECIFIER, preExisting: { rpcProvider: bootstrapProvider } });
+        void collectLogs(worker);
+        await withTimeout(worker.ready, BOOT_TIMEOUT_MS, `Nym worker not ready after ${BOOT_TIMEOUT_MS / 1000} s`);
+        set({ nym: { state: "ready", bootMs: Math.round(performance.now() - startedAt) } });
+        hostLog("info", `Nym worker ready in ${Math.round(performance.now() - startedAt)} ms${attempt > 1 ? ` (attempt ${attempt})` : ""}`);
+        return;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        worker?.close();
+        worker = null;
+        const elapsed = performance.now() - attemptStart;
+        if (attempt < BOOT_ATTEMPTS && elapsed < FAST_FAILURE_MS) {
+          hostLog("warn", `boot attempt ${attempt} failed after ${(elapsed / 1000).toFixed(1)} s (${message}); retrying`);
+          continue;
+        }
+        set({ nym: { state: "failed", error: message } });
+        hostLog("error", `Nym worker failed after ${attempt} attempt${attempt > 1 ? "s" : ""}: ${message}`);
+        // Keep the rejected promise: later requests fail immediately instead of each waiting out
+        // another boot timeout. Only an explicit restart (button / switching back to Nym) retries.
+        throw err;
+      }
     }
   })();
   return booting;
+}
+
+/**
+ * Start the worker as soon as the page loads, so the first check doesn't pay the ~10-14 s tunnel
+ * setup. Safe to call repeatedly; does nothing in direct mode or once a boot is under way.
+ */
+export function primeNym(): void {
+  if (snapshot.mode === "nym" && snapshot.nym.state === "idle") void startNym().catch(() => {});
 }
 
 /** Switch harness version (Test 4 A/B) and reboot the worker with it. */
