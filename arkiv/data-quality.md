@@ -12,11 +12,30 @@ At registry commit `ef582c2f03bfbd062b7e3889b55dd3b45c3d5494`:
 
 | Entity | Rows | One per | Key fields |
 | --- | --- | --- | --- |
-| `dg_descriptor` | **768** = 617 calldata + 129 EIP-712 + 22 include files | registry file (`registry/**`, `ercs/**`; tests and `sigs/` excluded) | `descriptor_hash` (ERC-8176), `file_sha`, `registry_path`, `registry_commit`, `entity_dir`, `kind`, `attestation`, `storage_mode` = `registry`, `swarm_ref` = "" (until Swarm) |
+| `dg_descriptor` | **768** = 617 calldata + 129 EIP-712 + 22 include files | registry file (`registry/**`, `ercs/**`; tests and `sigs/` excluded) | `descriptor_hash` (ERC-8176), `file_sha`, `registry_path`, `registry_commit`, `entity_dir`, `kind`, `attestation`, `storage_mode` = `swarm` + `swarm_ref` (746 descriptors; content on Swarm, see [swarm.md](swarm.md)) or `registry` (22 include files) |
 | `dg_deployment` | **2,675** | (chain, contract address, descriptor hash) from each descriptor's `context.contract.deployments` / `context.eip712.deployments` | `chain_id`, `address`, `descriptor_hash`, `proxy_kind`, `monitored`, `registry_commit` |
 
 All rows are written by the writer wallet `0x623EdFf351EB13aCCFc56cBf541eE4D45BDADCf4`; readers
 filter on it with `.createdBy(...)`.
+
+## Can people filter it the way they search for it?
+
+The questions people actually ask of the registry, and the Arkiv query that answers each. Every
+field below is indexed (ⓘ in [schema.md](schema.md)). Each is a filter in the **Browse mirror**
+screen (which prints the query it ran) or one command:
+
+| People ask | Arkiv query (writer's rows only) | Try it |
+| --- | --- | --- |
+| "Is there a descriptor for this contract?" (what a wallet asks before signing) | `dg_deployment WHERE chain_id = 1 AND address = 0x8787…` → `dg_descriptor WHERE descriptor_hash = …` | `node scripts/query-mirror.ts deployments 1 0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2` |
+| "Which attestations no longer match the file?" | `dg_descriptor WHERE attestation = "stale"` | `node scripts/query-mirror.ts stale` |
+| "Everything from one protocol" | `dg_descriptor WHERE entity_dir = "safe"` | `node scripts/query-mirror.ts protocol safe` |
+| "Which deployments on chain X are upgradeable proxies?" | `dg_deployment WHERE chain_id = 1 AND proxy_kind = "beacon"` | Browse → chain + proxy kind |
+| "Which descriptors does Argos monitor?" | `dg_deployment WHERE monitored = true` | Browse → monitored |
+| "Which EIP-712 descriptors exist?" | `dg_descriptor WHERE kind = "eip712"` | Browse → kind |
+| "Has the code behind this descriptor changed?" | `dg_current_state WHERE chain_id = … AND address = …` (watcher's rows) | `node scripts/show-arkiv.ts` |
+
+Not filterable by design: free text (owner names are stored but not indexed), and proxy kind for
+non-mainnet chains (`unchecked` rather than guessed).
 
 ## How each row is checked at import
 
@@ -41,6 +60,13 @@ filter on it with `.createdBy(...)`.
 
 ## How it stays current
 
+**Is it up to date now?** Yes. The mirror's commit `ef582c2` is the registry's `master` HEAD as of
+Nov 6, 08:55 IST. Check it yourself: `git ls-remote https://github.com/ethereum/clear-signing-erc7730-registry master`
+should print `ef582c2f…`, and `node scripts/query-mirror.ts stale` shows `@ef582c2` on every row. If
+upstream moves, re-running the importer on the new commit patches unchanged rows to it and adds
+new ones (below). Today the re-run is manual; running it on every upstream push (a scheduled job)
+is the obvious next step.
+
 - **Re-runnable and idempotent.** The importer first reads every row the writer already published,
   then creates only missing rows and patches changed ones. A second run on the same commit plans
   **0 creates**. See [Verification](#verification-run) below.
@@ -51,6 +77,9 @@ filter on it with `.createdBy(...)`.
   `sigs/`), proxy kind, `monitored` (when a baseline is added), protocol folder.
 - **Resumable.** Writes go in `executeBatch` transactions of 20 ops (halved automatically on HTTP 413).
   An interrupted run resumes from whatever is on Arkiv.
+- **Content on Swarm.** `npm run swarm -w importer` uploads the resolved bytes of any descriptor
+  row not yet on Swarm and records `swarm_ref`, so new registry versions get content too. Each upload
+  is read back and keccak-checked against `descriptor_hash` before the ref is written.
 - **Renewal.** All mirror rows use the maximum lifetime (~182 days); `npm run renew -w watcher`
   extends any with less than 30 days left.
 

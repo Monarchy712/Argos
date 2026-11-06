@@ -89,6 +89,9 @@ mainnet; `unchecked` for other chains), `monitored` ⓘ bool (a baseline exists)
 | `renew` | `$expiresAt < head + 30 days` per schema, by owner |
 | Web app, Check | whole mirror (`dg_descriptor` + `dg_deployment`) by writer, paged, once per session; fallback: one contract's rows (shown on screen) |
 | Web app, Browse | `dg_deployment` by `chain_id` / `proxy_kind` / `monitored`; `dg_descriptor` by `entity_dir` / `kind`, then deployments by OR of `descriptor_hash` |
+| Swarm step (`npm run swarm -w importer`) | all of its own `dg_descriptor` rows (`registry_path`, `descriptor_hash`, `storage_mode`, `swarm_ref`) to find rows not yet on Swarm; then patches `swarm_ref` + `storage_mode` |
+| Web app, Check (descriptor fetch) | `swarm_ref` + `descriptor_hash` from the cached mirror read → `GET {gateway}/bytes/{swarm_ref}`, keccak must equal `descriptor_hash` |
+| `scripts/query-mirror.ts` | `dg_descriptor` by `attestation` / `entity_dir`; `dg_deployment` by `chain_id` + `address` |
 | Importer | all of its own `dg_descriptor` / `dg_deployment` rows (to plan creates vs patches), all baselines (for `monitored`) |
 
 ## Expiry
@@ -97,7 +100,7 @@ Arkiv max lifetime is 7,884,000 blocks ≈ 182.5 days (2 s blocks).
 
 | Entity | Expiry | Renewal |
 | --- | --- | --- |
-| `dg_baseline`, `dg_descriptor`, `dg_deployment`, `dg_latest_change` | `ExpirationTime.max()` (~182 days) | `npm run renew -w watcher` extends anything with < 30 days left; re-running the importer patches rows still in the registry |
+| `dg_baseline`, `dg_descriptor`, `dg_deployment`, `dg_latest_change` | `ExpirationTime.max()` (~182 days) | `npm run renew -w watcher` extends anything with < 30 days left (a patch alone never moves expiry, so importer re-runs don't renew) |
 | `dg_current_state` | **10 minutes**, extended on every write (every 120 s, or at once on change) | none on purpose: if the watcher stops, the row expires and clients show **NOT VERIFIED** |
 
 Updates use one `executeBatch` per cycle. A patch never moves expiry, so each current_state

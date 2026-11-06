@@ -197,3 +197,16 @@ way. Times are IST. Each entry points at the commits it covers.
   unreachable it falls back to the registry (labelled); a hash mismatch is rejected. All three paths were checked in the browser.
 - `arkiv/swarm.md` written. Open item: put the content under the booth's own batch with `--restamp`
   (same references, no Arkiv change) once `BEE_API_URL` / `SWARM_POSTAGE_BATCH_ID` are set.
+
+### ~09:30 · Arkiv docs pass (P3)
+- `reach.md` gains the numbers the rubric asks for: 95 registry contributors, 559 commits, 222 forks,
+  4,310 monthly npm downloads of `@ethereum-sourcify/clear-signing`, and 2,060 contracts on 151 chains from 85
+  protocol folders.
+- `why-arkiv.md` opens with direct answers to "what would people lose on Postgres" and "what can
+  they do that GitHub can't". A claim about running your own watcher was made precise (it needs a fork with your own
+  addresses in `trust.ts`).
+- `data-quality.md`: "is it up to date" answered with a check anyone can run, plus a table of real
+  search questions → the Arkiv query → a command or Browse filter.
+- `friction.md`: expected / happened / reproduce for each breakage.
+- `schema.md`: Swarm fields and queries. Corrected a wrong claim: importer re-runs don't renew expiry
+  (a patch never moves it). Renewal is `npm run renew` only.

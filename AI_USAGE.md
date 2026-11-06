@@ -35,6 +35,9 @@ human decided, reviewed or did by hand. It is kept up to date as the build goes 
 | `web/` (screens, transport, descriptor resolver, Arkiv read, styles) | generated; verified in the in-app browser | specified the screens, Nym-by-default with no silent fallback, the resolver interface for Swarm, and badge requirements |
 | `scripts/build-registry-index.ts`, `web/public/registry-index.json` | generated and run | — |
 | `importer/` (registry reader, Arkiv import, verifier) | generated and run | specified idempotency, resumability, abort-on-hash-mismatch, and the verification (counts + 10 spot-checks vs GitHub) |
+| `importer/src/swarm.ts`, `web/src/lib/descriptors.ts` (`SwarmFirstSource`), `arkiv/swarm.md` | generated and run; found that the public gateway accepts stampless uploads; verified Swarm read, tamper rejection and fallback in the in-app browser | set the Swarm plan (JCS bytes, one hash for Swarm + ERC-8176, never encrypted refs on Arkiv, registry fallback) |
+| `scripts/query-mirror.ts` | generated and run | — |
+| Rename DriftGuard → Argos (user-facing only) | applied | chose the name; ruled that `dg_*` schemas, env names and cursor files keep the working name |
 | `arkiv/friction.md`, `reach.md`, `why-arkiv.md`, `data-quality.md` | drafted from test evidence and re-read registry issues | set what each must cover; review pending |
 | `README.md`, `UPDATES.md`, `docs/TEST_REPORT.md`, `arkiv/*.md` | drafted | reviewed; final wording |
 | `.env` (not committed) | generated wallet keys locally | funded wallets; added the Arkiv access key |

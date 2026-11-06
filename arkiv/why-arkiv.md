@@ -4,6 +4,27 @@ Argos publishes evidence that wallets and people rely on when deciding whether t
 rendered transaction. Four Arkiv properties carry that job, and each one shows up as something
 the user sees.
 
+## The short answer
+
+**If this data sat in our Postgres, people could no longer:**
+- trust a green badge after we stop: a dead watcher's rows would keep saying "OK". On Arkiv they
+  expire, and every client shows **Not verified** within 10 minutes (§1);
+- check who wrote a row without trusting our server. On Arkiv, `$creator` is part of every
+  entity, so clients filter on two published keys (§2);
+- query it without asking us for an API key, or keep using it if we shut down (§3, §4);
+- run their own watcher on the same public schema and point clients at it (§4).
+
+**What people can do with our copy that they can't do with the registry on GitHub today:**
+- **Filter it**: "every mainnet beacon-proxy deployment", "every stale attestation", "every
+  descriptor bound to this address" are single Arkiv queries
+  (`node scripts/query-mirror.ts stale`, or the **Browse mirror** screen). On GitHub you clone
+  and parse 768 files.
+- **See the proxy binding the registry doesn't record**: each deployment row carries its proxy kind,
+  and each monitored contract has a baseline, current state and latest change.
+- **Fetch the content without GitHub**: each `dg_descriptor` row points at the resolved descriptor
+  on Swarm (`swarm_ref`) and carries the ERC-8176 hash that the bytes must match
+  ([swarm.md](swarm.md)).
+
 ## 1. Expiry is the freshness signal → the "Not verified" badge
 
 `dg_current_state` rows expire **10 minutes** after the watcher's last write. A healthy watcher
@@ -35,8 +56,8 @@ the same query with the wrong creator returns 0 rows (Test 2).
 - **Separation of duties:** the watcher key can write state but never baselines. Baselines are
   signed by a separate writer key, so a compromised watcher can't quietly move the reference
   point. `$creator` makes this verifiable by anyone, not just a policy in our code.
-- **Many monitors:** a wallet team can run its own watcher and trust its own creator, or require
-  agreement between two creators. That costs nothing extra on Arkiv.
+- **Many monitors:** a wallet team can run its own watcher (a fork with its own keys) and trust its own creator, or
+  require agreement between two creators (a client change we haven't built). Reading both costs nothing extra on Arkiv.
 
 ## 3. Queryability → Monitored table, Browse mirror, one-query integrations
 
@@ -61,6 +82,10 @@ Every column a client filters on is indexed: `chain_id`, `address`, `matches_bas
   (`npm run import -w importer -- <checkout> --dry` shows the exact plan) and spot-check rows
   against GitHub (`npm run verify -w importer`). The data comes with its own audit trail
   (`registry_commit`, `file_sha`, `descriptor_hash`).
+- **Anyone can run their own watcher** against the same public schema: fork, put your own two
+  addresses in [`packages/core/src/trust.ts`](../packages/core/src/trust.ts), and run
+  `npm run seed` / `npm start -w watcher` with your keys. A client then trusts your `$creator` instead
+  of ours (comparing two watchers side by side is a small client change we haven't built).
 - If we disappear, the data and schema remain, and someone else can start writing with their own
   key. That fits a public good the registry team explicitly wants
   ([#3098](https://github.com/ethereum/clear-signing-erc7730-registry/issues/3098)) better than a
