@@ -147,3 +147,14 @@ way. Times are IST. Each entry points at the commits it covers.
 - Found and fixed: Arkiv access key leaking via error URLs (now redacted everywhere), 413 batch
   limit, `ercs/` protocol field, Browse truncation at 100 rows.
 - Funds: writer 6.33 tGLM; watcher ~40 h of runway at the current rate (top-up advised).
+
+### Test 4 (Nym): FAIL → EF target is now Best CROPS App
+- The Nym worker never became ready within 120 s on venue Wi-Fi or on a phone hotspot, with harness
+  0.4.0 or the spike-era 0.3.3. The specifier read and the 18 MB bundle download (hash-verified)
+  both work, so the failure is inside the worker or the mixnet connection.
+- Per the plan's rule (≥18/20, p95 < 10 s, otherwise switch), the EF target moves from "Best Use of
+  Anon-RPC" to "Best CROPS App". The app still fails closed in Nym mode and never falls back
+  silently.
+- Fixed while debugging: a failed boot no longer retries for every read (it used to look like a
+  multi-minute hang). The diagnostics screen shows boot progress and has a harness A/B switch.
+

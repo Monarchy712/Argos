@@ -8,7 +8,7 @@ output is committed under `docs/test-runs/`.
 | 3 — proxy detection | **PASS** on Sepolia (10/10) and local anvil | [sepolia](test-runs/test3-sepolia.txt) · [sepolia phase 2](test-runs/test3-sepolia-phase2.txt) · [local](test-runs/test3-local.txt) |
 | 2 — Arkiv records | **PASS** (9/9, keyed run: 0×429; keyless run found the 429 cost limit) | [keyed](test-runs/test2-rabdi-keyed.txt) · [keyless](test-runs/test2-rabdi.txt) |
 | E2E — watcher → Arkiv (Sepolia) | **PASS** (5/5 + expiry) | [e2e-arkiv-sepolia.txt](test-runs/e2e-arkiv-sepolia.txt) |
-| 4 — Nym reads | screen built (Nym diagnostics → Run 20 reads); **not run yet** (needs a real browser on venue Wi-Fi) | — |
+| 4 — Nym reads | **FAIL**: the Nym worker never became ready (venue Wi-Fi and a phone hotspot, harness 0.4.0 and 0.3.3) → EF target switches to CROPS | see below |
 | 1 — Swarm | not started (by plan: postage depends on the Swarm booth) | — |
 
 ---
@@ -248,3 +248,39 @@ on this code and resumed from its saved cursor on both chains.
 
 **Funds:** the writer has 6.33 tGLM after the import. Watcher burn is ~0.048 tGLM/h (31 contracts, 120 s
 writes), so its 1.92 tGLM last ~40 h. Enough for the deadline, but a top-up is advised.
+
+---
+
+## Test 4 — Anon-RPC over Nym — FAIL (2026-11-06 ~08:00 IST)
+
+**Goal:** 20 sequential `eth_getStorageAt` reads of the Sepolia demo proxy's implementation slot
+through the Nym worker, ≥ 18/20 ok and p95 < ~10 s.
+
+**Result:** 0 reads. The worker never signalled ready within the 120 s boot timeout. Our log showed
+only the host lines (`booting Nym worker …` → `Nym worker not ready after 120 s`); the worker wrote
+nothing to the harness log channel.
+
+| Attempt | Network | Harness | Result |
+| --- | --- | --- | --- |
+| 1 | venue Wi-Fi | 0.4.0 | not ready after 120 s |
+| 2 | venue Wi-Fi | 0.3.3 (spike-era) | not ready after 120 s |
+| 3 | phone hotspot | 0.3.3 | not ready |
+| 4 | phone hotspot | 0.4.0 | not ready |
+
+**Ruled out (checked from the same laptop):**
+- Specifier read: `workerHash()` = `0xf13a448a8721b9d0b20da3d5b80ffe00bf4c5bb3aae812a38d3d1e3bc81fceb8`; `workerResolvers()` =
+  jsDelivr / unpkg / GitHub URLs for `@nymproject/anon-rpc-worker@0.1.0`.
+- Bundle download: 18,283,862 bytes in 0.33 s (jsDelivr) / 1.59 s (unpkg), keccak256 equals `workerHash`.
+- Hashing / copying cost in the harness: keccak of the bundle in 0.9 s; the 0.4.0 plain-value copy is a
+  typed-array copy.
+
+**Not established:** why the worker doesn't become ready. Candidates: the Nym client (mix-fetch) can't
+reach its gateways or the mixnet, or a problem in the worker bundle itself. The spike booted the same
+specifier in ~10 s a day earlier. We stopped here per the plan's rule instead of debugging the
+mixnet client further.
+
+**Consequence:** per the plan, the EF target changes from "Best Use of Anon-RPC" to **"Best CROPS App"**.
+The app is unchanged in one respect: in Nym mode a check fails closed (Not verified, with the reason)
+and never falls back silently. Changes to the fix were committed: fail fast after a failed boot,
+boot-progress display, and a harness A/B switch.
+
