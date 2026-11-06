@@ -212,3 +212,39 @@ on this code and resumed from its saved cursor on both chains.
 
 **Not yet verified:** anything through Nym (Test 4), and Swarm-backed descriptors (Test 1).
 
+
+---
+
+## Registry mirror on Arkiv (build step 3) — 2026-11-06 ~05:00–05:35 IST — PASS
+
+**How to run:** `npm run import -w importer -- ../.cache/registry` then
+`npm run verify -w importer -- ../.cache/registry`. Logs: [import](test-runs/import-rabdi.txt) ·
+[verify](test-runs/mirror-verify.txt).
+
+| Check | Result |
+| --- | --- |
+| Our JCS (canonicalize 5.1.0 + keccak256) vs library `computeDescriptorHash`, every descriptor | **746/746 equal** (import aborts on any mismatch) |
+| Our ERC-8176 hash vs the hash auditors signed in `sigs/` | **164/167 equal**; 3 attestations sign different content → `attestation = "stale"` (safe SafeMigration-1.5.0, safe Safe-Multisig, walletconnect wct) |
+| Import run 1 | 3,443 creates (768 `dg_descriptor` + 2,675 `dg_deployment`), 173 batches, 0 failures, 17.3 min, 1.65 tGLM |
+| Import run 2 (same commit) | 0 creates, 6 patches (the `ercs/` entity_dir fix below), 3,437 unchanged |
+| Import run 3 (dry) | 0 creates, 0 patches |
+| Client read: counts | 617 calldata / 129 EIP-712 / 22 include + 2,675 deployments = registry |
+| 10 random descriptors vs GitHub raw @ `ef582c2` | **10/10**: file_sha ✓ and recomputed ERC-8176 hash ✓ |
+| Browser, keyless bulk mirror read | 3,443 rows, 35 queries, ~11–13 s, no 429 |
+| Browser, Check (Aave supply) via the mirror | file hash from Arkiv ✓, "bulk" provenance, intent rendered, GREEN |
+| Browser, Browse "mainnet + beacon" | 28 rows / 3 queries (= 28 beacons from classification) |
+| Browser, Browse "safe + eip712" | 354 rows / 5 queries (= registry: 7 descriptors, 354 deployments); stale attestation shown |
+
+**Problems found and fixed on the way:**
+1. **HTTP 413 Payload Too Large** on `eth_estimateGas` for a 50-row descriptor batch. The SDK surfaced it
+   as "Execution error without revert data". Batches are now 20 ops and halve automatically on a 413.
+2. **The access key leaked into an error log.** The SDK puts the key in the RPC URL path, and viem errors
+   print the URL. The log was deleted before any commit (key verified absent from the tree and history),
+   and all logged errors now go through `describeError()`, which redacts `ark_live_*`. The watcher was
+   restarted with the redaction in place.
+3. **Wrong `entity_dir` for top-level `ercs/` files** (the file name instead of `ercs`). It was fixed in the
+   reader and repaired on Arkiv by the idempotent re-run (6 patches).
+4. **Browse truncated at 100 rows** for OR-of-hashes queries. These now page through results (cap 500).
+
+**Funds:** the writer has 6.33 tGLM after the import. Watcher burn is ~0.048 tGLM/h (31 contracts, 120 s
+writes), so its 1.92 tGLM last ~40 h. Enough for the deadline, but a top-up is advised.

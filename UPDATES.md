@@ -128,3 +128,22 @@ way. Times are IST. Each entry points at the commits it covers.
   in two transactions ~6 s apart, so readers could briefly see a mixed state. A contract's rows
   are now written atomically in one `executeBatch`. The live watcher was restarted and resumed
   from its cursor.
+
+### Build step 3: ERC-7730 registry mirror on Arkiv
+- **Importer** (`importer/`): reads the registry at pinned commit `ef582c2` and resolves includes.
+  It computes the ERC-8176 hash two ways (our JCS and the library's) and aborts on any mismatch;
+  there were none across 746 descriptors. It also compares our hashes with the auditors'
+  attestations: 164/167 match, and 3 are flagged as **stale attestations** (a real registry
+  finding). Writes are idempotent, resumable, and batched (20 ops, halving on HTTP 413).
+- **Live on Rabdi:** 768 `dg_descriptor` + 2,675 `dg_deployment` rows, cost 1.65 tGLM. A re-run
+  plans 0 creates. The client-side verifier confirms counts match and 10/10 random descriptors
+  match GitHub raw files and recomputed hashes.
+- **Web:** Check takes descriptor metadata from the Arkiv mirror (bulk read cached for the session,
+  so the Arkiv node can't tell which contract; a targeted fallback is shown when used). New
+  **Browse mirror** view runs Arkiv queries by chain, protocol, kind, proxy kind and monitored.
+- **Docs:** real drafts of `arkiv/friction.md`, `reach.md` (registry issues #3098/#2975 re-read;
+  our earlier framing of #2975 was corrected), `why-arkiv.md` and `data-quality.md`, plus a README
+  CROPS section and a "what the Arkiv node can learn" table.
+- Found and fixed: Arkiv access key leaking via error URLs (now redacted everywhere), 413 batch
+  limit, `ercs/` protocol field, Browse truncation at 100 rows.
+- Funds: writer 6.33 tGLM; watcher ~40 h of runway at the current rate (top-up advised).
