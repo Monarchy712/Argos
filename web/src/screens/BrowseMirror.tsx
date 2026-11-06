@@ -12,7 +12,7 @@ import { http } from "viem";
 import { toDeployment, toDescriptor, type MirrorDeployment, type MirrorDescriptor } from "../lib/mirror.ts";
 import type { RegistryManifest } from "../lib/descriptors.ts";
 import { ARKIV_EXPLORER } from "../lib/config.ts";
-import { AddressLink, short } from "../components/common.tsx";
+import { AddressLink, ArkivLink, SwarmLink, short } from "../components/common.tsx";
 
 const client = createPublicClient({ chain: rabdi({ accessKey: "" }), transport: http(undefined, { retryCount: 0, timeout: 20_000 }) });
 
@@ -210,7 +210,7 @@ export function BrowseMirrorScreen({ manifest }: { manifest: RegistryManifest | 
         <div className="card table-wrap" style={{ marginTop: 12 }}>
           <table>
             <thead>
-              <tr><th>Chain</th><th>Contract</th><th>Protocol</th><th>Descriptor</th><th>Kind</th><th>Proxy kind</th><th>Monitored</th><th>Attestation</th></tr>
+              <tr><th>Chain</th><th>Contract</th><th>Protocol</th><th>Descriptor</th><th>Kind</th><th>Proxy kind</th><th>Monitored</th><th>Attestation</th><th>Arkiv · Swarm</th></tr>
             </thead>
             <tbody>
               {rows.map((r) => (
@@ -225,6 +225,11 @@ export function BrowseMirrorScreen({ manifest }: { manifest: RegistryManifest | 
                   <td><span className="kind">{r.proxyKind}</span></td>
                   <td>{r.monitored ? "yes" : ""}</td>
                   <td className="small">{r.descriptor?.attestation === "valid" ? "valid" : r.descriptor?.attestation === "stale" ? <b style={{ color: "var(--warn-fg)" }}>stale</b> : ""}</td>
+                  <td className="small nowrap">
+                    <ArkivLink entityKey={r.key} label="deployment" />
+                    {r.descriptor && <> · <ArkivLink entityKey={r.descriptor.key} label="descriptor" /></>}
+                    {r.descriptor?.storageMode === "swarm" && r.descriptor.swarmRef && <> · <SwarmLink swarmRef={r.descriptor.swarmRef} /></>}
+                  </td>
                 </tr>
               ))}
             </tbody>

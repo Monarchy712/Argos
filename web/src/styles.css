@@ -155,3 +155,30 @@ label.check { display: flex; align-items: center; gap: 6px; margin: 0 0 10px; wh
 .source-tag { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .02em; border-radius: 4px; padding: 0 6px; margin-right: 2px; }
 .source-swarm { background: #ede9fe; color: #5b21b6; }
 .source-registry { background: #e5e7eb; color: #374151; }
+
+/* Links to Arkiv entities and Swarm references */
+.ext-link { font-size: 12px; font-weight: 600; white-space: nowrap; }
+.ext-link::after { content: " ↗"; font-weight: 400; opacity: .7; }
+.ext-arkiv { color: #0e7490; }
+.ext-swarm { color: #6d28d9; }
+.entity-links { margin-top: 4px; font-size: 12px; color: var(--text-3); }
+.nowrap { white-space: nowrap; }
+
+/* How it works */
+.diagram { width: 100%; height: auto; display: block; max-height: 520px; }
+.dg-box rect { stroke-width: 1.5; }
+.dg-src rect { fill: #f8fafc; stroke: #94a3b8; }
+.dg-proc rect { fill: #eff6ff; stroke: #60a5fa; }
+.dg-store rect { fill: #f5f3ff; stroke: #a78bfa; }
+.dg-user rect { fill: #ecfdf5; stroke: #34d399; }
+.dg-title { font: 700 15px var(--sans); fill: var(--text); }
+.dg-line { font: 13px var(--sans); fill: var(--text-2); }
+.dg-arrow path { fill: none; stroke: #64748b; stroke-width: 1.6; }
+.dg-headfill { fill: #64748b; }
+.dg-label { font: 600 12px var(--sans); fill: #475569; }
+.legend { display: grid; grid-template-columns: max-content 1fr; gap: 12px 14px; margin: 10px 0 0; align-items: start; }
+.legend dt { margin: 0; }
+.legend dd { margin: 0; color: var(--text-2); font-size: 14px; }
+
+/* Brand mark: an eye (Argos, the hundred-eyed watchman) */
+.brand-mark svg { display: block; }

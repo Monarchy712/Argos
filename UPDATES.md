@@ -220,3 +220,16 @@ way. Times are IST. Each entry points at the commits it covers.
   the Swarm gateway, and GitHub raw on fallback).
 - **Quick start (no keys)** added at the top of the README. Verified from a fresh clone with no `.env`:
   `npm ci`, typecheck, 38/38 tests, build, `show-arkiv` (31 contracts fresh), `query-mirror stale` (3 rows).
+
+### ~10:05 · UI polish for judging (P5)
+- Argos branding: an eye mark (the hundred-eyed watchman) in the header and favicon; tagline "watches
+  the code behind clear-signing descriptors".
+- New **How it works** tab: one data-flow diagram (registry/Ethereum → importer/watcher →
+  Swarm/Arkiv → browser), the three badges and what each means (and doesn't), "check it yourself"
+  links (trusted writers, an Arkiv entity and its Swarm bytes, CLI commands, repo), and what Argos
+  doesn't do.
+- Links everywhere a judge might want to verify: Monitored rows → baseline / state / change entities
+  on the Arkiv explorer; Check → the `dg_descriptor` entity and Swarm bytes; Browse → deployment,
+  descriptor and Swarm per row.
+- Checked at 1366 px: no horizontal scroll (Monitored table 1,270 px inside the 1,320 px container),
+  diagram text inside its boxes, no console errors. No new features.

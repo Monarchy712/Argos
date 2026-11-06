@@ -8,7 +8,7 @@ import { CHAINS, DEMO_PROXY } from "../lib/config.ts";
 import { RegistryFallbackSource, SwarmFirstSource, descriptorFor, makeResolver, type FetchRecord, type RegistryManifest } from "../lib/descriptors.ts";
 import { loadMirror, lookupContract, type Mirror } from "../lib/mirror.ts";
 import { routeLabel } from "../lib/transport.ts";
-import { AddressLink, StatusBadge, chainName, short, useTransport } from "../components/common.tsx";
+import { AddressLink, ArkivLink, StatusBadge, SwarmLink, chainName, short, useTransport } from "../components/common.tsx";
 
 interface Tx {
   chainId: number;
@@ -71,7 +71,7 @@ interface Result {
   display: DisplayModel | null;
   displayError: string | null;
   fetches: FetchRecord[];
-  descriptor: { path: string; descriptorHash: string | null; attestation: "valid" | "stale" | "none"; commit: string; owner: string } | null;
+  descriptor: { path: string; descriptorHash: string | null; attestation: "valid" | "stale" | "none"; commit: string; owner: string; arkivKey?: string; swarmRef?: string } | null;
   baselineDescriptorHash: string | null;
   /** where the descriptor metadata (path, commit, hashes) came from */
   provenance: { source: "arkiv-bulk" | "arkiv-targeted" | "bundled"; note: string };
@@ -132,7 +132,15 @@ export function CheckTxScreen({ snap: snapshot, manifest }: { snap: ArkivSnapsho
       ? { source: lookup.mode === "bulk" ? "arkiv-bulk" : "arkiv-targeted", note: lookup.note }
       : { source: "bundled", note: "Arkiv mirror unreachable: using the descriptor index bundled with this app (same pinned registry commit, same hash checks)." };
     const descriptor: Result["descriptor"] = lookup?.descriptor
-      ? { path: lookup.descriptor.path, descriptorHash: lookup.descriptor.descriptorHash || null, attestation: lookup.descriptor.attestation as "valid" | "stale" | "none", commit: lookup.descriptor.commit, owner: lookup.descriptor.owner }
+      ? {
+          path: lookup.descriptor.path,
+          descriptorHash: lookup.descriptor.descriptorHash || null,
+          attestation: lookup.descriptor.attestation as "valid" | "stale" | "none",
+          commit: lookup.descriptor.commit,
+          owner: lookup.descriptor.owner,
+          arkivKey: lookup.descriptor.key,
+          swarmRef: lookup.descriptor.storageMode === "swarm" ? lookup.descriptor.swarmRef : undefined,
+        }
       : !lookup && manifest
         ? (() => {
             const d = descriptorFor(manifest, tx.chainId, tx.to);
@@ -366,6 +374,11 @@ function ResultView({ r }: { r: Result }) {
           {r.descriptor ? (
             <dl className="kv" style={{ marginTop: 8 }}>
               <dt>registry file</dt><dd className="mono">{r.descriptor.path}</dd>
+              <dt>on Arkiv / Swarm</dt>
+              <dd>
+                {r.descriptor.arkivKey ? <ArkivLink entityKey={r.descriptor.arkivKey} label="dg_descriptor entity" /> : <span className="muted">bundled index</span>}
+                {r.descriptor.swarmRef ? <> · <SwarmLink swarmRef={r.descriptor.swarmRef} label={`Swarm ${short(r.descriptor.swarmRef, 8, 6)}`} /></> : <span className="muted"> · not on Swarm</span>}
+              </dd>
               <dt>registry commit</dt><dd className="mono">{r.descriptor.commit.slice(0, 10)}</dd>
               <dt>ERC-8176 hash</dt><dd className="mono" title={r.descriptor.descriptorHash ?? ""}>{r.descriptor.descriptorHash ? short(r.descriptor.descriptorHash, 12, 8) : "—"}</dd>
               <dt>attestation</dt>

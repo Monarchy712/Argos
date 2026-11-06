@@ -1,6 +1,6 @@
 import { useEffect, useState, useSyncExternalStore, type ReactElement } from "react";
 import type { Status } from "@driftguard/core";
-import { CHAINS } from "../lib/config.ts";
+import { ARKIV_EXPLORER, CHAINS, SWARM_GATEWAY } from "../lib/config.ts";
 import { transport, routeLabel, type TransportSnapshot } from "../lib/transport.ts";
 
 // ---- status badge: colour + icon + wording + border style all differ ------------------------
@@ -47,6 +47,24 @@ export function StatusBadge({ status, large }: { status: Status; large?: boolean
 }
 
 // ---- addresses / hashes / links -------------------------------------------------------------
+/** Link to one Arkiv entity on the Rabdi explorer (anyone can open it and check $creator). */
+export function ArkivLink({ entityKey, label }: { entityKey: string; label: string }) {
+  return (
+    <a className="ext-link ext-arkiv" href={`${ARKIV_EXPLORER}/entity/${entityKey}`} target="_blank" rel="noreferrer" title={`Arkiv entity ${entityKey}`}>
+      {label}
+    </a>
+  );
+}
+
+/** Link to the raw bytes of a Swarm reference on the gateway the app reads from. */
+export function SwarmLink({ swarmRef, label = "Swarm" }: { swarmRef: string; label?: string }) {
+  return (
+    <a className="ext-link ext-swarm" href={`${SWARM_GATEWAY}/bytes/${swarmRef}`} target="_blank" rel="noreferrer" title={`Swarm reference ${swarmRef}`}>
+      {label}
+    </a>
+  );
+}
+
 export const short = (v: string, head = 6, tail = 4) => (v && v.length > head + tail + 2 ? `${v.slice(0, head)}…${v.slice(-tail)}` : v);
 
 export function AddressLink({ chainId, address, full }: { chainId: number; address: string; full?: boolean }) {

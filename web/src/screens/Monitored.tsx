@@ -3,7 +3,7 @@ import { computeStatus, PROXY_KINDS, type Status, type StatusResult } from "@dri
 import { readArkiv, idOf, ArkivRateLimitedError, type ArkivSnapshot, type BaselineRow, type ChangeRow, type CurrentRow } from "../lib/arkiv.ts";
 import { ARKIV_EXPLORER, ARKIV_REFRESH_MS, DEMO_PROXY, TRUSTED_CREATORS } from "../lib/config.ts";
 import { descriptorFor, loadManifest, type RegistryManifest } from "../lib/descriptors.ts";
-import { AddressLink, StatusBadge, TxLink, ago, chainName, short, useNow } from "../components/common.tsx";
+import { AddressLink, ArkivLink, StatusBadge, TxLink, ago, chainName, short, useNow } from "../components/common.tsx";
 
 export interface MonitoredRow {
   id: string;
@@ -190,6 +190,11 @@ function Row({ r, now }: { r: MonitoredRow; now: number }) {
         <StatusBadge status={r.status.status} />
         <div className="note muted" title={r.status.reasons.join("\n")}>{r.status.status === "GREEN" && r.current ? `checked ${ago(r.current.checkedAt, now)}` : r.status.reasons[0]}</div>
         {r.status.note && <div className="note note-warn">{r.status.note}</div>}
+        <div className="entity-links">
+          <ArkivLink entityKey={r.baseline.key} label="baseline" />
+          {r.current ? <> · <ArkivLink entityKey={r.current.key} label="state" /></> : null}
+          {r.change ? <> · <ArkivLink entityKey={r.change.key} label="change" /></> : null}
+        </div>
       </td>
       <td>
         <div style={{ fontWeight: 600 }}>
