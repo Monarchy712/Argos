@@ -139,7 +139,8 @@ export function NymDiagnosticsScreen() {
                 style={{ width: "auto", fontFamily: "var(--sans)", padding: "2px 6px" }}
               >
                 <option value="0.4.0">@anon-rpc/browser-harness 0.4.0 (current)</option>
-                <option value="0.3.3">@anon-rpc/browser-harness 0.3.3 (spike-era)</option>
+                <option value="0.3.3">@anon-rpc/browser-harness 0.3.3</option>
+                <option value="0.3.2">@anon-rpc/browser-harness 0.3.2 (spike: booted in 10 s)</option>
               </select>
             </dd>
             <dt>boot time</dt><dd>{t.nym.bootMs !== null ? `${(t.nym.bootMs / 1000).toFixed(1)} s` : "—"}</dd>

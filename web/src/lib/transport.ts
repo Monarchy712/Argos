@@ -14,11 +14,12 @@ import { AnonRpcWorker } from "@anon-rpc/browser-harness";
 // Test 4 A/B: harness 0.3.3 (the version the feasibility spike booted Nym with), installed under
 // an npm alias, selectable from the diagnostics screen. Default stays 0.4.0 (current).
 import { AnonRpcWorker as AnonRpcWorkerV033 } from "@anon-rpc/browser-harness-v033";
+import { AnonRpcWorker as AnonRpcWorkerV032 } from "@anon-rpc/browser-harness-v032";
 import { BOOTSTRAP_RPC_URL, NYM_SPECIFIER } from "./config.ts";
 
 export type Mode = "nym" | "direct";
 export type NymState = "idle" | "booting" | "ready" | "failed";
-export type HarnessVersion = "0.4.0" | "0.3.3";
+export type HarnessVersion = "0.4.0" | "0.3.3" | "0.3.2";
 
 export interface TransportSnapshot {
   mode: Mode;
@@ -91,7 +92,7 @@ export function startNym(): Promise<void> {
   hostLog("info", `booting Nym worker with harness ${version} (specifier ${NYM_SPECIFIER}, timeout ${BOOT_TIMEOUT_MS / 1000} s)`);
   booting = (async () => {
     try {
-      const Ctor = (version === "0.3.3" ? AnonRpcWorkerV033 : AnonRpcWorker) as unknown as new (init: object) => WorkerLike;
+      const Ctor = (version === "0.3.2" ? AnonRpcWorkerV032 : version === "0.3.3" ? AnonRpcWorkerV033 : AnonRpcWorker) as unknown as new (init: object) => WorkerLike;
       worker = new Ctor({ address: NYM_SPECIFIER, preExisting: { rpcProvider: bootstrapProvider } });
       void collectLogs(worker);
       await withTimeout(worker.ready, BOOT_TIMEOUT_MS, `Nym worker not ready after ${BOOT_TIMEOUT_MS / 1000} s`);
