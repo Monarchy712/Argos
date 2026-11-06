@@ -100,7 +100,7 @@ npm run build
 node scripts/publish-site.ts          # no keys: stampless upload through the public gateway
 ```
 
-Reference (build of 2026-11-06): **`91c7ba783dc22f76ecde7b19657a9741a3ead69170cd3c620afcd43d53ff8b95`**
+Reference (build of 2026-11-06): **`9408348807abd83f6f85a84f6bf50c6664e802332dd8442c36cb815ffb73623d`**
 · run log: [`docs/test-runs/swarm-site-publish.txt`](../docs/test-runs/swarm-site-publish.txt)
 
 - **Deterministic.** The tar is built with sorted paths and zeroed mtime/uid/gid/mode, so the
@@ -121,10 +121,10 @@ we're not going to work around it. So right now:
 
 ```bash
 # an asset serves from the public gateway immediately (200, byte-identical):
-curl -s https://api.gateway.ethswarm.org/bzz/91c7ba783dc22f76ecde7b19657a9741a3ead69170cd3c620afcd43d53ff8b95/assets/ccip-BdQuDXYn.js | head -c 80
+curl -s https://api.gateway.ethswarm.org/bzz/9408348807abd83f6f85a84f6bf50c6664e802332dd8442c36cb815ffb73623d/assets/ccip-Cj98csXV.js | head -c 80
 
 # the HTML does not, until the hash is approved:
-curl -si https://api.gateway.ethswarm.org/bzz/91c7ba783dc22f76ecde7b19657a9741a3ead69170cd3c620afcd43d53ff8b95/ | head -1
+curl -si https://api.gateway.ethswarm.org/bzz/9408348807abd83f6f85a84f6bf50c6664e802332dd8442c36cb815ffb73623d/ | head -1
 # → HTTP/2 302 ... location: https://bzz.link/forbidden?hash=91c7ba…
 ```
 

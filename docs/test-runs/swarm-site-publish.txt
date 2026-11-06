@@ -1,14 +1,15 @@
 Swarm site publish — Argos web app as a browsable collection
-ETHGlobal Mumbai, 2026-11-06 13:37 IST
+ETHGlobal Mumbai, 2026-11-06 16:10 IST
+Build includes the 0G change-note panel (final pre-video build).
 Command: npm run build && node scripts/publish-site.ts
 Gateway: https://api.gateway.ethswarm.org (stampless; the gateway attaches its own stamp)
 
-{"t":"2026-11-06T08:07:05.827Z","msg":"build","dir":"web/dist","files":5,"bytes":1204959}
-{"t":"2026-11-06T08:07:05.829Z","msg":"archive","bytes":1209344,"mode":"public gateway (gateway stamp)"}
-{"t":"2026-11-06T08:07:09.088Z","msg":"uploaded","reference":"91c7ba783dc22f76ecde7b19657a9741a3ead69170cd3c620afcd43d53ff8b95","url":"https://api.gateway.ethswarm.org/bzz/91c7ba783dc22f76ecde7b19657a9741a3ead69170cd3c620afcd43d53ff8b95/"}
-{"t":"2026-11-06T08:07:13.006Z","msg":"verified","reference":"91c7ba783dc22f76ecde7b19657a9741a3ead69170cd3c620afcd43d53ff8b95","identical":"4/5","refusedByGatewayPolicy":["index.html"]}
-{"t":"2026-11-06T08:07:13.006Z","msg":"note","detail":"the ethswarm public gateways are default-deny for websites: HTML 302s to bzz.link/forbidden until a moderator approves the hash. The content IS on Swarm — any Bee node serves it with GET /bzz/91c7ba783dc22f76ecde7b19657a9741a3ead69170cd3c620afcd43d53ff8b95/ — and every asset the gateway did serve came back byte-identical."}
-{"t":"2026-11-06T08:07:13.006Z","msg":"done","reference":"91c7ba783dc22f76ecde7b19657a9741a3ead69170cd3c620afcd43d53ff8b95","serveLocally":"bee: GET /bzz/91c7ba783dc22f76ecde7b19657a9741a3ead69170cd3c620afcd43d53ff8b95/","publicGatewayAsset":"https://api.gateway.ethswarm.org/bzz/91c7ba783dc22f76ecde7b19657a9741a3ead69170cd3c620afcd43d53ff8b95/assets/ccip-BdQuDXYn.js"}
+{"t":"2026-11-06T10:40:33.418Z","msg":"build","dir":"web/dist","files":5,"bytes":1209235}
+{"t":"2026-11-06T10:40:33.419Z","msg":"archive","bytes":1213952,"mode":"public gateway (gateway stamp)"}
+{"t":"2026-11-06T10:40:36.913Z","msg":"uploaded","reference":"9408348807abd83f6f85a84f6bf50c6664e802332dd8442c36cb815ffb73623d","url":"https://api.gateway.ethswarm.org/bzz/9408348807abd83f6f85a84f6bf50c6664e802332dd8442c36cb815ffb73623d/"}
+{"t":"2026-11-06T10:40:39.339Z","msg":"verified","reference":"9408348807abd83f6f85a84f6bf50c6664e802332dd8442c36cb815ffb73623d","identical":"4/5","refusedByGatewayPolicy":["index.html"]}
+{"t":"2026-11-06T10:40:39.339Z","msg":"note","detail":"the ethswarm public gateways are default-deny for websites: HTML 302s to bzz.link/forbidden until a moderator approves the hash. The content IS on Swarm — any Bee node serves it with GET /bzz/9408348807abd83f6f85a84f6bf50c6664e802332dd8442c36cb815ffb73623d/ — and every asset the gateway did serve came back byte-identical."}
+{"t":"2026-11-06T10:40:39.339Z","msg":"done","reference":"9408348807abd83f6f85a84f6bf50c6664e802332dd8442c36cb815ffb73623d","serveLocally":"bee: GET /bzz/9408348807abd83f6f85a84f6bf50c6664e802332dd8442c36cb815ffb73623d/","publicGatewayAsset":"https://api.gateway.ethswarm.org/bzz/9408348807abd83f6f85a84f6bf50c6664e802332dd8442c36cb815ffb73623d/assets/ccip-Cj98csXV.js"}
 
 Re-run on the same build returns the same reference (content addressing, deterministic tar):
-"reference":"91c7ba783dc22f76ecde7b19657a9741a3ead69170cd3c620afcd43d53ff8b95"
+"reference":"9408348807abd83f6f85a84f6bf50c6664e802332dd8442c36cb815ffb73623d"
