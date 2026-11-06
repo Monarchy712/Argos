@@ -399,3 +399,50 @@ way. Times are IST. Each entry points at the commits it covers.
   fail-closed behaviour, bad timing if a judge is looking.
 - `scripts/watcher-supervisor.sh` restarts it and logs every restart into `watcher/state/live.log`,
   so a gap stays visible afterwards. Proven by `kill -9`: logged exit 137 and restarted in 5 s.
+
+### ~16:30–20:05 · Argos Transaction Guard: hardened, and the TOCTOU gap closed properly
+- The morning's guard already checked the implementation and called in one transaction. This
+  closes the holes **in the guard itself** and proves the ones that cannot be closed.
+- **Post-call re-check.** `data` is arbitrary and may re-enter; a call that upgraded the proxy
+  mid-execution used to pass a check that was already stale. A change during the call now reverts
+  the whole transaction (`ImplementationChangedDuringCall`), so the upgrade does not stick either.
+- **Typed failures instead of ABI-decode garbage.** A STATICCALL to an EOA "succeeds" with empty
+  returndata, which must never read as `address(0)`. No-code targets, short returndata and words
+  with dirty high bits are refused explicitly (`UnsupportedProxy`); `address(0)` as the expected
+  implementation is refused too, since it matches an unset slot.
+- **`wouldSucceed(proxy, expected)`** view, so the UI runs the contract's own logic instead of a
+  TypeScript reimplementation that could drift.
+- **25/25 forge tests** (was 11). New cases: invalid/zero targets, malformed returndata and
+  calldata, bypass attempts, re-entrant upgrade during the call, and A→B→A.
+- Two limits the tests **assert rather than hide**: a contract can lie about its own
+  implementation (the guard checks and calls the same address, so a liar cannot borrow another
+  proxy's standing — but pointing it at a hostile contract is undetectable), and A→B→A passes
+  again, because the guard is an address check at execution time and cannot know the proxy moved.
+- Redeployed to Sepolia: `0xBf9cAA1F914b76c87143183B9E82Ed574179E281`.
+- **Four UI statuses**, in their own panel so they read as a different question from monitoring:
+  VERIFIED / BLOCKED / UNSUPPORTED / NOT VERIFIED. Shown for **every** monitored contract — a
+  contract that cannot be protected has to say UNSUPPORTED out loud rather than quietly omit the
+  panel. All four verified in the browser against live data, including upgrading the guard proxy
+  to ImplB (tx `0x44a4d727…`) to produce BLOCKED, then restoring it (tx `0xa16d6016…`).
+- **No MetaMask Snap exists**, so there was nothing to integrate into. Said plainly rather than
+  invented: a pre-sign check in a wallet pane is not atomic, and we do not claim it is.
+
+### ~20:20–21:25 · Deployed: Vercel for the app, Railway for the watcher
+- **Live: https://argosapp.vercel.app** — verified end to end on the deployed origin: 32/32
+  verified, Nym boots in ~11 s, Check → guard demo proxy returns VERIFIED · NO CHANGE with the
+  live read routed through the mixnet and the protection panel reading VERIFIED.
+- Split chosen deliberately: Vercel hosts five static files for free on a CDN; Railway runs the
+  watcher, which Vercel cannot host at all (it is a persistent loop, not a serverless function).
+- `scripts/serve-static.ts`: zero-dependency static server for self-hosting. Path traversal
+  blocked, verified with `curl --path-as-is` against `/../.env` and percent-encoded variants.
+- Build problems hit and fixed, both recorded in `docs/DEPLOY.md`: Railway's cache mount at
+  `/app/node_modules/.cache` makes `npm ci` fail with EBUSY (now `npm install`), and Vercel
+  ignored `outputDirectory` (the build now emits `./dist` as well as `web/dist`).
+- README privacy table corrected: it claimed "our server: none exists", which a hosted demo makes
+  false. It now states what a host sees (IP and paths) and what it still cannot (which contract
+  you check — that is a direct browser-to-RPC call over Nym plus a bulk Arkiv read).
+- **Nym is degraded this evening**, on localhost and the hosted origin alike: reads take 20–28 s
+  against the 0.8 s p50 measured at 11:37, and some fail outright. Not origin-specific and not
+  fixable by us — gateway selection lives inside the hash-pinned worker bundle. The app behaves
+  correctly throughout: it fails closed with "Live check failed via Anon-RPC (Nym mixnet)" and
+  never silently falls back to direct.

@@ -4,7 +4,34 @@
 the *Current state* and *Next steps* sections below and commit. Judges read `UPDATES.md` (the
 build log); this file is for whoever is driving the build next.
 
-Last updated: **Nov 6 2026, 11:58 IST** (ETHGlobal Mumbai). **Freeze pass done — ready to record.**
+Last updated: **Nov 6 2026, 21:37 IST** (ETHGlobal Mumbai).
+
+## Where to look first
+
+| If you want | Read |
+| --- | --- |
+| current state, what's live, what's next | **this file** |
+| the dated build log judges read | `UPDATES.md` |
+| what Argos is and its limits | `README.md` |
+| every test result + raw logs | `docs/TEST_REPORT.md` |
+| deploying | `docs/DEPLOY.md` |
+
+## Live right now
+
+| | |
+| --- | --- |
+| **App** | **https://argosapp.vercel.app** (Vercel, auto-deploys from `main`) |
+| App on Swarm | `9408348807abd83f6f85a84f6bf50c6664e802332dd8442c36cb815ffb73623d` (gateways refuse HTML until a moderator approves; assets serve) |
+| Watcher | Railway service (no HTTP port — a public domain on it can only 502). A local one also runs under `scripts/watcher-supervisor.sh`. **Run only ONE** — two signing with the same key race on the same rows |
+| ArgosGuard (Sepolia) | `0xBf9cAA1F914b76c87143183B9E82Ed574179E281` |
+| Guardable proxy (Sepolia) | `0x3c93e603bbeD9Dc2Af817BC2D98Bc1D35CF1D669`, at ImplA |
+| Video demo proxy (Sepolia) | `0xb8E5525eF80cEEC29Bf8598e303F71077361BFF5`, at ImplA, baseline clean |
+| Arkiv | 32 baselines, 32/32 fresh |
+
+**Nym is degraded this evening** — 20–28 s per read against the 0.8 s p50 measured at 11:37,
+some failing outright, on localhost and the hosted origin alike. Not origin-specific, not fixable
+by us (gateway selection is inside the hash-pinned worker bundle). The app fails closed correctly.
+If it is slow during a demo, either narrate the wait or click "Use direct RPC", which is labelled.
 
 ---
 
