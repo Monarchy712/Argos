@@ -90,6 +90,46 @@ Swarm references are content addresses.
 Our full run: [`docs/test-runs/swarm-upload-gateway.txt`](../docs/test-runs/swarm-upload-gateway.txt).
 746 uploads in 53 s, 0 failures, each downloaded back and keccak-checked, then 746 Arkiv patches.
 
+## The app itself is on Swarm too
+
+Descriptor content on Swarm protects the data. It doesn't help if the **frontend** disappears, so
+the built app is published to Swarm as a browsable collection:
+
+```bash
+npm run build
+node scripts/publish-site.ts          # no keys: stampless upload through the public gateway
+```
+
+Reference (build of 2026-11-06): **`91c7ba783dc22f76ecde7b19657a9741a3ead69170cd3c620afcd43d53ff8b95`**
+· run log: [`docs/test-runs/swarm-site-publish.txt`](../docs/test-runs/swarm-site-publish.txt)
+
+- **Deterministic.** The tar is built with sorted paths and zeroed mtime/uid/gid/mode, so the
+  archive bytes — and therefore the reference — are a pure function of the file contents and
+  names. Re-running on the same build returns the same reference; we verified that.
+- **Verified on upload.** Every file is fetched back from the gateway and byte-compared. On the
+  2026-11-06 run: 4/5 identical, with `index.html` refused (see below). Source maps are excluded
+  by default (3.5 MB of a 4.7 MB build, not needed to run; `--with-maps` includes them).
+- **What this does and doesn't buy.** If our host goes away, the app's bytes are still on Swarm,
+  content-addressed, and anyone running a Bee node can serve them with `GET /bzz/<ref>/`. It does
+  **not** make the app permanent: the gateway stamped this, and we can't see its batch or
+  retention (see friction 2 below).
+
+**Honest limit — you cannot click a link and see it.** The ethswarm public gateways are
+*default-deny for websites*: a new reference serves non-HTML assets straight away but 302s HTML to
+`bzz.link/forbidden` until a moderator approves the hash. That is their anti-phishing policy and
+we're not going to work around it. So right now:
+
+```bash
+# an asset serves from the public gateway immediately (200, byte-identical):
+curl -s https://api.gateway.ethswarm.org/bzz/91c7ba783dc22f76ecde7b19657a9741a3ead69170cd3c620afcd43d53ff8b95/assets/ccip-BdQuDXYn.js | head -c 80
+
+# the HTML does not, until the hash is approved:
+curl -si https://api.gateway.ethswarm.org/bzz/91c7ba783dc22f76ecde7b19657a9741a3ead69170cd3c620afcd43d53ff8b95/ | head -1
+# → HTTP/2 302 ... location: https://bzz.link/forbidden?hash=91c7ba…
+```
+
+Serve it yourself from any Bee node to see the whole app: `GET /bzz/<ref>/`.
+
 ## In the demo video
 
 Moment (a) in [docs/VIDEO_SCRIPT.md](../docs/VIDEO_SCRIPT.md): **Check a transaction → Aave v3 supply**. The provenance panel
@@ -113,7 +153,14 @@ Arkiv`, and the tamper toggle then shows the same Swarm bytes rejected. Timestam
 4. **The version list is noisy.** `npm view @ethersphere/bee-js versions` ends in dozens of
    `13.x.x-upcoming.<hash>` builds, which makes "latest stable" harder to spot. We pinned 13.2.0
    to match the README we designed against.
-5. **What worked well:** content addressing. Re-uploading the same bytes gives the same reference,
+5. **Public gateways are default-deny for websites, and nothing says so at upload time.** The
+   upload returns `201` with a reference and the assets serve fine, so it looks like a success —
+   then the HTML 302s to `bzz.link/forbidden` and you discover the moderation queue. Real projects
+   hit this too ([safenet-staking-ui#141](https://github.com/safe-fndn/safenet-staking-ui/issues/141)).
+   The policy is reasonable; the discovery path isn't. *Ask:* say so in the upload response (a
+   header or a field saying the hash is pending website approval), and document the approval route
+   next to the [host-your-website guide](https://docs.ethswarm.org/docs/develop/access-the-swarm/host-your-website/).
+6. **What worked well:** content addressing. Re-uploading the same bytes gives the same reference,
    so the importer is idempotent for free, and moving content to another batch doesn't change a
    single Arkiv row. The gateway sends `Access-Control-Allow-Origin: *`, so the browser reads
    Swarm directly with no proxy.
