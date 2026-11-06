@@ -69,7 +69,8 @@ bash scripts/demo-upgrade.sh B
 > "This is our demo proxy on Sepolia. I'm upgrading it from implementation A to B, through its
 > ProxyAdmin, right now."
 
-Wait for `implementation slot now: 0x1f31…` (~15 s). Switch to the browser: *Load an example… →
+Wait for `implementation slot now: 0x1f31…` (~15 s; the helper then waits for 2 confirmations
+before returning, which doesn't matter for the browser check). Switch to the browser: *Load an example… →
 Demo proxy: increment()* → **Check transaction**.
 
 > "Same check as before, on the proxy. Red: change detected. My live read already sees
@@ -144,9 +145,9 @@ Run from the repo root (`C:\Users\samya\OneDrive\Desktop\Argos`), Git Bash unles
    bash scripts/demo-upgrade.sh A        # only if the slot isn't already 0xcea0…910f
    npm run rebaseline -w watcher -- --chain 11155111 --address 0xb8E5525eF80cEEC29Bf8598e303F71077361BFF5 --kind eip1967 --reason "clean state before demo video"
    ```
-4. **All 31 fresh:**
+4. **All 32 fresh:**
    ```bash
-   node scripts/show-arkiv.ts | grep -c '"matches_baseline": true'    # → 31
+   node scripts/show-arkiv.ts | grep -c '"matches_baseline": true'    # → 32
    ```
 5. **Dev server:**
    ```bash
@@ -175,5 +176,5 @@ Run from the repo root (`C:\Users\samya\OneDrive\Desktop\Argos`), Git Bash unles
 node --env-file=.env watcher/src/main.ts
 # clean baseline again so judges see a plain green row
 npm run rebaseline -w watcher -- --chain 11155111 --address 0xb8E5525eF80cEEC29Bf8598e303F71077361BFF5 --kind eip1967 --reason "clean state after demo video"
-node scripts/show-arkiv.ts | grep -c '"matches_baseline": true'    # → 31 within ~3 min
+node scripts/show-arkiv.ts | grep -c '"matches_baseline": true'    # → 32 within ~3 min
 ```

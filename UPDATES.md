@@ -248,3 +248,18 @@ way. Times are IST. Each entry points at the commits it covers.
   feedback (Arkiv, Swarm, EF/CROPS), and a video timestamp table to fill in.
 - `docs/PITCH.md`: a 4-minute live demo (no live waits longer than the upgrade itself) and 20 hard
   questions with answers drawn only from numbers in the repo.
+
+### ~09:50 · Stretch P9 (1): check-and-call guard, controlled demo on a separate Sepolia proxy
+- `ArgosGuardableProxy` (OZ transparent proxy whose own fixed code answers `argosImplementation()`)
+  and `ArgosGuard.checkAndCall(proxy, expected, data)`, which reverts with `ImplementationChanged` unless the
+  implementation matches, else forwards the call in the same transaction. forge 11/11.
+- Deployed on Sepolia and baselined in Argos. Arkiv now holds **32 baselines** (30 mainnet + 2 Sepolia).
+  The video's demo proxy is untouched.
+- `scripts/guard-demo.ts` ran end to end: the expected implementation came from the Argos baseline on Arkiv;
+  the guarded call passed at A, then reverted at B with nothing run. Check gains a guard panel
+  (`eth_call` simulation); both paths verified in the browser.
+- Stated limits in the README: only proxies with this getter (no registry contract has one), and the
+  target sees the guard as sender.
+- Fixed while testing: `demo-upgrade.sh` uses `cast send` (forge hit repeated `block not found` from the
+  load-balanced RPC) and waits for 2 confirmations, after a rebaseline in the same block recorded the old
+  implementation (re-run correctly).

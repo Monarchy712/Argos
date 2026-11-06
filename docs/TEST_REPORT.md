@@ -9,7 +9,30 @@ output is committed under `docs/test-runs/`.
 | 2 — Arkiv records | **PASS** (9/9, keyed run: 0×429; keyless run found the 429 cost limit) | [keyed](test-runs/test2-rabdi-keyed.txt) · [keyless](test-runs/test2-rabdi.txt) |
 | E2E — watcher → Arkiv (Sepolia) | **PASS** (5/5 + expiry) | [e2e-arkiv-sepolia.txt](test-runs/e2e-arkiv-sepolia.txt) |
 | 4 — Nym reads | **FAIL**: the Nym worker never became ready (venue Wi-Fi and a phone hotspot, harness 0.4.0 and 0.3.3) → EF target switches to CROPS | see below |
+| Guard demo (controlled) | **PASS**: forge 11/11; on Sepolia a guarded call passes at ImplA and reverts with `ImplementationChanged` at ImplB (nothing runs); UI simulation shows both | [deploy](test-runs/guard-deploy-sepolia.txt) · [demo](test-runs/guard-demo-sepolia.txt) · see below |
 | 1 — Swarm | **PASS** via the public gateway (gateway stamp): 746/746 uploaded, each read back and keccak-checked, refs on Arkiv, browser reads Swarm first. Own batch: pending the booth | [swarm-upload-gateway.txt](test-runs/swarm-upload-gateway.txt) · see below |
+
+---
+
+## Guard demo (controlled) — PASS (2026-11-06 ~09:32–09:50 IST)
+
+**Question:** can a check of the implementation and the call happen in one transaction, so an
+upgrade can't land in between? (Controlled demo on our own proxy; registry contracts lack the getter.)
+
+| Step | Result |
+| --- | --- |
+| `forge test` | **11/11** (7 new): getter reports the EIP-1967 slot before/after upgrade and for the admin; normal calls still forward; guarded call passes at the expected impl; reverts with `ImplementationChanged(proxy, A, B)` after an upgrade with no state change; target reverts bubble up; a contract without the getter is refused |
+| Deploy on Sepolia | guardable proxy `0x3c93e603…F1D669` (→ existing DemoImplA), guard `0x32189Bb4…32E46a`; Argos baseline written by the writer key |
+| `scripts/guard-demo.ts` | expected impl read from the Argos baseline on Arkiv (ImplA) → guarded `increment()` mined in block 12074110 (counter 0→1) → upgrade to B → guarded call **reverted** `ImplementationChanged(ImplA, ImplB)`, counter stayed 1 → restored A |
+| Browser, Check → Guard demo proxy (at A) | panel: "would succeed: implementation matches the baseline" |
+| Browser, same (at B) | panel: "would revert: ImplementationChanged. Live implementation 0x1F31ab…b63B4B ≠ baseline"; status RED from both the watcher and the live read |
+
+**Found and fixed while testing:** (1) the Sepolia RPC repeatedly answered `block not found` to
+`forge script`, which reads state at a pinned block. `scripts/demo-upgrade.sh` now uses
+`cast send` (same `upgradeAndCall` tx) with retries; restoring A then took 5 s. (2) A rebaseline run
+in the same block as an upgrade recorded the **old** implementation (it reads at head − 2). It was
+re-run after confirmations (ImplA, block 12074155), and the helper now returns only after 2
+confirmations.
 
 ---
 

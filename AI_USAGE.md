@@ -37,6 +37,8 @@ human decided, reviewed or did by hand. It is kept up to date as the build goes 
 | `importer/` (registry reader, Arkiv import, verifier) | generated and run | specified idempotency, resumability, abort-on-hash-mismatch, and the verification (counts + 10 spot-checks vs GitHub) |
 | `importer/src/swarm.ts`, `web/src/lib/descriptors.ts` (`SwarmFirstSource`), `arkiv/swarm.md` | generated and run; found that the public gateway accepts stampless uploads; verified Swarm read, tamper rejection and fallback in the in-app browser | set the Swarm plan (JCS bytes, one hash for Swarm + ERC-8176, never encrypted refs on Arkiv, registry fallback) |
 | `scripts/query-mirror.ts` | generated and run | — |
+| `contracts/src/ArgosGuardableProxy.sol`, `ArgosGuard.sol`, `test/ArgosGuard.t.sol`, `script/DeployGuardDemo.s.sol`, `scripts/guard-demo.ts`, the Check guard panel | generated, deployed to Sepolia and run; verified both paths in the browser | chose a separate proxy so the video demo stays untouched; required the "controlled demo" labelling and stated limits |
+| `scripts/demo-upgrade.sh` | generated; switched from `forge script` to `cast send` after repeated RPC `block not found` errors | — |
 | Rename DriftGuard → Argos (user-facing only) | applied | chose the name; ruled that `dg_*` schemas, env names and cursor files keep the working name |
 | `arkiv/friction.md`, `reach.md`, `why-arkiv.md`, `data-quality.md` | drafted from test evidence and re-read registry issues | set what each must cover; review pending |
 | `README.md`, `UPDATES.md`, `docs/TEST_REPORT.md`, `arkiv/*.md` | drafted | reviewed; final wording |

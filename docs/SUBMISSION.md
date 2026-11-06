@@ -34,8 +34,8 @@ Argos is that monitor. It:
   queryable by chain, address, protocol, kind, proxy kind and attestation status. The descriptor
   content is on **Swarm**, referenced from each Arkiv row and verified by its ERC-8176 hash;
 - records each monitored contract's code identity at a **baseline**, and runs a **watcher** that
-  detects upgrades (events plus slot reads) on 31 contracts (30 mainnet registry proxies and a
-  Sepolia demo proxy). It publishes `current_state` and `latest_change` on Arkiv;
+  detects upgrades (events plus slot reads) on 32 contracts (30 mainnet registry proxies and two
+  Sepolia demo proxies). It publishes `current_state` and `latest_change` on Arkiv;
 - shows, in a static web app, raw calldata → readable intent → a status:
   **Verified · no change**, **Change detected**, or **Not verified**.
 

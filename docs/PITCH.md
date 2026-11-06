@@ -2,7 +2,7 @@
 
 ## Before you walk on
 
-- Watcher running, `node scripts/show-arkiv.ts | grep -c '"matches_baseline": true'` → **31**.
+- Watcher running, `node scripts/show-arkiv.ts | grep -c '"matches_baseline": true'` → **32**.
 - Demo proxy at ImplA with a clean baseline (see `docs/VIDEO_SCRIPT.md` → *Before recording*, steps 2–4).
 - `npm run dev`, Chrome at 125% zoom. Open the tabs in order: **How it works**, **Check a
   transaction** (mirror already cached: click Check once backstage), a terminal for
@@ -20,7 +20,7 @@
 | 1:30–1:50 | Check, tamper on | Tick tamper → Check. "Change one word in the downloaded bytes: rejected, expected vs actual hash, nothing rendered. A mismatch never falls back to another copy." Untick. |
 | 1:50–2:50 | Terminal → Check → Monitored | `bash scripts/demo-upgrade.sh B` (≈15 s). "Live upgrade of our Sepolia proxy, A to B." Check → *Demo proxy: increment()* → **RED**: "my live read already sees B." While the watcher catches up (~70 s), switch to **Browse mirror**: Monitored only → Query: "every filter is an Arkiv query; here's the query text; every row links to its Arkiv entity and Swarm bytes." Back to **Monitored → Refresh**: row is RED with block and tx link. "We never say malicious. We say: check that the descriptor still describes this code." |
 | 2:50–3:30 | Monitored (talk, no live wait) | "What if our watcher dies? Its records **expire** after 10 minutes and every contract turns **Not verified**. We show that in the video. A database row would keep saying OK forever. On Arkiv, liveness is enforced by storage, and trust is two published `$creator` keys, not our server. We don't have a server." |
-| 3:30–4:00 | How it works → Check it yourself | "Who's it for: wallets rendering ERC-7730 (the reference library is at 4,300 downloads a month), registry maintainers and auditors deciding what to re-review (we already found **3 stale attestations**), and anyone about to sign. It's MIT, it runs from the repo with no keys, and it's live now on 31 contracts. Argos watches, verifies and warns." |
+| 3:30–4:00 | How it works → Check it yourself | "Who's it for: wallets rendering ERC-7730 (the reference library is at 4,300 downloads a month), registry maintainers and auditors deciding what to re-review (we already found **3 stale attestations**), and anyone about to sign. It's MIT, it runs from the repo with no keys, and it's live now on 30 mainnet registry proxies plus two Sepolia demo proxies. Argos watches, verifies and warns." |
 
 After the demo: `bash scripts/demo-upgrade.sh A` so the next judge sees green (then rebaseline when you can).
 
@@ -46,8 +46,12 @@ judging; we found no public description of it, so don't characterise it beyond t
 **3. TOCTOU: the upgrade can land between your check and my transaction.**
 Yes, and we say so in the README. A status is "as of block N". Argos narrows the window (event +
 slot detection within about a minute, plus a live read at check time) but can't close it from
-outside the transaction. Closing it needs an on-chain guard (assert the implementation in the
-same tx) or wallet support. That's a different product, and we don't claim it.
+outside the transaction. Closing it needs a check in the same transaction. We built a **controlled
+demo** of that on our own Sepolia proxy: the proxy's fixed code reports its implementation, and
+`ArgosGuard.checkAndCall` reverts if it isn't the Argos baseline (`scripts/guard-demo.ts`, Check →
+Guard demo proxy). It needs a proxy that exposes that getter (no registry contract does), and the
+target sees the guard as sender, so for real use a wallet would do the check from the user's own
+account. We don't claim it protects registry contracts.
 
 **4. Why Arkiv and not Postgres?**
 Three things a database can't give users without trusting us: (1) **expiry** enforced by storage,
@@ -75,7 +79,7 @@ watcher key, every rebaseline records a reason and the previous baseline key on 
 trail anyone can read). The real fix is multiple independent writers, or baselines anchored to the
 registry's own auditor attestations, which is roadmap.
 
-**8. Why only 31 contracts?**
+**8. Why only 30 mainnet contracts?**
 A deliberate cap for the event: RPC reads and Arkiv write budget. We picked the attested descriptors
 first, plus every beacon and diamond kind. Extending to all 314 proxies is RPC cost plus one batched Arkiv
 write per cycle; no design change.

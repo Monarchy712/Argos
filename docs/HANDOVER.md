@@ -4,7 +4,7 @@
 the *Current state* and *Next steps* sections below and commit. Judges read `UPDATES.md` (the
 build log); this file is for whoever is driving the build next.
 
-Last updated: **Nov 6 2026, 09:42 IST** (ETHGlobal Mumbai).
+Last updated: **Nov 6 2026, 09:51 IST** (ETHGlobal Mumbai).
 
 ---
 
@@ -64,7 +64,7 @@ Verified / Change detected / Not verified. Architecture: `docs/ARCHITECTURE.md`.
 | P7 submission text | All form fields + per-partner feedback | `docs/SUBMISSION.md` |
 | P8 pitch | 4-min live demo + 20 hard questions | `docs/PITCH.md` |
 
-### P9 (1) guard demo: in progress (committed with this file, not yet documented)
+### P9 (1) guard demo: DONE and documented (README section, TEST_REPORT, UPDATES, AI_USAGE)
 
 Owner chose: **guard on a new, separate Sepolia proxy** (the video's demo proxy is untouched).
 
@@ -84,19 +84,18 @@ Owner chose: **guard on a new, separate Sepolia proxy** (the video's demo proxy 
 - `scripts/guard-demo.ts` **ran end to end** (`docs/test-runs/guard-demo-sepolia.txt`): expected impl
   read from the Argos baseline on Arkiv → guarded `increment()` mined (counter 0→1) → upgrade to B →
   same guarded call **reverted** with `ImplementationChanged(ImplA, ImplB)`, counter stayed 1 → restored A.
-- `scripts/demo-upgrade.sh A|B [guard]` works for either proxy. Note: its final slot read can hit a
-  lagging RPC backend and show the old value; confirm with
-  `cast call <proxy> "version()(string)" --rpc-url $SEPOLIA_RPC_URL`.
 - Web: Check has a new example **"Guard demo proxy: increment()"** and a **"Check-and-call guard ·
   controlled demo"** panel that simulates `checkAndCall` by `eth_call` (nothing sent). The Monitored
-  table labels the row "Argos guard demo proxy". Verified in the browser: **success path** renders
-  "would succeed: implementation matches the baseline". **Revert path not yet checked in the UI.**
+  table labels the row "Argos guard demo proxy". **Both paths verified in the browser.**
+- Counts updated to **32 monitored** in README, PITCH, SUBMISSION, VIDEO_SCRIPT.
+- `scripts/demo-upgrade.sh` now uses `cast send` with retries (forge hit `block not found`) and waits for 2
+  confirmations, so a rebaseline right after it records the new implementation.
 
 ### Live state right now
 
 - Video demo proxy `0xb8E5525eF80cEEC29Bf8598e303F71077361BFF5`: **ImplA** (version "A").
   Its Arkiv row has `ever_changed_since_baseline = true` from rehearsals; the video script rebaselines it before recording.
-- **Guard demo proxy: ImplB (version "B"), deliberately**, for the UI revert test. Restore it.
+- Guard demo proxy: **ImplA**, clean baseline at block 12074155.
 - Live watcher (Arkiv sink) runs in the background as `node --env-file=.env watcher/src/main.ts`,
   logging to `watcher/state/live.log`. A leftover test watcher (`node watcher/src/main.ts`, started
   by `scripts/test3.sh`, file sink only, harmless) is also running; the owner should stop it.
@@ -107,21 +106,8 @@ Owner chose: **guard on a new, separate Sepolia proxy** (the video's demo proxy 
 
 ## Next steps (in order)
 
-1. **Finish the guard UI check:** in the app, Check → *Guard demo proxy: increment()* → the panel must
-   say "would revert: ImplementationChanged…". Then `bash scripts/demo-upgrade.sh A guard`, confirm
-   version "A", and rebaseline the guard proxy so its row is plain green:
-   `npm run rebaseline -w watcher -- --chain 11155111 --address 0x3c93e603bbeD9Dc2Af817BC2D98Bc1D35CF1D669 --kind eip1967 --reason "clean state after guard demo"`.
-2. **Document P9 (1)**, always as a *controlled demo* (never "atomic protection"):
-   - README: short section "Check-and-call guard (controlled demo)" with addresses, the limits
-     (only proxies with this getter; target sees the guard as sender; no registry contract has it), and
-     `node --env-file=.env scripts/guard-demo.ts`. Add it to the Setup command table.
-   - `docs/TEST_REPORT.md`: a "Guard demo" entry (forge 11/11, Sepolia deploy, demo run log, UI check).
-   - `UPDATES.md` entry with real times; `AI_USAGE.md` rows for the new contracts, script and panel.
-   - **Counts: 31 → 32 monitored** (30 mainnet + 2 Sepolia). `grep -rn "31" README.md docs arkiv web/src`
-     and fix only the monitored-contract counts (e.g. VIDEO_SCRIPT's `grep -c … → 31`, PITCH, SUBMISSION,
-     README "31 baselines").
-   - `docs/PITCH.md` Q3 (TOCTOU): mention the controlled guard demo as how the gap closes when a proxy
-     exposes a trustworthy getter.
+1. ~~Finish the guard UI check~~ done.
+2. ~~Document P9 (1)~~ done.
 3. **P9 (2): one more Nym attempt, strict 30-minute timebox.** Record the result in TEST_REPORT
    (Test 4) and friction.md either way. Don't change the direct-by-default behaviour unless Nym works
    reliably (≥18/20 reads, p95 < 10 s on the Nym diagnostics screen).

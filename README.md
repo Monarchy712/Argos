@@ -85,8 +85,35 @@ npm ci && npm run dev    # http://localhost:5180
 
 - Sepolia demo proxy `0xb8E5525eF80cEEC29Bf8598e303F71077361BFF5` (OZ 5.6.1 transparent proxy; we
   upgrade it A→B→A in the demo).
+- Sepolia guard demo proxy `0x3c93e603bbeD9Dc2Af817BC2D98Bc1D35CF1D669` (controlled demo of a
+  check-and-call guard, see below).
 - 30 mainnet registry proxies across 19 protocols: attested descriptors first, plus every beacon and
   diamond kind ([list](watcher/monitored-mainnet.json)).
+
+## Check-and-call guard (controlled demo)
+
+A status is "as of block N", so an upgrade can still land between a check and the transaction
+(TOCTOU). On our own Sepolia proxy we show how that gap closes when a proxy can report its
+implementation in a way the implementation can't fake:
+
+- [`ArgosGuardableProxy`](contracts/src/ArgosGuardableProxy.sol): an OpenZeppelin transparent proxy
+  whose own fixed code answers `argosImplementation()` from the EIP-1967 slot. Upgrades can't change
+  the proxy's code, so the implementation can't misreport itself.
+- [`ArgosGuard`](contracts/src/ArgosGuard.sol): `checkAndCall(proxy, expectedImplementation, data)`
+  reverts with `ImplementationChanged(proxy, expected, actual)` unless the implementation matches,
+  and otherwise forwards the call, in the same transaction.
+- Sepolia: guardable proxy `0x3c93e603bbeD9Dc2Af817BC2D98Bc1D35CF1D669` (monitored by Argos), guard
+  `0x32189Bb40fD8E565a870d6b513F1E32e6832E46a`
+  ([deployment](contracts/deployments/11155111-guard.json)).
+- `node --env-file=.env scripts/guard-demo.ts` reads the expected implementation from the **Argos
+  baseline on Arkiv**, sends a guarded `increment()` (succeeds), upgrades the proxy to B, and sends it
+  again (reverts, nothing runs) ([run log](docs/test-runs/guard-demo-sepolia.txt)). In the app,
+  **Check → Guard demo proxy** simulates the guarded call with `eth_call`.
+
+**Limits, plainly:** it only works for proxies that expose such a getter, and **no registry contract
+does**. The target sees the guard as `msg.sender`, so it only suits calls that don't depend on the
+sender. A real wallet would do the same check from the user's own account (e.g. a batched call from
+a smart account). This is a demo of the mechanism, not protection for registry contracts.
 
 ## Arkiv
 
@@ -100,8 +127,8 @@ expiry: [arkiv/schema.md](arkiv/schema.md). Mirror quality and re-run steps:
 [arkiv/data-quality.md](arkiv/data-quality.md). Why Arkiv: [arkiv/why-arkiv.md](arkiv/why-arkiv.md).
 Who uses it: [arkiv/reach.md](arkiv/reach.md). Feedback: [arkiv/friction.md](arkiv/friction.md).
 
-What's on Arkiv now: **31 baselines** with live `current_state` / `latest_change` (30 mainnet
-registry proxies + the Sepolia demo proxy), and the **ERC-7730 registry mirror**: 768
+What's on Arkiv now: **32 baselines** with live `current_state` / `latest_change` (30 mainnet
+registry proxies + two Sepolia demo proxies), and the **ERC-7730 registry mirror**: 768
 `dg_descriptor` + 2,675 `dg_deployment` rows at registry commit `ef582c2`, verified against
 GitHub.
 
@@ -153,6 +180,9 @@ cp .env.example .env   # fill in keys locally; never commit .env
 | `bash scripts/test3.sh local\|sepolia` | Test 3: proxy-upgrade detection end to end |
 | `node --env-file=.env scripts/test2.ts` | Test 2: Arkiv record lifecycle |
 | `bash scripts/e2e-arkiv.sh` | watcher → Arkiv end to end on the Sepolia demo proxy |
+| `bash scripts/demo-upgrade.sh A|B [guard]` | move a Sepolia demo proxy between ImplA and ImplB (deployer key) |
+| `node --env-file=.env scripts/guard-demo.ts` | check-and-call guard demo on Sepolia (deployer key) |
+| `cd contracts && forge test` | contract tests (demo proxy assumptions + guard) |
 
 ## Data and licenses
 
