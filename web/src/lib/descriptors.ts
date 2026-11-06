@@ -47,8 +47,11 @@ export class RegistryFallbackSource implements DescriptorSource {
   readonly log: FetchRecord[] = [];
   private readonly cache = new Map<string, unknown>();
   private readonly manifest: RegistryManifest;
-  constructor(manifest: RegistryManifest) {
+  /** Demo only: modify this file's bytes after download, to show the hash check rejecting it. */
+  private readonly tamperPath: string | null;
+  constructor(manifest: RegistryManifest, opts: { tamperPath?: string | null } = {}) {
     this.manifest = manifest;
+    this.tamperPath = opts.tamperPath ?? null;
   }
 
   describe(): string {
@@ -67,7 +70,8 @@ export class RegistryFallbackSource implements DescriptorSource {
     try {
       const res = await anonAwareFetch(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const bytes = new Uint8Array(await res.arrayBuffer());
+      let bytes: Uint8Array = new Uint8Array(await res.arrayBuffer());
+      if (path === this.tamperPath) bytes = tamper(bytes);
       const got = keccak256(toHex(bytes));
       if (got !== expectedHash) throw new DescriptorIntegrityError(`hash mismatch for ${path}: got ${got}, expected ${expectedHash}`);
       const json = JSON.parse(new TextDecoder().decode(bytes));
@@ -103,4 +107,15 @@ export function loadManifest(): Promise<RegistryManifest> {
 export function descriptorFor(manifest: RegistryManifest, chainId: number, address: string) {
   const path = manifest.calldataIndex[`eip155:${chainId}:${address.toLowerCase()}`];
   return path ? { path, ...manifest.descriptors[path]! } : null;
+}
+
+/**
+ * Demo tampering: prefix the first intent with "TAMPERED " (what an attacker who controls the
+ * mirror or the network might do to change what the user is shown). Falls back to appending a
+ * byte if the file has no intent string.
+ */
+export function tamper(bytes: Uint8Array): Uint8Array {
+  const text = new TextDecoder().decode(bytes);
+  const changed = text.replace(/"intent"\s*:\s*"/, (m) => `${m}TAMPERED `);
+  return new TextEncoder().encode(changed === text ? `${text} ` : changed);
 }

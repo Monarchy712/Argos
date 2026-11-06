@@ -80,6 +80,7 @@ interface Result {
 export function CheckTxScreen({ snap: snapshot, manifest }: { snap: ArkivSnapshot | null; manifest: RegistryManifest | null }) {
   const transport = useTransport();
   const [input, setInput] = useState(EXAMPLES[0]!.value);
+  const [tamperDemo, setTamperDemo] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<Result | null>(null);
@@ -180,7 +181,7 @@ export function CheckTxScreen({ snap: snapshot, manifest }: { snap: ArkivSnapsho
       : Promise.resolve({ state: "not-run" as const });
 
     // Readable intent through the hash-checked descriptor source (same transport).
-    const source = index ? new RegistryFallbackSource(index) : null;
+    const source = index ? new RegistryFallbackSource(index, { tamperPath: tamperDemo ? descriptor?.path ?? null : null }) : null;
     const displayPromise = source
       ? format(
           { chainId: tx.chainId, to: tx.to, data: tx.data, value: tx.value },
@@ -230,6 +231,9 @@ export function CheckTxScreen({ snap: snapshot, manifest }: { snap: ArkivSnapsho
             <textarea id="tx-input" rows={9} value={input} onChange={(e) => setInput(e.target.value)} spellCheck={false} />
           </div>
           <div className="row">
+            <label className="check" style={{ margin: 0 }} title="Modifies the downloaded descriptor in this browser before the hash check, to show it gets rejected">
+              <input type="checkbox" checked={tamperDemo} onChange={(e) => setTamperDemo(e.target.checked)} /> Demo: tamper with the downloaded descriptor
+            </label>
             <button className="btn btn-primary" onClick={() => void run()} disabled={busy}>
               {busy ? "Checking…" : "Check transaction"}
             </button>
@@ -278,6 +282,7 @@ function ResultView({ r }: { r: Result }) {
   const d = r.display;
   const intent = d?.interpolatedIntent ?? (typeof d?.intent === "string" ? d.intent : d?.intent ? Object.values(d.intent)[0] : undefined);
   const hashMatches = r.baselineDescriptorHash && r.descriptor?.descriptorHash ? r.baselineDescriptorHash === r.descriptor.descriptorHash : null;
+  const rejected = r.fetches.find((f) => !f.ok && /hash mismatch/.test(f.error ?? ""));
   return (
     <div className="stack" style={{ marginTop: 16 }}>
       <div className={`card card-pad ${r.status.status === "RED" ? "callout-red" : ""}`} style={{ borderWidth: r.status.status === "RED" ? 2 : 1 }}>
@@ -318,7 +323,21 @@ function ResultView({ r }: { r: Result }) {
           {r.displayError && <div className="callout callout-red" style={{ marginTop: 8 }}>Could not render: {r.displayError}</div>}
           {d && (
             <>
-              {intent ? <div className="intent">{intent}</div> : <div className="intent muted">No descriptor for this contract</div>}
+              {rejected ? (
+                <div className="callout callout-red" style={{ marginTop: 8 }}>
+                  <div style={{ fontWeight: 700, fontSize: 16 }}>Descriptor rejected: integrity check failed</div>
+                  <div className="small" style={{ marginTop: 4 }}>
+                    <span className="mono">{rejected.path}</span> doesn't match the hash published on Arkiv, so DriftGuard
+                    renders nothing from it (raw calldata only).
+                  </div>
+                  <div className="small mono" style={{ marginTop: 4, wordBreak: "break-all" }}>expected {rejected.expectedHash}</div>
+                  <div className="small mono" style={{ wordBreak: "break-all" }}>{rejected.error?.match(/got (0x[0-9a-f]+)/)?.[0] ?? ""}</div>
+                </div>
+              ) : intent ? (
+                <div className="intent">{intent}</div>
+              ) : (
+                <div className="intent muted">No descriptor for this contract</div>
+              )}
               {d.fields && d.fields.length > 0 && (
                 <dl className="fields">
                   {d.fields
