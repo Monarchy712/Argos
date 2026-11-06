@@ -60,7 +60,7 @@ npm ci && npm run dev    # http://localhost:5180
 - **Not verified**: no record, an expired or stale record, an unsupported proxy, a failed live read, or a contract that isn't monitored. The reason is always shown.
 - A contract that went A→B→A shows *"Matches baseline now, but a change was previously detected (block N)."*
 
-**Privacy routing.** Live chain reads and descriptor fetches go through Anon-RPC (Nym) by default. If Nym can't boot or a request times out, the check **fails and shows Not verified**; there is no silent fallback to direct RPC. The viewer can switch to direct RPC explicitly (labelled "not anonymized", never saved). Disclosed exclusions: the one bulk Arkiv read (Arkiv's RPC didn't answer through the Nym exit in our spike) and the harness's one bootstrap read of the Nym specifier contract.
+**Privacy routing.** Live chain reads and descriptor downloads go **direct by default**, labelled "direct RPC (not anonymized)" in the header and on every result. **Try Nym (experimental)** routes them through Anon-RPC over the Nym mixnet instead. In that mode a check **fails closed** (Not verified, with the reason) if the Nym worker isn't ready, and never falls back to direct on its own. Nym was meant to be the default, but at ETHGlobal Mumbai its worker never became ready (two networks, three harness versions; see [Test 4](docs/TEST_REPORT.md#test-4--anon-rpc-over-nym--fail-2026-11-06-0800-ist)). Arkiv reads are always direct, keyless, bulk and contract-independent (see below).
 
 **Descriptor storage.** Descriptor metadata (path, registry commit, raw-file keccak, ERC-8176 hash, attestation status) comes from the Arkiv mirror written by the [importer](importer/src/import.ts). The file itself is fetched from the registry at that commit and must match the hash from Arkiv. A copy of the index ships with the app ([`web/public/registry-index.json`](web/public/registry-index.json)) and is used, with a visible label, only if Arkiv can't be reached. After Swarm is set up (Test 1), a Swarm source plugs in behind the same `DescriptorSource` interface without UI changes.
 
@@ -134,36 +134,47 @@ Built with an AI coding assistant (Claude Code). Details per file: [AI_USAGE.md]
 
 ## CROPS
 
-DriftGuard's lead property is **Privacy** for the user checking a transaction, together with
-fail-closed **Security**. The other two properties hold, with the trade-offs below.
+Submitted for **EF Best CROPS App**. The lead property is **Security**: *verify, don't trust*. Every
+claim DriftGuard shows can be checked independently, and when evidence is missing it fails closed
+instead of showing a stale green.
 
-- **C (censorship resistance):** What users depend on: our **watcher** (one process, one key) and our
-  **writer key** (baselines + registry mirror). If the watcher stops or is censored, its
-  `current_state` rows expire within 10 minutes and every client shows **Not verified**. It fails
-  closed and never leaves a stale green. Baselines and the mirror stay readable for ~182 days. All data
-  lives on Arkiv, not on our server. The web app is static (any host or IPFS works), and anyone can run their own
-  watcher with their own key and have clients trust that `$creator` instead of, or as well as, ours.
-  Remaining dependencies: the Arkiv Rabdi testnet and public Ethereum RPCs.
-- **O (open source):** MIT. Builds and runs from this repo alone (`npm ci`, exact-pinned npm deps, Foundry
-  deps as pinned git submodules). ERC-7730 data is CC0. No closed services; `.env` holds only the
-  operator's own keys and RPC URLs.
-- **P (privacy):** Live chain reads and descriptor downloads go through **Anon-RPC over Nym by default**,
-  so the RPC provider and GitHub see a Nym exit, not the user's IP. If Nym fails, the check fails
-  (Not verified). It never silently falls back to direct RPC, and direct mode is an explicit,
-  labelled, unsaved switch. Disclosed exclusions: (1) **Arkiv reads are direct and keyless**:
-  the Arkiv node sees the user's IP and that DriftGuard was opened, but reads are bulk and
-  contract-independent, so it doesn't learn which contract (details below). (2) The Anon-RPC
-  harness reads the Nym specifier contract once through a public RPC (reveals only "loads the Nym
-  worker"). (3) The static host sees the page load. No trackers or analytics. *Nym path: pending
-  Test 4.*
-- **S (security):** The browser holds no keys. The watcher key can write state but never baselines,
-  which come from a separate writer key. Clients trust rows only by `$creator`. Every descriptor
-  file is checked byte-for-byte (keccak256) against the mirror before rendering, and the ERC-8176 hash
-  is recomputed two ways at import. The Anon-RPC client bundle is hash-pinned by the harness. Trust
-  assumptions: our two keys are honest; the watcher's RPC is honest (cross-checked by the user's
-  live read); a status is "as of block N" (an upgrade can land between check and execution, see
-  [TOCTOU](docs/ARCHITECTURE.md#6-toctou-and-other-limitations-stated-plainly-in-the-readme)).
-  Operator keys live only in a gitignored `.env`, and logged errors are redacted.
+- **S (security, the lead):**
+  - **Descriptors are hash-checked before rendering.** The file's keccak256 must equal the hash
+    published on Arkiv by our writer; a tampered file is rejected and nothing is rendered (demo
+    toggle on the Check screen). At import, each ERC-8176 hash is computed twice (our JCS and the
+    reference library) and compared with auditors' attestations. That found **3 stale
+    attestations** in the registry.
+  - **Trust is explicit:** clients accept rows only from two published `$creator` keys. The watcher
+    key can write state but never baselines (separate writer key).
+  - **Fails closed:** a stopped or broken watcher's records expire within 10 minutes, and status
+    becomes **Not verified**, never a stale green. Unsupported proxies are never green. A failed
+    live read is never green.
+  - **An independent cross-check:** the user's own live read of the implementation slot must agree
+    with the baseline. Any mismatch is RED.
+  - The browser holds no keys. Operator keys live only in a gitignored `.env`, and logged errors are
+    redacted (the Arkiv SDK puts the access key in the URL).
+  - **Limits:** a status is "as of block N". An upgrade can land between check and execution
+    ([TOCTOU](docs/ARCHITECTURE.md#6-toctou-and-other-limitations-stated-plainly-in-the-readme)). We
+    trust our two keys and the RPC answers (cross-checked by the live read).
+- **C (censorship resistance):** What users depend on: our watcher (one process, one key) and writer
+  key. If the watcher stops or is censored, contracts turn **Not verified** within 10 minutes; they
+  don't show false information. Baselines and the registry mirror stay readable on Arkiv for ~182 days.
+  The app is static (any host or IPFS), and anyone can run a watcher with their own key and have clients
+  trust that `$creator`. Remaining dependencies: the Arkiv Rabdi testnet, public Ethereum RPCs, and
+  GitHub raw (for descriptor bytes, hash-checked) until Swarm.
+- **O (open source):** MIT. Builds from this repo alone (`npm ci`, exact-pinned npm deps, Foundry deps
+  as pinned submodules). ERC-7730 data is CC0. No closed services.
+- **P (privacy), stated honestly:** live chain reads and descriptor downloads are **direct by default**,
+  so the RPC provider and GitHub see your IP and which contract you check. Nym (Anon-RPC) is opt-in and
+  fails closed, but didn't boot at the event. Arkiv reads are direct and keyless (the node sees your IP)
+  but bulk and contract-independent, so Arkiv can't tell which contract you care about. No trackers or
+  analytics.
+
+### Demo moments (video)
+1. A descriptor passes its hash check against Arkiv, and the intent renders (Check → Aave supply).
+2. The same descriptor, tampered in the browser, is **rejected** (Check → "Demo: tamper…").
+3. A live A→B upgrade of the Sepolia demo proxy turns the badge **RED** within one watcher cycle.
+4. Stopping the watcher makes the status expire to **NOT VERIFIED** instead of a stale GREEN.
 
 ### What the Arkiv node can learn
 

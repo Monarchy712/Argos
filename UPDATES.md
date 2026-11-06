@@ -158,3 +158,16 @@ way. Times are IST. Each entry points at the commits it covers.
 - Fixed while debugging: a failed boot no longer retries for every read (it used to look like a
   multi-minute hang). The diagnostics screen shows boot progress and has a harness A/B switch.
 
+
+### After Test 4: direct by default, CROPS with Security as the lead, tamper demo
+- The 45-minute Nym timebox ended without a fix. The specifier, bundle, Nym API and gateways all
+  work from the venue (TCP 9000/9001/443 open), but the nested tunnel worker hangs silently with
+  harness 0.4.0, 0.3.3 and 0.3.2. Root cause notes are in `docs/TEST_REPORT.md` and
+  `arkiv/friction.md`.
+- The web app now defaults to **direct RPC, labelled "not anonymized"** everywhere. **Try Nym
+  (experimental)** stays one click away and fails closed.
+- EF target: **Best CROPS App**, with **Security** as the lead. The README CROPS section is rewritten
+  Security-first, honest about privacy, and lists the four demo moments.
+- New demo moment: **"tamper with the downloaded descriptor"** on the Check screen. The keccak check
+  against the hash on Arkiv rejects it ("Descriptor rejected: integrity check failed", with expected
+  and actual hashes), and the untampered run renders normally. Both were checked in the browser.

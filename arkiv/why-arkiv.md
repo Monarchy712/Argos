@@ -69,7 +69,7 @@ Every column a client filters on is indexed: `chain_id`, `address`, `matches_bas
 ## What Arkiv doesn't do for us (stated honestly)
 
 - **It doesn't make the watcher correct.** A live watcher can still be wrong (a bad RPC answer).
-  The app adds an independent live read over Anon-RPC/Nym to cross-check.
+  The app adds the user's own independent live read of the implementation slot to cross-check (direct RPC by default; Nym opt-in).
 - **It isn't private:** entities are public, and the browser's keyless read reveals its IP to the
   Arkiv node (it's the one direct call, disclosed in the README's CROPS section).
 - **Keyless reads have a cost budget** ([friction](friction.md#2-keyless-reads-have-a-cost-budget-that-isnt-documented-with-numbers)),

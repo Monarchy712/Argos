@@ -70,7 +70,7 @@ flowchart LR
 | watcher | `watcher/` | Node 22+ | Event scan + slot polls; writes state records. Signs with the **watcher** wallet. |
 | rebaseline CLI | `watcher/` (`npm run rebaseline`) | Node | Only thing that writes `baseline`. Signs with the **writer** wallet (see decision D1). |
 | contracts | `contracts/` | Foundry | ImplA/ImplB + OZ TransparentUpgradeableProxy on Sepolia for the demo; stretch: atomic guard. |
-| web | `web/` | Browser | Primary UI. Live checks through Anon-RPC/Nym. |
+| web | `web/` | Browser | Primary UI. Live checks direct by default (labelled); Anon-RPC/Nym opt-in and fail-closed (Test 4: the Nym worker didn't boot at the event). |
 
 Node version: SDK requires **Node ≥ 22.10** — VERIFIED (`@arkiv-network/sdk@1.0.1` README).
 Local: Node v24.12.0, Foundry 1.5.1.
@@ -321,6 +321,11 @@ Sepolia demo proxy.
   RPC provider learns which contracts we monitor; that is public anyway (it's on Arkiv).
 
 ## 5. Companion web app + Anon-RPC / Nym
+
+> **Update after Test 4 (2026-11-06):** the Nym worker never became ready on two networks with
+> three harness versions. Live reads now default to **direct RPC, labelled "not anonymized"**, and
+> Nym is opt-in and fail-closed. The EF target moved from "Best Use of Anon-RPC" to **"Best CROPS
+> App"** with Security as the lead property. The design below remains the intended Nym path.
 
 ### 5.1 Facts
 
