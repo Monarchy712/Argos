@@ -1,11 +1,14 @@
 /**
  * How the app reaches chains and descriptor mirrors.
  *
- *  - "nym" (default): every request goes through an AnonRpcWorker running the Nym anon-client
- *    in a sandboxed null-origin iframe. If Nym isn't ready or fails, the request FAILS. There is
- *    no silent fallback to direct RPC; the UI then shows NOT VERIFIED with the reason.
- *  - "direct": plain fetch, only when the viewer switches to it explicitly. Labelled "not
- *    anonymized" everywhere it applies, and never persisted (a reload returns to Nym).
+ *  - "direct" (default since Test 4 failed, see docs/TEST_REPORT.md): plain fetch, labelled
+ *    "direct RPC, not anonymized" on every result and in the header.
+ *  - "nym" (opt-in): every request goes through an AnonRpcWorker running the Nym anon-client in
+ *    a sandboxed null-origin iframe. If Nym isn't ready or fails, the request FAILS. There is no
+ *    silent fallback to direct RPC; the UI then shows NOT VERIFIED with the reason. In our tests
+ *    the Nym worker never became ready (two networks, three harness versions), so this stays
+ *    available for retesting, not as the default. The choice is never saved: a reload returns
+ *    to direct.
  *
  * Arkiv reads are the one disclosed exception: Arkiv's RPC didn't answer through the Nym exit in
  * the spike, so they go direct as one bulk, contract-independent read (see lib/arkiv.ts).
@@ -29,7 +32,7 @@ export interface TransportSnapshot {
 const BOOT_TIMEOUT_MS = 120_000;
 const REQUEST_TIMEOUT_MS = 30_000;
 
-let snapshot: TransportSnapshot = { mode: "nym", nym: { state: "idle", bootMs: null, error: null, startedAt: null, harness: "0.4.0" } };
+let snapshot: TransportSnapshot = { mode: "direct", nym: { state: "idle", bootMs: null, error: null, startedAt: null, harness: "0.4.0" } };
 const listeners = new Set<() => void>();
 const set = (next: { mode?: Mode; nym?: Partial<TransportSnapshot["nym"]> }) => {
   snapshot = { ...snapshot, ...next, nym: { ...snapshot.nym, ...(next.nym ?? {}) } };

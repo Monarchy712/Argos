@@ -101,46 +101,47 @@ export function useNow(ms = 15_000): number {
 // ---- transport pill (header) ---------------------------------------------------------------
 export function TransportPill() {
   const t = useTransport();
-  const [confirming, setConfirming] = useState(false);
+  const [explaining, setExplaining] = useState(false);
   const nymText =
     t.nym.state === "ready" ? `ready${t.nym.bootMs ? ` (booted in ${(t.nym.bootMs / 1000).toFixed(1)} s)` : ""}`
     : t.nym.state === "booting" ? "booting…"
-    : t.nym.state === "failed" ? "failed"
+    : t.nym.state === "failed" ? "failed: checks show Not verified"
     : "starts on first live read";
   return (
     <div className="transport-pill" style={{ position: "relative" }}>
       <div className="row small">
         <span className={t.mode === "direct" ? "kind kind-warn" : "kind"} title={routeLabel(t.mode)}>
-          {t.mode === "nym" ? `Live reads: Anon-RPC / Nym · ${nymText}` : "Live reads: DIRECT (not anonymized)"}
+          {t.mode === "nym" ? `Live reads: Anon-RPC / Nym · ${nymText}` : "Live reads: direct RPC (not anonymized)"}
         </span>
-        {t.mode === "nym" ? (
-          <button className="btn btn-small" onClick={() => setConfirming((v) => !v)} aria-expanded={confirming}>
-            Use direct RPC
+        {t.mode === "direct" ? (
+          <button className="btn btn-small" onClick={() => setExplaining((v) => !v)} aria-expanded={explaining}>
+            Try Nym (experimental)
           </button>
         ) : (
-          <button className="btn btn-small btn-primary" onClick={() => transport.setMode("nym")}>
-            Back to Nym
+          <button className="btn btn-small" onClick={() => transport.setMode("direct")}>
+            Back to direct
           </button>
         )}
       </div>
-      {confirming && t.mode === "nym" && (
-        <div className="card card-pad popover" role="dialog" aria-label="Switch to direct RPC">
-          <div style={{ fontWeight: 700, marginBottom: 6 }}>Switch live reads to direct RPC?</div>
+      {explaining && t.mode === "direct" && (
+        <div className="card card-pad popover" role="dialog" aria-label="Route live reads through Nym">
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>Route live reads through Anon-RPC / Nym?</div>
           <p className="small" style={{ margin: "0 0 10px", color: "var(--text-2)" }}>
-            The RPC provider and descriptor mirror will see your IP address and which contracts you check. This is not saved:
-            reloading the page returns to Nym.
+            Chain reads and descriptor downloads would go through the Nym mixnet, so providers see a Nym exit instead of your IP.
+            If the Nym worker can't start, checks <b>fail closed</b> (Not verified); they never quietly fall back to direct. In our
+            tests at ETHGlobal Mumbai the worker didn't become ready, so this is experimental. Not saved: a reload returns to direct.
           </p>
           <div className="row">
             <button
               className="btn btn-small btn-primary"
               onClick={() => {
-                transport.setMode("direct");
-                setConfirming(false);
+                transport.setMode("nym");
+                setExplaining(false);
               }}
             >
-              Switch to direct
+              Use Nym
             </button>
-            <button className="btn btn-small" onClick={() => setConfirming(false)}>Cancel</button>
+            <button className="btn btn-small" onClick={() => setExplaining(false)}>Cancel</button>
           </div>
         </div>
       )}

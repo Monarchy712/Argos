@@ -118,9 +118,11 @@ export function NymDiagnosticsScreen() {
     <section>
       <h1 className="section-title">Nym diagnostics</h1>
       <p className="section-sub">
-        Live checks use <a href="https://ethereum.github.io/anon-rpc/" target="_blank" rel="noreferrer">Anon-RPC</a>: a hash-pinned
-        Nym mixnet client runs in a sandboxed, null-origin iframe, so the RPC provider sees a Nym exit, not your IP. This
-        screen measures that path. Every read here goes through Nym, whatever the live-read setting.
+        Live checks can opt in to <a href="https://ethereum.github.io/anon-rpc/" target="_blank" rel="noreferrer">Anon-RPC</a>: a
+        hash-pinned Nym mixnet client runs in a sandboxed, null-origin iframe, so the RPC provider sees a Nym exit, not your IP.
+        This screen measures that path, and every read here goes through Nym whatever the live-read setting. At ETHGlobal
+        Mumbai the worker never became ready (two networks, three harness versions), so live reads default to direct RPC,
+        labelled as such.
       </p>
 
       <div className="grid-2">
@@ -144,7 +146,7 @@ export function NymDiagnosticsScreen() {
               </select>
             </dd>
             <dt>boot time</dt><dd>{t.nym.bootMs !== null ? `${(t.nym.bootMs / 1000).toFixed(1)} s` : "—"}</dd>
-            <dt>page live reads</dt><dd>{t.mode === "nym" ? "Nym (default)" : "direct (switched by viewer)"}</dd>
+            <dt>page live reads</dt><dd>{t.mode === "nym" ? "Nym (opted in)" : "direct (default)"}</dd>
           </dl>
           <div className="row">
             <button className="btn" onClick={() => void startNym().catch(() => {})} disabled={t.nym.state === "booting" || t.nym.state === "ready"}>
