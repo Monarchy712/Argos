@@ -1,5 +1,6 @@
 {
   "name": "@driftguard/watcher",
+  "description": "Argos watcher: detects proxy upgrades on monitored contracts and publishes current_state / latest_change to Arkiv.",
   "version": "0.1.0",
   "private": true,
   "type": "module",

@@ -45,7 +45,7 @@ export type LiveEvidence =
 export interface StatusInput {
   /** unix seconds */
   now: number;
-  /** false when DriftGuard has no baseline for this (chain, address) at all */
+  /** false when Argos has no baseline for this (chain, address) at all */
   monitored: boolean;
   /** false for proxy patterns the watcher can't read (custom slots, getter-only proxies) */
   supported: boolean;
@@ -80,13 +80,13 @@ export function computeStatus(input: StatusInput): StatusResult {
   const staleAfter = input.staleAfterSeconds ?? STALE_AFTER_SECONDS;
 
   if (!input.monitored) {
-    return { status: "NOT_VERIFIED", headline: "Not monitored", reasons: ["DriftGuard has no baseline for this contract."] };
+    return { status: "NOT_VERIFIED", headline: "Not monitored", reasons: ["Argos has no baseline for this contract."] };
   }
   if (!input.supported) {
     return {
       status: "NOT_VERIFIED",
       headline: "Unsupported proxy pattern",
-      reasons: ["This contract's upgrade mechanism can't be read by DriftGuard, so changes can't be verified."],
+      reasons: ["This contract's upgrade mechanism can't be read by Argos, so changes can't be verified."],
     };
   }
   if (!baseline) {

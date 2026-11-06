@@ -1,5 +1,6 @@
 {
   "name": "@driftguard/web",
+  "description": "Argos companion web app: raw calldata, readable ERC-7730 intent, and a GREEN / RED / NOT VERIFIED status.",
   "version": "0.1.0",
   "private": true,
   "type": "module",

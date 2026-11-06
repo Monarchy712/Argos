@@ -1,6 +1,6 @@
 # Arkiv — why Arkiv
 
-DriftGuard publishes evidence that wallets and people rely on when deciding whether to trust a
+Argos publishes evidence that wallets and people rely on when deciding whether to trust a
 rendered transaction. Four Arkiv properties carry that job, and each one shows up as something
 the user sees.
 
@@ -52,7 +52,7 @@ Every column a client filters on is indexed: `chain_id`, `address`, `matches_bas
   deployments are beacon proxies" or "which attestations are stale" without cloning and parsing
   all of it.
 - **Privacy by query shape:** the app reads all monitored rows in one contract-independent query
-  per creator and filters locally, so the Arkiv node learns "someone opened DriftGuard", not
+  per creator and filters locally, so the Arkiv node learns "someone opened Argos", not
   "someone is about to use Aave".
 
 ## 4. Public ownership → anyone can rebuild, check, or fork it

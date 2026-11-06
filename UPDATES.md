@@ -171,3 +171,11 @@ way. Times are IST. Each entry points at the commits it covers.
 - New demo moment: **"tamper with the downloaded descriptor"** on the Check screen. The keccak check
   against the hash on Arkiv rejects it ("Descriptor rejected: integrity check failed", with expected
   and actual hashes), and the untampered run renders normally. Both were checked in the browser.
+
+### Morning · Arkiv eligibility confirmed; renamed to Argos
+- **Arkiv booth (Nov 6 morning): confirmed eligible** for "Mirror something Ethereum depends on"
+  with the ERC-7730 registry mirror. No Build-track fallback is needed.
+- Renamed the project from DriftGuard to **Argos** everywhere a user sees it (web app, README,
+  docs, `arkiv/*.md`, package descriptions). Arkiv schema names (`dg_*`), entity attributes, env
+  variables, cursor files and the internal `@driftguard/*` package scope keep the working name, so
+  the records already on Arkiv stay valid.

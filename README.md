@@ -1,8 +1,12 @@
-# DriftGuard (working name)
+# Argos
 
 Contract-change detection and verification for ERC-7730 clear-signing descriptors.
-DriftGuard **detects, verifies and warns**. It does not block transactions, does not guarantee
+Argos **detects, verifies and warns**. It does not block transactions, does not guarantee
 safety, and never calls an upgrade malicious.
+
+*Argos is the hundred-eyed watchman of Greek myth. The project's working name was DriftGuard, so
+Arkiv schemas use the `dg_` prefix and workspace packages are `@driftguard/*`. They were kept
+on purpose: renaming them would orphan the records already on Arkiv.*
 
 > Status: hackathon build in progress (ETHGlobal Mumbai, from-scratch track). Progress log:
 > [UPDATES.md](UPDATES.md) · risk tests: [docs/TEST_REPORT.md](docs/TEST_REPORT.md).
@@ -21,7 +25,7 @@ How common is this? We classified every mainnet deployment in the EF registry
 of them. Source: [`watcher/monitored-mainnet.json`](watcher/monitored-mainnet.json),
 [`scripts/select-mainnet-proxies.ts`](scripts/select-mainnet-proxies.ts).
 
-DriftGuard records each monitored contract's code identity at a **baseline** and publishes, on
+Argos records each monitored contract's code identity at a **baseline** and publishes, on
 [Arkiv](https://arkiv.network), whether it still matches, whether it ever changed, and the latest
 change with its transaction.
 
@@ -135,7 +139,7 @@ Built with an AI coding assistant (Claude Code). Details per file: [AI_USAGE.md]
 ## CROPS
 
 Submitted for **EF Best CROPS App**. The lead property is **Security**: *verify, don't trust*. Every
-claim DriftGuard shows can be checked independently, and when evidence is missing it fails closed
+claim Argos shows can be checked independently, and when evidence is missing it fails closed
 instead of showing a stale green.
 
 - **S (security, the lead):**
@@ -180,7 +184,7 @@ instead of showing a stale green.
 
 | Read | When | What it reveals to the Arkiv RPC node |
 | --- | --- | --- |
-| Baselines, current_state, latest_change (3 bulk queries) | page load, then every 90 s; and on each "Check" | IP address, and that DriftGuard is open. Not which contract (every visitor sends identical queries). |
+| Baselines, current_state, latest_change (3 bulk queries) | page load, then every 90 s; and on each "Check" | IP address, and that Argos is open. Not which contract (every visitor sends identical queries). |
 | Registry mirror (dg_descriptor + dg_deployment, ~36 paged bulk queries) | first "Check" in a session, then cached | IP address, and that the mirror was loaded. Not which contract. |
 | Targeted mirror lookup | only if the keyless budget refuses the bulk read; **shown on screen when it happens** | IP address **and the contract being checked**. |
 | Browse mirror | only when the user runs a filter | IP address and the filter (chain, protocol, …). |

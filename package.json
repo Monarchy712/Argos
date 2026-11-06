@@ -1,5 +1,6 @@
 {
   "name": "driftguard",
+  "description": "Argos: contract-change detection and verification for ERC-7730 clear-signing descriptors, published on Arkiv.",
   "private": true,
   "type": "module",
   "license": "MIT",

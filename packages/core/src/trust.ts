@@ -1,7 +1,7 @@
 import type { Address } from "viem";
 
 /**
- * The only wallets whose Arkiv entities DriftGuard clients trust. Anyone can write an entity
+ * The only wallets whose Arkiv entities Argos clients trust. Anyone can write an entity
  * carrying a `dg_*` schema tag, so every read filters on `$creator` against these.
  * Public addresses only; keys live in the operator's .env. Listed in README and ARCHITECTURE §11.
  */

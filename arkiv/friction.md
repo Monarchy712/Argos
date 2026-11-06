@@ -1,6 +1,6 @@
 # Arkiv — friction log
 
-Everything that slowed us down while building DriftGuard on Arkiv, in the order we hit it, with
+Everything that slowed us down while building Argos on Arkiv, in the order we hit it, with
 what we did about it. Evidence for each item is in [`docs/TEST_REPORT.md`](../docs/TEST_REPORT.md)
 and the commit history. Overall the SDK was good to work with: its typed schemas caught most of
 our mistakes at compile time. The items below are where docs, defaults or error messages cost us

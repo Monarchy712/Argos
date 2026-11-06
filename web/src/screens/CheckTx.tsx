@@ -219,7 +219,7 @@ export function CheckTxScreen({ snap: snapshot, manifest }: { snap: ArkivSnapsho
     <section>
       <h1 className="section-title">Check a transaction</h1>
       <p className="section-sub">
-        Paste a transaction. DriftGuard shows the raw calldata, renders the readable ERC-7730 intent from a hash-checked
+        Paste a transaction. Argos shows the raw calldata, renders the readable ERC-7730 intent from a hash-checked
         descriptor, flags calls that change contract code, and checks whether the code behind <code>to</code> still matches
         its baseline. Live reads go {routeLabel(transport.mode)}.
       </p>
@@ -327,7 +327,7 @@ function ResultView({ r }: { r: Result }) {
                 <div className="callout callout-red" style={{ marginTop: 8 }}>
                   <div style={{ fontWeight: 700, fontSize: 16 }}>Descriptor rejected: integrity check failed</div>
                   <div className="small" style={{ marginTop: 4 }}>
-                    <span className="mono">{rejected.path}</span> doesn't match the hash published on Arkiv, so DriftGuard
+                    <span className="mono">{rejected.path}</span> doesn't match the hash published on Arkiv, so Argos
                     renders nothing from it (raw calldata only).
                   </div>
                   <div className="small mono" style={{ marginTop: 4, wordBreak: "break-all" }}>expected {rejected.expectedHash}</div>

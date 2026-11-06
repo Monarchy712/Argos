@@ -1,6 +1,6 @@
 /**
  * Prints every monitored contract's baseline, current_state and latest_change from Arkiv,
- * trusting only DriftGuard's writer/watcher wallets — the same reads the web app does.
+ * trusting only Argos's writer/watcher wallets — the same reads the web app does.
  * Read-only; works without any private key (keyless, or with ARKIV_ACCESS_KEY if set).
  *
  *   node --env-file-if-exists=.env scripts/show-arkiv.ts [--json]

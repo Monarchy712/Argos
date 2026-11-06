@@ -1,6 +1,6 @@
 # Arkiv schema
 
-DriftGuard writes five entity types to Arkiv's **Rabdi** testnet (chain ID 7794095) with
+Argos writes five entity types to Arkiv's **Rabdi** testnet (chain ID 7794095) with
 `@arkiv-network/sdk@1.0.1`. Source of truth: [`packages/core/src/arkivSchemas.ts`](../packages/core/src/arkivSchemas.ts).
 All schemas are **named** (`dg_*`), so every entity carries an indexed `arkiv.schema` tag.
 

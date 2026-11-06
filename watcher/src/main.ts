@@ -1,5 +1,5 @@
 /**
- * DriftGuard watcher: every WATCHER_POLL_MS, for each chain with baselines, scan change events
+ * Argos watcher: every WATCHER_POLL_MS, for each chain with baselines, scan change events
  * since the persisted cursor, read slots at head, and publish current_state / latest_change.
  *
  *   npm start -w watcher             # loop

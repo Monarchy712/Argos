@@ -1,6 +1,6 @@
 # Arkiv — data quality
 
-DriftGuard mirrors the **EF ERC-7730 clear-signing registry**
+Argos mirrors the **EF ERC-7730 clear-signing registry**
 ([ethereum/clear-signing-erc7730-registry](https://github.com/ethereum/clear-signing-erc7730-registry),
 **CC0-1.0**, not Sourcify data) into Arkiv, and adds per-deployment proxy classification and
 upgrade monitoring. This page covers what's in the mirror, how each row is checked, how it stays

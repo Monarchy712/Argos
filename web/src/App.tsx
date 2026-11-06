@@ -24,7 +24,7 @@ export function App() {
           <span className="brand-mark" aria-hidden>
             <svg width="18" height="18" viewBox="0 0 24 24"><path d="M5 13l4 4 10-11" stroke="#22c55e" strokeWidth="3.2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </span>
-          DriftGuard <small>clear-signing drift monitor</small>
+          Argos <small>clear-signing drift monitor</small>
         </div>
         <nav className="tabs" role="tablist">
           {TABS.map((t) => (
@@ -42,7 +42,7 @@ export function App() {
         {tab === "nym" && <NymDiagnosticsScreen />}
       </main>
       <footer className="foot">
-        DriftGuard detects, verifies and warns. It does not block transactions or guarantee safety, and an upgrade is not a
+        Argos detects, verifies and warns. It does not block transactions or guarantee safety, and an upgrade is not a
         sign of malice. Code: MIT. Descriptors: ERC-7730 registry (CC0).
       </footer>
     </div>

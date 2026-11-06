@@ -2,7 +2,7 @@
  * Arkiv entity schemas (see docs/ARCHITECTURE.md §2.3 and arkiv/schema.md).
  *
  * Named schemas tag each entity with an indexed `arkiv.schema` attribute, so queries through
- * them only see DriftGuard rows. Readers must still filter on `$creator` (trust.ts): anyone can
+ * them only see Argos rows. Readers must still filter on `$creator` (trust.ts): anyone can
  * write an entity that carries our tag.
  *
  * 32-byte hashes are stored as `str` (0x + 64 hex = 66 bytes, under the 128-byte str limit)

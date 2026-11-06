@@ -1,5 +1,5 @@
 /**
- * Test 4: is Anon-RPC over Nym usable for DriftGuard's live checks? Twenty sequential
+ * Test 4: is Anon-RPC over Nym usable for Argos's live checks? Twenty sequential
  * eth_getStorageAt reads of the Sepolia demo proxy's EIP-1967 implementation slot, ALWAYS through
  * the Nym worker (independent of the page's transport mode). Pass = at least 18/20 and p95 under
  * 10 s. After an upgrade, "Read once" should return the new implementation.

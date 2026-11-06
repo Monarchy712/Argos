@@ -1,5 +1,5 @@
 /**
- * Extends long-lived DriftGuard entities that will expire within EXPIRY.renewBelowSeconds
+ * Extends long-lived Argos entities that will expire within EXPIRY.renewBelowSeconds
  * (30 days) back to the maximum lifetime (~182 days). Safe to run any time; does nothing when
  * nothing is close to expiry. current_state is never renewed here: its short expiry is the point.
  *

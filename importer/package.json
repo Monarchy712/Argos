@@ -1,5 +1,6 @@
 {
   "name": "@driftguard/importer",
+  "description": "Argos importer: mirrors the EF ERC-7730 clear-signing registry to Arkiv (dg_descriptor, dg_deployment).",
   "version": "0.1.0",
   "private": true,
   "type": "module",

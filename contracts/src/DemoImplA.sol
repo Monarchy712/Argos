@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-/// @title DemoImplA — first implementation behind the DriftGuard demo proxy.
+/// @title DemoImplA — first implementation behind the Argos demo proxy.
 /// @notice Deliberately trivial: the point of the demo is detecting that the code behind a
 ///         proxy changed, not what the code does. `version()` lets anyone confirm by a call
 ///         which implementation is live.

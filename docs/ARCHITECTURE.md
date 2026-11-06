@@ -1,9 +1,9 @@
-# DriftGuard — Architecture blueprint
+# Argos — Architecture blueprint
 
 > Status: **v1, approved** (2026-11-06) with D1–D3 as recommended plus the write-rate and
 > monitoring-cap changes in §2.4 and §4.2. Every external claim is tagged
 > **VERIFIED** (with source) or **ASSUMED** (to be checked by a named risk test).
-> DriftGuard **detects, verifies and warns**. It does not block transactions, does not
+> Argos **detects, verifies and warns**. It does not block transactions, does not
 > guarantee safety, and never calls an upgrade malicious.
 
 ## 0. The problem in one paragraph
@@ -18,7 +18,7 @@ regularly checks for such changes" as the alternative to on-device detection (re
 "tbd"). [#2975](https://github.com/ethereum/clear-signing-erc7730-registry/issues/2975) proposes
 checking proxies bound to EIP-712 descriptors for domain changes on each `Upgraded` event
 (VERIFIED, re-read 2026-11-06; earlier wording "maintainers asked for an external monitor"
-overstated #2975). DriftGuard is such a monitor for the implementation case: it records each
+overstated #2975). Argos is such a monitor for the implementation case: it records each
 monitored contract's baseline code identity and publishes what changed and when. EIP-712
 domain checks are future work.
 
@@ -222,7 +222,7 @@ newer change is detected, never on a routine cycle. Long expiry + renewal.
 On page load the web app does **one bulk read per trusted creator**: all `dg_baseline`,
 `dg_current_state`, `dg_latest_change` rows (paged by `$key`, 100/page; expect fewer than 100
 monitored contracts, so 1 page each). It then filters by contract client-side. Arkiv therefore
-learns "someone loaded DriftGuard", not which contract they care about. `dg_descriptor` /
+learns "someone loaded Argos", not which contract they care about. `dg_descriptor` /
 `dg_deployment` (≈2.8k rows) load lazily the same way only on the Browse page. This direct read
 is the **one disclosed exclusion** from Anon-RPC (Arkiv's RPC doesn't answer through the Nym
 exit, per spike S2).
@@ -456,7 +456,7 @@ step for jobs).
 | A9 | `resolveCalldataDescriptor` resolves `includes` for a registry file loaded from disk; our `canonicalize` output hashes equal to `computeDescriptorHash` | Test 1 |
 | A10 | Largest registry descriptor (spike: 1 file > 128 KiB) uploads and round-trips | Test 1 |
 | A11 | Safe versions with `ChangedMasterCopy` | read Safe sources before the watcher build; until then Safe = slot-only |
-| A12 | ~~Registry issues #2975/#3098 say what we cite~~ **CLOSED, corrected:** #3098 lists an external monitoring tool as an alternative; #2975 is about EIP-712 domain drift on upgrade (not yet covered by DriftGuard) | re-read 2026-11-06, see §0 and `arkiv/reach.md` |
+| A12 | ~~Registry issues #2975/#3098 say what we cite~~ **CLOSED, corrected:** #3098 lists an external monitoring tool as an alternative; #2975 is about EIP-712 domain drift on upgrade (not yet covered by Argos) | re-read 2026-11-06, see §0 and `arkiv/reach.md` |
 | A13 | Mirror-track eligibility: registry data is CC0 and not Sourcify data (the clear-signing *library* is published by Sourcify, but the mirrored *data* is the EF registry) | confirm with Arkiv booth; fallback = Build on Arkiv (rename `data-quality.md` → `how-you-use-arkiv.md`) |
 | A14 | Registry default branch is `master` | importer pins a commit SHA anyway |
 

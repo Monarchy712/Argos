@@ -1,5 +1,5 @@
 /**
- * Deletes DriftGuard test rows (chain_id 31337) written by our writer/watcher wallets, so test
+ * Deletes Argos test rows (chain_id 31337) written by our writer/watcher wallets, so test
  * runs never leave a baseline the real watcher would try to monitor.
  *
  *   node --env-file=.env scripts/cleanup-test-rows.ts

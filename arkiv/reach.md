@@ -1,6 +1,6 @@
 # Arkiv — reach
 
-Who uses DriftGuard's data after Mumbai, and why it would live on Arkiv rather than in our
+Who uses Argos's data after Mumbai, and why it would live on Arkiv rather than in our
 database.
 
 ## The gap, in the registry's own words
@@ -19,7 +19,7 @@ The ERC-7730 registry team has two open issues about exactly this problem (re-re
   `Upgraded` event of a proxy bound to an **EIP-712** descriptor, checking whether the domain
   changed.
 
-DriftGuard is a working version of #3098's "external monitoring tool" for the implementation
+Argos is a working version of #3098's "external monitoring tool" for the implementation
 case. It doesn't decide the policy question; it publishes the evidence any policy needs (baseline,
 current state, when it changed, which tx) as public, queryable, expiring Arkiv records. #2975's
 EIP-712-domain check is our clearest next feature (see *Roadmap*).
@@ -47,9 +47,9 @@ two writer addresses are published in the README.
    `dg_deployment` make the whole registry (768 files, 2,675 deployments) queryable by chain,
    address, protocol, kind, proxy kind and attestation status. GitHub can't do that. That alone
    is reason to point at the Arkiv data.
-2. **Contribute upstream:** propose a link from #3098/#2975 to DriftGuard's Arkiv schema as the
+2. **Contribute upstream:** propose a link from #3098/#2975 to Argos's Arkiv schema as the
    reference data format for "external monitoring", and open a PR to the clear-signing library's
-   docs showing a ~20-line "check DriftGuard status" snippet for wallets.
+   docs showing a ~20-line "check Argos status" snippet for wallets.
 3. **Others can run watchers.** The schema is public. A wallet team or auditor can run the watcher
    with their own key, and clients choose which `$creator`s they trust. Arkiv makes multiple
    independent monitors cheap to consume side by side.
