@@ -116,7 +116,7 @@ export function TabGuard({ row }: TabProps) {
               glyph={sim.status === "VERIFIED" ? "check" : sim.status === "BLOCKED" ? "close" : sim.status === "UNSUPPORTED" ? "minus" : "question"}
               verdict={
                 <>
-                  <div className="eyebrow" style={{ color: "var(--ink-2)", letterSpacing: "0.07em" }}>{copy.label}</div>
+                  <div className="eyebrow" style={{ color: "var(--text-2)", letterSpacing: "0.07em" }}>{copy.label}</div>
                   <span className="asof">at block <b>{sim.block.toString()}</b></span>
                 </>
               }
@@ -139,7 +139,7 @@ export function TabGuard({ row }: TabProps) {
                 ),
               }}
             />
-            <div className="card-body" style={{ borderTop: "1px solid var(--hairline)" }}>
+            <div className="card-body" style={{ borderTop: "1px solid var(--divider)" }}>
               <div className="stack">
                 <p className="prose" style={{ color: "var(--ink)" }}>{copy.blurb}</p>
                 {sim.error && <Callout tone="warn">{sim.error}</Callout>}

@@ -88,7 +88,7 @@ function EventItem({ e, row, now, focused }: { e: ContractEvent; row: TabProps["
         className="tl-body"
         style={
           focused
-            ? { outline: "1px solid var(--accent-edge)", background: "var(--accent-wash)", borderRadius: "var(--r-sm)", padding: "var(--s-3)", marginTop: -3 }
+            ? { outline: "1px solid var(--iris-dim)", background: "var(--iris-soft)", borderRadius: "var(--r-sm)", padding: "var(--s-3)", marginTop: -3 }
             : undefined
         }
       >

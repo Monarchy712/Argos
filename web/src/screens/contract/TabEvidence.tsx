@@ -168,7 +168,7 @@ export function TabEvidence({ row, manifest, now }: TabProps) {
             </div>
 
             {verify.state !== "idle" && (
-              <div className="card-body" style={{ borderTop: "1px solid var(--hairline)" }}>
+              <div className="card-body" style={{ borderTop: "1px solid var(--divider)" }}>
                 {verify.state === "running" && <p className="t-13 dim">Fetching the descriptor {routeLabel(transport.mode)} and recomputing its hash…</p>}
                 {verify.state === "failed" && (
                   <Callout tone="bad"><b>Verification failed:</b> {verify.error}</Callout>

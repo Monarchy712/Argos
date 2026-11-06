@@ -93,7 +93,7 @@ export function HowItWorksScreen() {
 
                 {i === 0 && (
                   <div className="flow-side" style={{ margin: "var(--s-3) 0 var(--s-3) var(--s-9)" }}>
-                    <Icon name="lock" size={15} style={{ color: "var(--accent-2)", marginTop: 1 }} />
+                    <Icon name="lock" size={15} style={{ color: "var(--iris-ink)", marginTop: 1 }} />
                     <span>
                       <b style={{ color: "var(--ink)" }}>Nym, where enabled.</b> Reads your browser makes can travel through
                       the Nym mixnet, so the node answering them sees a Nym exit instead of your IP address — it learns that

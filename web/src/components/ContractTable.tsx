@@ -103,7 +103,7 @@ export function ContractTable({
                       <AddressLink chainId={r.chainId} address={r.current.implementation} tone={changed ? "bad" : undefined} />
                     )
                   ) : (
-                    <span className="t-12" style={{ color: "var(--warn)" }}>no fresh record</span>
+                    <span className="t-12" style={{ color: "var(--warn-ink)" }}>no fresh record</span>
                   )}
                 </td>
 

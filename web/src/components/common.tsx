@@ -165,7 +165,7 @@ export function Card({ children, className = "", stripe }: { children: ReactNode
 export function CardHead({ title, sub, actions, icon }: { title: ReactNode; sub?: ReactNode; actions?: ReactNode; icon?: IconName }) {
   return (
     <div className="card-head">
-      {icon && <Icon name={icon} size={16} style={{ color: "var(--ink-3)" }} />}
+      {icon && <Icon name={icon} size={16} style={{ color: "var(--muted)" }} />}
       <div className="grow">
         <div className="sec-title">{title}</div>
         {sub && <div className="sec-sub" style={{ marginTop: 2 }}>{sub}</div>}
@@ -189,8 +189,29 @@ export function Metric({ label, value, note, tone, tip }: { label: string; value
 }
 
 export function Tip({ text }: { text: ReactNode }) {
+  const ref = useRef<HTMLSpanElement>(null);
+
+  /**
+   * The body is centred on the trigger, so a tip near either page edge hangs off it — at 375px
+   * a 268px body beside a label 114px in was clipped by 20px. Measure when it opens and shift it
+   * back by however much it overhangs. Fail-open: if this never runs the tip is still centred and
+   * readable, just closer to the edge, so an explanation is never withheld.
+   */
+  const clamp = useCallback(() => {
+    const body = ref.current?.querySelector<HTMLElement>(".tip-body");
+    if (!body) return;
+    body.style.setProperty("--tip-shift", "0px");
+    const r = body.getBoundingClientRect();
+    const edge = 8;
+    const shift =
+      r.left < edge ? edge - r.left
+      : r.right > window.innerWidth - edge ? window.innerWidth - edge - r.right
+      : 0;
+    if (shift) body.style.setProperty("--tip-shift", `${Math.round(shift)}px`);
+  }, []);
+
   return (
-    <span className="tip">
+    <span className="tip" ref={ref} onPointerEnter={clamp} onFocusCapture={clamp}>
       <button type="button" className="tip-trigger" aria-label="What this means">?</button>
       <span className="tip-body" role="tooltip">{text}</span>
     </span>

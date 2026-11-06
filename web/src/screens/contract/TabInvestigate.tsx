@@ -106,7 +106,7 @@ export function TabInvestigate({ row, now }: TabProps) {
         <span className="b-glyph"><Icon name={live ? "alert" : "clock"} size={21} /></span>
         <div className="stack-s" style={{ flex: 1, minWidth: 0 }}>
           <h2>{live ? "Implementation change detected" : "Recorded implementation change"}</h2>
-          <p className="prose" style={{ color: "var(--ink-2)", maxWidth: "80ch" }}>
+          <p className="prose" style={{ color: "var(--text-2)", maxWidth: "80ch" }}>
             {live ? (
               <>
                 The code behind this address is no longer the code recorded at your baseline. An upgrade is a normal
@@ -144,7 +144,7 @@ export function TabInvestigate({ row, now }: TabProps) {
           glyph="arrowRight"
           verdict={
             <>
-              <div className="eyebrow" style={{ color: live ? "var(--bad)" : "var(--warn)", letterSpacing: "0.07em" }}>{change.field}</div>
+              <div className="eyebrow" style={{ color: live ? "var(--bad-ink)" : "var(--warn-ink)", letterSpacing: "0.07em" }}>{change.field}</div>
               <AsOf block={change.changeBlock} prefix="at" />
             </>
           }
@@ -165,7 +165,7 @@ export function TabInvestigate({ row, now }: TabProps) {
             ),
           }}
         />
-        <div className="card-body" style={{ borderTop: "1px solid var(--hairline)" }}>
+        <div className="card-body" style={{ borderTop: "1px solid var(--divider)" }}>
           <dl className="facts wide">
             <dt>Detection block</dt>
             <dd className="mono">{change.changeBlock.toString()}</dd>

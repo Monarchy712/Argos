@@ -138,7 +138,7 @@ export function NymDiagnosticsScreen() {
                 value={t.nym.harness}
                 disabled={running || t.nym.state === "booting"}
                 onChange={(e) => void selectHarness(e.target.value as HarnessVersion).catch(() => {})}
-                style={{ width: "auto", fontFamily: "var(--sans)", padding: "2px 6px" }}
+                style={{ width: "auto", fontFamily: "var(--font-ui)", padding: "2px 6px" }}
               >
                 <option value="0.4.0">@anon-rpc/browser-harness 0.4.0 (current)</option>
                 <option value="0.3.3">@anon-rpc/browser-harness 0.3.3</option>

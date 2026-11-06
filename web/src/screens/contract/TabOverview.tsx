@@ -78,7 +78,7 @@ export function TabOverview({ row, now }: TabProps) {
           glyph={verdict.glyph}
           verdict={
             <>
-              <div className="eyebrow" style={{ color: "var(--ink-2)", letterSpacing: "0.07em" }}>{verdict.word}</div>
+              <div className="eyebrow" style={{ color: "var(--text-2)", letterSpacing: "0.07em" }}>{verdict.word}</div>
               <AsOf block={row.current?.checkedBlock ?? row.baseline.block} at={row.current?.checkedAt} now={now} />
             </>
           }
@@ -110,7 +110,7 @@ export function TabOverview({ row, now }: TabProps) {
             body: (
               <div className="stack-s">
                 {!row.current ? (
-                  <div className="big-addr" style={{ color: "var(--warn)" }}>No unexpired observation</div>
+                  <div className="big-addr" style={{ color: "var(--warn-ink)" }}>No unexpired observation</div>
                 ) : isDiamond ? (
                   <div className="big-addr dim">facets hash (diamond)</div>
                 ) : (
@@ -140,7 +140,7 @@ export function TabOverview({ row, now }: TabProps) {
           }}
         />
 
-        <div className="card-body" style={{ borderTop: "1px solid var(--hairline)" }}>
+        <div className="card-body" style={{ borderTop: "1px solid var(--divider)" }}>
           <div className="stack">
             <p className="prose" style={{ color: "var(--ink)" }}>{verdict.line}</p>
             <ul className="reasons">
@@ -159,16 +159,16 @@ export function TabOverview({ row, now }: TabProps) {
         </div>
 
         {live.state !== "idle" && (
-          <div className="card-foot" style={{ color: "var(--ink-2)" }}>
+          <div className="card-foot" style={{ color: "var(--text-2)" }}>
             {live.state === "running" && <>Reading the proxy slots {routeLabel(transport.mode)}…</>}
             {live.state === "failed" && (
-              <span style={{ color: "var(--warn)" }}>
+              <span style={{ color: "var(--warn-ink)" }}>
                 Live read failed {live.route}: {live.error}. The watcher record above is unaffected.
               </span>
             )}
             {live.state === "ok" && (
               <>
-                <b style={{ color: live.matches ? "var(--ok)" : "var(--bad)" }}>
+                <b style={{ color: live.matches ? "var(--ok-ink)" : "var(--bad-ink)" }}>
                   {live.matches ? "Your own live read matches the baseline" : "Your own live read differs from the baseline"}
                 </b>{" "}
                 at block <span className="mono">{live.block.toString()}</span> · {live.ms} ms · {live.route} · identity{" "}
@@ -254,7 +254,7 @@ function NextStep({ href, icon, title, body, disabled }: { href: string; icon: P
   const inner = (
     <>
       <div className="row" style={{ gap: 8 }}>
-        <Icon name={icon} size={15} style={{ color: disabled ? "var(--ink-3)" : "var(--accent)" }} />
+        <Icon name={icon} size={15} style={{ color: disabled ? "var(--faint)" : "var(--iris)" }} />
         <span className="strong t-13">{title}</span>
       </div>
       <p className="t-12 dim" style={{ marginTop: 4, lineHeight: 1.55 }}>{body}</p>
