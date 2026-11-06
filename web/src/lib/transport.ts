@@ -39,7 +39,7 @@ export const transport = {
   get: () => snapshot,
   setMode(mode: Mode) {
     set({ mode });
-    if (mode === "nym") void startNym();
+    if (mode === "nym") void (snapshot.nym.state === "failed" ? restartNym() : startNym()).catch(() => {});
   },
 };
 
@@ -50,6 +50,10 @@ export interface WorkerLogLine {
   text: string;
 }
 export const workerLogs: WorkerLogLine[] = [];
+function hostLog(level: string, text: string) {
+  workerLogs.push({ t: Date.now(), level: `host ${level}`, text });
+  if (workerLogs.length > 300) workerLogs.shift();
+}
 
 // ---- Nym worker lifecycle --------------------------------------------------------------------
 let worker: AnonRpcWorker | null = null;
@@ -73,17 +77,22 @@ export function startNym(): Promise<void> {
   if (booting) return booting;
   const startedAt = performance.now();
   set({ nym: { state: "booting", error: null, startedAt: Date.now(), bootMs: null } });
+  hostLog("info", `booting Nym worker (specifier ${NYM_SPECIFIER}, timeout ${BOOT_TIMEOUT_MS / 1000} s)`);
   booting = (async () => {
     try {
       worker = new AnonRpcWorker({ address: NYM_SPECIFIER, preExisting: { rpcProvider: bootstrapProvider } });
       void collectLogs(worker);
       await withTimeout(worker.ready, BOOT_TIMEOUT_MS, `Nym worker not ready after ${BOOT_TIMEOUT_MS / 1000} s`);
       set({ nym: { state: "ready", bootMs: Math.round(performance.now() - startedAt) } });
+      hostLog("info", `Nym worker ready in ${Math.round(performance.now() - startedAt)} ms`);
     } catch (err) {
-      set({ nym: { state: "failed", error: err instanceof Error ? err.message : String(err) } });
+      const message = err instanceof Error ? err.message : String(err);
+      set({ nym: { state: "failed", error: message } });
+      hostLog("error", `Nym worker failed: ${message}`);
       worker?.close();
       worker = null;
-      booting = null; // allow a retry
+      // Keep the rejected promise: later requests fail immediately instead of each waiting out
+      // another boot timeout. Only an explicit restart (button / switching back to Nym) retries.
       throw err;
     }
   })();

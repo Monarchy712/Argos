@@ -4,7 +4,7 @@
  * the Nym worker (independent of the page's transport mode). Pass = at least 18/20 and p95 under
  * 10 s. After an upgrade, "Read once" should return the new implementation.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { IMPLEMENTATION_SLOT } from "@driftguard/core";
 import { CHAINS, DEMO_PROXY, NYM_SPECIFIER } from "../lib/config.ts";
 import { nymOnlyFetch, restartNym, startNym, workerLogs } from "../lib/transport.ts";
@@ -60,6 +60,13 @@ export function NymDiagnosticsScreen() {
   const [running, setRunning] = useState(false);
   const [single, setSingle] = useState<ReadResult | null>(null);
   const [, force] = useState(0);
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  // While running, refresh every second (elapsed time, worker log).
+  useEffect(() => {
+    if (!running && t.nym.state !== "booting") return;
+    const id = setInterval(() => force((x) => x + 1), 1000);
+    return () => clearInterval(id);
+  }, [running, t.nym.state]);
 
   const okMs = runs.filter((r) => r.ok).map((r) => r.ms);
   const okCount = okMs.length;
@@ -72,10 +79,15 @@ export function NymDiagnosticsScreen() {
   async function run20() {
     setRunning(true);
     setRuns([]);
+    setStartedAt(Date.now());
     try {
       await startNym();
-    } catch {
-      /* each read below will fail and record why */
+    } catch (err) {
+      // The worker never became ready: record all reads as failed now, don't retry per read.
+      const error = `worker not ready: ${err instanceof Error ? err.message : String(err)}`;
+      setRuns(Array.from({ length: N }, (_, k) => ({ i: k + 1, ok: false, httpStatus: null, ms: 0, error })));
+      setRunning(false);
+      return;
     }
     const out: ReadResult[] = [];
     for (let i = 1; i <= N; i++) {
@@ -137,7 +149,7 @@ export function NymDiagnosticsScreen() {
           </p>
           <div className="row">
             <button className="btn btn-primary" onClick={() => void run20()} disabled={running}>
-              {running ? `Running… ${runs.length}/${N}` : `Run ${N} reads`}
+              {running ? (t.nym.state === "booting" ? `Booting worker… ${startedAt ? Math.round((Date.now() - startedAt) / 1000) : 0} s` : `Running… ${runs.length}/${N}`) : `Run ${N} reads`}
             </button>
             <button className="btn" disabled={running} onClick={async () => setSingle(await readImplSlot(0))}>
               Read once (after an upgrade)
