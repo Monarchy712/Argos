@@ -62,6 +62,6 @@ export const SWARM_GATEWAY = (import.meta.env.VITE_SWARM_GATEWAY as string | und
 export const GUARD_DEMO = {
   chainId: 11155111,
   proxy: "0x3c93e603bbeD9Dc2Af817BC2D98Bc1D35CF1D669",
-  guard: "0x32189Bb40fD8E565a870d6b513F1E32e6832E46a",
+  guard: "0xBf9cAA1F914b76c87143183B9E82Ed574179E281",
   label: "Argos guard demo proxy",
 } as const;

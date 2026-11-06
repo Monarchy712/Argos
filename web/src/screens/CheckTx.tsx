@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { computeStatus, riskyCalldataFlags, PROXY_KINDS, type ProxyKind, type LiveEvidence, type RiskFlag, type StatusResult } from "@driftguard/core";
 import { format, type DisplayModel } from "@ethereum-sourcify/clear-signing";
-import { BaseError, ContractFunctionRevertedError, encodeFunctionData, getAddress, isAddress, isHex, parseAbi, parseTransaction, serializeTransaction, type Address, type Hex } from "viem";
+import { encodeFunctionData, getAddress, isAddress, isHex, parseAbi, parseTransaction, serializeTransaction, type Address, type Hex } from "viem";
 import { idOf, readArkiv, type ArkivSnapshot, type ChangeNoteRow } from "../lib/arkiv.ts";
 import { fetchChangeNote, type ChangeNoteText } from "../lib/changeNote.ts";
 import { clientFor, liveIdentity } from "../lib/chain.ts";
@@ -67,32 +67,69 @@ const erc20 = parseAbi(["function decimals() view returns (uint8)", "function sy
 
 const guardAbi = parseAbi([
   "function checkAndCall(address proxy, address expectedImplementation, bytes data) payable returns (bytes)",
+  "function wouldSucceed(address proxy, address expectedImplementation) view returns (bool supported, bool matches, address actual)",
   "error ImplementationChanged(address proxy, address expected, address actual)",
+  "error ImplementationChangedDuringCall(address proxy, address expected, address actual)",
+  "error UnsupportedProxy(address proxy)",
+  "error InvalidExpectedImplementation()",
 ]);
 
-/** Controlled demo: what ArgosGuard.checkAndCall would do right now, by eth_call (nothing is sent). */
-type GuardSim =
-  | { state: "ok"; expected: Address; guardedData: Hex; block: bigint }
-  | { state: "reverted"; expected: Address; actual: Address; guardedData: Hex; block: bigint }
-  | { state: "error"; expected: Address; guardedData: Hex; error: string };
+/**
+ * Transaction-time protection status. This is NOT the monitoring badge above it: monitoring says
+ * what the watcher last saw, this says what would happen to a guarded transaction right now.
+ *
+ *  VERIFIED     the proxy exposes a trustworthy getter and its implementation matches the baseline
+ *  BLOCKED      it is supported, but the implementation has changed -- the guard would revert
+ *  UNSUPPORTED  no proxy-level getter, so no atomic check is possible for this contract
+ *  NOT_VERIFIED the current implementation could not be established (RPC failed, no baseline)
+ */
+export type GuardStatus = "VERIFIED" | "BLOCKED" | "UNSUPPORTED" | "NOT_VERIFIED";
 
-async function simulateGuard(tx: Tx, expected: Address): Promise<GuardSim> {
-  const guardedData = encodeFunctionData({ abi: guardAbi, functionName: "checkAndCall", args: [getAddress(tx.to), expected, tx.data] });
+type GuardSim = {
+  status: GuardStatus;
+  expected: Address | null;
+  actual: Address | null;
+  guardedData: Hex | null;
+  block: bigint;
+  error?: string;
+};
+
+/**
+ * Asks the deployed guard what it would do, via its own `wouldSucceed` view (nothing is sent).
+ * Using the contract's logic rather than reimplementing it in TypeScript means the panel cannot
+ * drift from what `checkAndCall` actually enforces. It is still only a preview: the implementation
+ * can change between this read and the transaction, which is the whole reason checkAndCall
+ * re-checks on chain.
+ */
+async function simulateGuard(tx: Tx, expected: Address | null): Promise<GuardSim> {
   const client = clientFor(tx.chainId);
   const block = await client.getBlockNumber().catch(() => 0n);
+  if (tx.chainId !== GUARD_DEMO.chainId) {
+    // The guard is a controlled demo deployed only on Sepolia. Saying UNSUPPORTED here is the
+    // honest answer for every mainnet registry contract, and would remain true even if we did
+    // deploy one: none of them expose a proxy-level implementation getter.
+    return { status: "UNSUPPORTED", expected, actual: null, guardedData: null, block, error: "no Argos guard is deployed on this chain" };
+  }
+  if (!expected) return { status: "NOT_VERIFIED", expected: null, actual: null, guardedData: null, block, error: "no Argos baseline for this contract" };
+  const guardedData = encodeFunctionData({ abi: guardAbi, functionName: "checkAndCall", args: [getAddress(tx.to), expected, tx.data] });
   try {
-    await client.call({ to: GUARD_DEMO.guard, data: guardedData, value: tx.value });
-    return { state: "ok", expected, guardedData, block };
+    const [supported, matches, actual] = await client.readContract({
+      address: GUARD_DEMO.guard,
+      abi: guardAbi,
+      functionName: "wouldSucceed",
+      args: [getAddress(tx.to), expected],
+    });
+    if (!supported) return { status: "UNSUPPORTED", expected, actual: null, guardedData, block };
+    return { status: matches ? "VERIFIED" : "BLOCKED", expected, actual, guardedData, block };
   } catch (err) {
-    try {
-      await client.simulateContract({ address: GUARD_DEMO.guard, abi: guardAbi, functionName: "checkAndCall", args: [getAddress(tx.to), expected, tx.data], value: tx.value });
-    } catch (e2) {
-      const rev = e2 instanceof BaseError ? e2.walk((x) => x instanceof ContractFunctionRevertedError) : null;
-      if (rev instanceof ContractFunctionRevertedError && rev.data?.errorName === "ImplementationChanged") {
-        return { state: "reverted", expected, actual: (rev.data.args as Address[])[2]!, guardedData, block };
-      }
-    }
-    return { state: "error", expected, guardedData, error: (err instanceof Error ? err.message : String(err)).split("\n")[0]! };
+    return {
+      status: "NOT_VERIFIED",
+      expected,
+      actual: null,
+      guardedData,
+      block,
+      error: (err instanceof Error ? err.message : String(err)).split("\n")[0]!,
+    };
   }
 }
 
@@ -259,8 +296,11 @@ export function CheckTxScreen({ snap: snapshot, manifest }: { snap: ArkivSnapsho
         )
       : Promise.resolve({ display: null, displayError: "no descriptor index available (Arkiv mirror and bundled index both unavailable)" });
 
-    const isGuardDemo = tx.chainId === GUARD_DEMO.chainId && tx.to.toLowerCase() === GUARD_DEMO.proxy.toLowerCase();
-    const guardPromise: Promise<GuardSim | null> = isGuardDemo && baseline ? simulateGuard(tx, getAddress(baseline.implementation)) : Promise.resolve(null);
+    // Shown for every monitored contract, not just the guardable one: a contract that cannot be
+    // protected atomically must say so, rather than quietly omitting the panel.
+    const guardPromise: Promise<GuardSim | null> = baseline
+      ? simulateGuard(tx, getAddress(baseline.implementation))
+      : Promise.resolve(null);
     const [live, shown, guard] = await Promise.all([livePromise, displayPromise, guardPromise]);
     setResult({ ...base, live, status: evaluate(live), ...shown, fetches: source?.log ?? [], guard });
     setBusy(false);
@@ -527,31 +567,96 @@ function ChangeNotePanel({ note }: { note: ChangeNoteRow }) {
   );
 }
 
+const GUARD_STATUS: Record<GuardStatus, { label: string; tile: string; blurb: string }> = {
+  VERIFIED: {
+    label: "VERIFIED",
+    tile: "tile-ok",
+    blurb: "The expected implementation would still match when the call executes.",
+  },
+  BLOCKED: {
+    label: "BLOCKED",
+    tile: "tile-red",
+    blurb: "The implementation changed. The guard would revert and the call would not run.",
+  },
+  UNSUPPORTED: {
+    label: "UNSUPPORTED",
+    tile: "",
+    blurb: "Atomic protection is not available for this contract.",
+  },
+  NOT_VERIFIED: {
+    label: "NOT VERIFIED",
+    tile: "",
+    blurb: "The current implementation could not be established.",
+  },
+};
+
+/**
+ * Transaction-time protection, which is a different question from the monitoring badge above.
+ * Monitoring says what the watcher last saw; this says what an on-chain guard would do to this
+ * transaction right now. Only the second one closes the TOCTOU gap, and only for proxies that
+ * expose a trustworthy implementation getter.
+ */
 function GuardPanel({ g }: { g: GuardSim }) {
+  const meta = GUARD_STATUS[g.status];
   const impl = (a: string) => <AddressLink chainId={GUARD_DEMO.chainId} address={a} />;
   return (
-    <div className={`card card-pad ${g.state === "reverted" ? "tile-red" : ""}`}>
-      <div className="tile-label">Check-and-call guard · controlled demo</div>
-      <p className="small muted" style={{ margin: "6px 0 10px" }}>
-        This proxy's own fixed code reports its implementation, so a guard contract can check it and make the call in the same
-        transaction: an upgrade can't land in between. Only this demo proxy supports it; registry contracts don't. The target sees
-        the guard as the sender. Simulated with <code>eth_call</code>; nothing is sent.
+    <div className={`card card-pad ${meta.tile}`}>
+      <div className="tile-label">Transaction-time protection · controlled demo</div>
+      <div className="row" style={{ alignItems: "baseline", gap: 10, margin: "8px 0" }}>
+        <b style={{ fontSize: 16 }}>{meta.label}</b>
+        <span className="small muted">{meta.blurb}</span>
+      </div>
+
+      <p className="small muted" style={{ margin: "0 0 10px" }}>
+        Argos monitoring tells you what the watcher last saw. It cannot stop a proxy being upgraded between your review and
+        your transaction. <code>ArgosGuard.checkAndCall</code> re-checks the implementation and makes the call in the{" "}
+        <b>same transaction</b>, so no upgrade can land in between, and re-checks again afterwards in case the call itself
+        upgraded the proxy. This requires a getter in the <b>proxy&apos;s own code</b>; no ERC-7730 registry contract has one,
+        so this is a controlled demo on our own Sepolia proxy. The target sees the guard as <code>msg.sender</code>.
+        Read with <code>eth_call</code>; nothing is sent.
       </p>
+
+      {g.status === "UNSUPPORTED" && (
+        <div className="note note-warn" style={{ marginBottom: 10 }}>
+          {g.error ?? "This contract exposes no proxy-level implementation getter."} Argos still monitors it and still warns
+          when its code changes — but it cannot promise anything about the moment your transaction executes.
+        </div>
+      )}
+      {g.status === "NOT_VERIFIED" && g.error && (
+        <div className="note note-warn" style={{ marginBottom: 10 }}>{g.error}</div>
+      )}
+
       <dl className="kv">
-        <dt>send to</dt><dd>{impl(GUARD_DEMO.guard)} <span className="muted">(ArgosGuard)</span></dd>
-        <dt>expected implementation</dt><dd>{impl(g.expected)} <span className="muted">(the Argos baseline on Arkiv)</span></dd>
-        <dt>result now</dt>
-        <dd>
-          {g.state === "ok" && <b style={{ color: "var(--ok-bg)" }}>would succeed: implementation matches the baseline (block {g.block.toString()})</b>}
-          {g.state === "reverted" && (
-            <b style={{ color: "var(--bad-bg)" }}>
-              would revert: ImplementationChanged. Live implementation {impl(g.actual)} ≠ baseline. The call would not run.
-            </b>
-          )}
-          {g.state === "error" && <span className="muted">simulation failed: {g.error}</span>}
-        </dd>
+        {g.status !== "UNSUPPORTED" && (
+          <>
+            <dt>send to</dt>
+            <dd>{impl(GUARD_DEMO.guard)} <span className="muted">(ArgosGuard)</span></dd>
+          </>
+        )}
+        {g.expected && (
+          <>
+            <dt>expected implementation</dt>
+            <dd>{impl(g.expected)} <span className="muted">(the Argos baseline on Arkiv)</span></dd>
+          </>
+        )}
+        {g.actual && (
+          <>
+            <dt>live implementation</dt>
+            <dd>
+              {impl(g.actual)}{" "}
+              <span className="muted">
+                {g.status === "BLOCKED" ? "≠ baseline" : "= baseline"} at block {g.block.toString()}
+              </span>
+            </dd>
+          </>
+        )}
       </dl>
-      <div className="hex small" style={{ marginTop: 8 }} title="checkAndCall(proxy, expectedImplementation, data)">{g.guardedData}</div>
+
+      {g.guardedData && g.status !== "UNSUPPORTED" && (
+        <div className="hex small" style={{ marginTop: 8 }} title="checkAndCall(proxy, expectedImplementation, data)">
+          {g.guardedData}
+        </div>
+      )}
     </div>
   );
 }
