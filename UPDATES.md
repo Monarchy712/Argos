@@ -187,7 +187,7 @@ way. Times are IST. Each entry points at the commits it covers.
 - Added `scripts/query-mirror.ts` (stale attestations, descriptors for a contract, one registry
   folder), with an explorer link per entity. Linked from the README.
 
-### ~09:15 · Swarm (Test 1): descriptors on Swarm, refs on Arkiv, browser reads Swarm first
+### ~09:05 · Swarm (Test 1): descriptors on Swarm, refs on Arkiv, browser reads Swarm first
 - The Swarm booth details weren't in `.env` yet. We found that the public gateway
   (`api.gateway.ethswarm.org`) accepts stampless `POST /bytes` and stamps uploads itself, so we went ahead with it.
 - `importer/src/swarm.ts` (bee-js 13.2.0): uploads the resolved JCS bytes of all **746**
@@ -198,7 +198,7 @@ way. Times are IST. Each entry points at the commits it covers.
 - `arkiv/swarm.md` written. Open item: put the content under the booth's own batch with `--restamp`
   (same references, no Arkiv change) once `BEE_API_URL` / `SWARM_POSTAGE_BATCH_ID` are set.
 
-### ~09:30 · Arkiv docs pass (P3)
+### ~09:15 · Arkiv docs pass (P3)
 - `reach.md` gains the numbers the rubric asks for: 95 registry contributors, 559 commits, 222 forks,
   4,310 monthly npm downloads of `@ethereum-sourcify/clear-signing`, and 2,060 contracts on 151 chains from 85
   protocol folders.
@@ -211,7 +211,7 @@ way. Times are IST. Each entry points at the commits it covers.
 - `schema.md`: Swarm fields and queries. Corrected a wrong claim: importer re-runs don't renew expiry
   (a patch never moves it). Renewal is `npm run renew` only.
 
-### ~09:45 · CROPS requirements (P4)
+### ~09:17 · CROPS requirements (P4)
 - README **CROPS** section rewritten in the EF format: one short line each for S (lead), C, O, P, then
   details and the three stated trade-offs (one watcher, direct Arkiv reads, direct live reads).
 - A "What each third party can learn" table now covers Ethereum RPC, the Swarm gateway, GitHub raw, our
@@ -221,7 +221,7 @@ way. Times are IST. Each entry points at the commits it covers.
 - **Quick start (no keys)** added at the top of the README. Verified from a fresh clone with no `.env`:
   `npm ci`, typecheck, 38/38 tests, build, `show-arkiv` (31 contracts fresh), `query-mirror stale` (3 rows).
 
-### ~10:05 · UI polish for judging (P5)
+### ~09:22 · UI polish for judging (P5)
 - Argos branding: an eye mark (the hundred-eyed watchman) in the header and favicon; tagline "watches
   the code behind clear-signing descriptors".
 - New **How it works** tab: one data-flow diagram (registry/Ethereum → importer/watcher →
@@ -233,3 +233,12 @@ way. Times are IST. Each entry points at the commits it covers.
   descriptor and Swarm per row.
 - Checked at 1366 px: no horizontal scroll (Monitored table 1,270 px inside the 1,320 px container),
   diagram text inside its boxes, no console errors. No new features.
+
+### ~09:30 · Demo video script (P6)
+- `docs/VIDEO_SCRIPT.md`: a 2:40 script in two clips, (a) Swarm + hash check, (b) tamper rejected,
+  (c) live A→B → RED, (d) watcher stopped → NOT VERIFIED. Also exact pre-recording commands, a
+  recording checklist and after-recording steps. No speed-up; waits are cut and said out loud.
+- `scripts/demo-upgrade.sh A|B`: one command for the on-camera upgrade (reads the key from `.env`,
+  prints the tx and the new implementation slot).
+- **Rehearsed on Sepolia:** A→B tx mined in 14 s, and the watcher logged the change from the `Upgraded` event
+  and wrote it to Arkiv ~70 s after the tx. Then back to A. The proxy is at ImplA.

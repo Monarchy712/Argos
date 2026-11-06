@@ -13,7 +13,7 @@ output is committed under `docs/test-runs/`.
 
 ---
 
-## Test 1 — Swarm — PASS via the public gateway (2026-11-06 ~09:00–09:15 IST)
+## Test 1 — Swarm — PASS via the public gateway (2026-11-06 ~08:58–09:08 IST)
 
 **Question:** can we put descriptor content on Swarm, point to it from Arkiv, and have the browser
 read it back with an integrity check?
