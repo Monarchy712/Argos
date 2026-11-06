@@ -52,6 +52,26 @@ Point the watcher service at the second file with **Settings → Config-as-code 
    The `web` service needs **no variables at all**.
 5. Deploy. `web` gets a public URL; `watcher` has no port and should not be given one.
 
+### Two Nixpacks gotchas we hit, and why the config looks like it does
+
+**`npm ci` fails the build.** Railway mounts a build cache at `/app/node_modules/.cache`, and
+`npm ci` deletes `node_modules` wholesale before installing, so it tries to `rmdir` a live mount:
+
+```
+npm error EBUSY: resource busy or locked, rmdir '/app/node_modules/.cache'
+"npm ci && npm run build" did not complete successfully: exit code 240
+```
+
+So both configs use `npm install --no-audit --no-fund`, which installs in place instead of wiping
+the tree. The lockfile is still respected — verified locally that `npm install` leaves
+`package-lock.json` byte-identical and the build output unchanged.
+
+**Node version.** Several scripts are run as TypeScript directly (`node scripts/serve-static.ts`,
+`node watcher/src/main.ts`), which relies on Node's built-in type stripping. That is only on by
+default from Node 22.18 / 23.6 onward, and `engines.node` here is the range `>=22.10` — which a
+builder is free to satisfy with 22.10, where those commands would fail to parse. `.nvmrc` pins
+Node 24 so the deployed runtime matches the one we develop and test on.
+
 ### Note the start command has no `--env-file`
 
 Locally the watcher runs as `node --env-file=.env watcher/src/main.ts`. On Railway the variables
