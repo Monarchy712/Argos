@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { computeStatus, riskyCalldataFlags, PROXY_KINDS, type ProxyKind, type LiveEvidence, type RiskFlag, type StatusResult } from "@driftguard/core";
 import { format, type DisplayModel } from "@ethereum-sourcify/clear-signing";
 import { BaseError, ContractFunctionRevertedError, encodeFunctionData, getAddress, isAddress, isHex, parseAbi, parseTransaction, serializeTransaction, type Address, type Hex } from "viem";
-import { idOf, readArkiv, type ArkivSnapshot } from "../lib/arkiv.ts";
+import { idOf, readArkiv, type ArkivSnapshot, type ChangeNoteRow } from "../lib/arkiv.ts";
+import { fetchChangeNote, type ChangeNoteText } from "../lib/changeNote.ts";
 import { clientFor, liveIdentity } from "../lib/chain.ts";
 import { CHAINS, DEMO_PROXY, GUARD_DEMO } from "../lib/config.ts";
 import { RegistryFallbackSource, SwarmFirstSource, descriptorFor, makeResolver, type FetchRecord, type RegistryManifest } from "../lib/descriptors.ts";
@@ -107,6 +108,8 @@ interface Result {
   baselineDescriptorHash: string | null;
   /** controlled demo only: set when the target is the guard demo proxy */
   guard?: GuardSim | null;
+  /** set when Arkiv carries a dg_change_note for this contract */
+  changeNote?: ChangeNoteRow | null;
   /** where the descriptor metadata (path, commit, hashes) came from */
   provenance: { source: "arkiv-bulk" | "arkiv-targeted" | "bundled"; note: string };
 }
@@ -158,6 +161,7 @@ export function CheckTxScreen({ snap: snapshot, manifest }: { snap: ArkivSnapsho
     const baseline = snap?.baselines.find((b) => idOf(b.chainId, b.address) === id) ?? null;
     const current = snap?.current.find((c) => idOf(c.chainId, c.address) === id) ?? null;
     const change = snap?.changes.find((c) => idOf(c.chainId, c.address) === id) ?? null;
+    const changeNote = snap?.changeNotes.find((n) => idOf(n.chainId, n.address) === id) ?? null;
     // Descriptor metadata from the Arkiv mirror (bulk read; targeted fallback says so). The index
     // bundled with the app is used only if Arkiv can't be reached at all, and that is shown too.
     const lookup = await lookupContract(tx.chainId, tx.to).catch(() => null);
@@ -211,6 +215,7 @@ export function CheckTxScreen({ snap: snapshot, manifest }: { snap: ArkivSnapsho
       descriptor,
       baselineDescriptorHash: baseline?.descriptorHash || null,
       provenance,
+      changeNote,
     };
     setResult(base);
 
@@ -350,6 +355,8 @@ function ResultView({ r }: { r: Result }) {
         </ul>
       </div>
 
+      {r.changeNote && <ChangeNotePanel note={r.changeNote} />}
+
       {r.guard && <GuardPanel g={r.guard} />}
 
       {r.flags.length > 0 && (
@@ -446,6 +453,76 @@ function ResultView({ r }: { r: Result }) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * What changed between the two implementations, described by a model on 0G Private Computer.
+ *
+ * Deliberately framed as a description, never a verdict. The words are fetched from Swarm and
+ * rendered only if they hash to the value on Arkiv; a mismatch shows the mismatch instead of the
+ * text. The model, the 0G request id and the cost are shown so the claim can be traced back.
+ */
+function ChangeNotePanel({ note }: { note: ChangeNoteRow }) {
+  const [text, setText] = useState<ChangeNoteText | null>(null);
+  useEffect(() => {
+    let live = true;
+    setText(null);
+    void fetchChangeNote(note.summarySwarmRef, note.summaryHash).then((t) => live && setText(t));
+    return () => {
+      live = false;
+    };
+  }, [note.summarySwarmRef, note.summaryHash]);
+
+  const impl = (a: string) => <AddressLink chainId={note.chainId} address={a} />;
+  return (
+    <div className="card card-pad">
+      <div className="tile-label">What changed in the code · described by a model on 0G</div>
+      <p className="small muted" style={{ margin: "6px 0 10px" }}>
+        Argos detects <i>that</i> the code changed. This describes <i>what</i> changed about the callable functions, by comparing
+        4-byte selectors found in the deployed bytecode of both implementations. It is a description, <b>not</b> a judgement:
+        it does not say whether the change is safe, and neither does Argos.
+      </p>
+
+      {text === null && <p className="small muted">Fetching the description from Swarm…</p>}
+      {text?.state === "ok" && <p style={{ margin: "0 0 10px" }}>{text.text}</p>}
+      {text?.state === "mismatch" && (
+        <div className="callout callout-red">
+          Description rejected: integrity check failed. Swarm returned bytes hashing to <code>{short(text.got, 10, 8)}</code>, but
+          Arkiv publishes <code>{short(text.expected, 10, 8)}</code>. Argos renders nothing from it.
+        </div>
+      )}
+      {text?.state === "unavailable" && (
+        <div className="note note-warn">Swarm couldn't serve the description ({text.error}). The change itself is still recorded below.</div>
+      )}
+
+      <dl className="kv">
+        <dt>compared</dt>
+        <dd>
+          {impl(note.fromImplementation)} → {impl(note.toImplementation)}
+        </dd>
+        <dt>call surface</dt>
+        <dd>
+          {note.sameSurface ? (
+            <>
+              <b>unchanged</b> <span className="muted">— same selectors, different code. Identical surface is not identical behaviour.</span>
+            </>
+          ) : (
+            <>
+              {note.selectorsAdded} added, {note.selectorsRemoved} removed
+            </>
+          )}
+        </dd>
+        <dt>model</dt>
+        <dd className="mono">{note.model}</dd>
+        <dt>0G request id</dt>
+        <dd className="mono">{note.requestId || "—"}</dd>
+        <dt>cost</dt>
+        <dd>{note.costUsdMicro ? `$${(note.costUsdMicro / 1_000_000).toFixed(6)}` : "—"}</dd>
+        <dt>text on Swarm</dt>
+        <dd className="mono">{short(note.summarySwarmRef, 10, 8)}</dd>
+      </dl>
     </div>
   );
 }

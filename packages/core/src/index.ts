@@ -7,3 +7,4 @@ export * from "./status.ts";
 export * from "./risky.ts";
 export * from "./classify.ts";
 export * from "./redact.ts";
+export * from "./selectors.ts";

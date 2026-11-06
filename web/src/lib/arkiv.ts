@@ -7,7 +7,7 @@
 import { createPublicClient } from "@arkiv-network/sdk";
 import { rabdi } from "@arkiv-network/sdk/chains";
 import { asc } from "@arkiv-network/sdk/query";
-import { BaselineSchema, CurrentStateSchema, LatestChangeSchema, TRUSTED_CREATORS } from "@driftguard/core";
+import { BaselineSchema, ChangeNoteSchema, CurrentStateSchema, LatestChangeSchema, TRUSTED_CREATORS } from "@driftguard/core";
 import { http, type Address, type Hex } from "viem";
 import { ARKIV_BLOCK_SECONDS } from "./config.ts";
 
@@ -50,10 +50,35 @@ export interface ChangeRow {
   detectedAt: number;
   detectedBy: string;
 }
+/**
+ * A model's plain-language description of what changed between two implementations, produced on
+ * 0G Private Computer by `scripts/explain-change.ts`. The text is NOT here: it lives on Swarm and
+ * `summaryHash` is keccak256 of those bytes, so the app verifies the words before rendering them
+ * (lib/changeNote.ts), exactly as it verifies a descriptor.
+ */
+export interface ChangeNoteRow {
+  key: Hex;
+  chainId: number;
+  address: Address;
+  fromImplementation: Address;
+  toImplementation: Address;
+  changeBlock: bigint;
+  summaryHash: Hex;
+  summarySwarmRef: string;
+  selectorsAdded: number;
+  selectorsRemoved: number;
+  sameSurface: boolean;
+  model: string;
+  requestId: string;
+  provider: string;
+  costUsdMicro: number;
+  generatedAt: number;
+}
 export interface ArkivSnapshot {
   baselines: BaselineRow[];
   current: CurrentRow[];
   changes: ChangeRow[];
+  changeNotes: ChangeNoteRow[];
   arkivBlock: bigint;
   readAt: number;
   ms: number;
@@ -75,10 +100,11 @@ export const idOf = (chainId: number, address: string) => `${chainId}:${address.
 export async function readArkiv(): Promise<ArkivSnapshot> {
   const t0 = performance.now();
   try {
-    const [b, c, l] = await Promise.all([
+    const [b, c, l, n] = await Promise.all([
       client.select().from(BaselineSchema).createdBy(TRUSTED_CREATORS.writer).orderBy(asc("$key")).limit(100).fetch(),
       client.select().from(CurrentStateSchema).createdBy(TRUSTED_CREATORS.watcher).orderBy(asc("$key")).limit(100).fetch(),
       client.select().from(LatestChangeSchema).createdBy(TRUSTED_CREATORS.watcher).orderBy(asc("$key")).limit(100).fetch(),
+      client.select().from(ChangeNoteSchema).createdBy(TRUSTED_CREATORS.writer).orderBy(asc("$key")).limit(100).fetch(),
     ]);
     const now = Math.floor(Date.now() / 1000);
     const arkivBlock = b.blockNumber;
@@ -120,6 +146,24 @@ export async function readArkiv(): Promise<ArkivSnapshot> {
         txHash: r.tx_hash.value,
         detectedAt: Number(r.detected_at.value),
         detectedBy: r.detected_by.value,
+      })),
+      changeNotes: n.entities.map((r) => ({
+        key: r.$key,
+        chainId: Number(r.chain_id.value),
+        address: r.address.value as Address,
+        fromImplementation: r.from_implementation.value as Address,
+        toImplementation: r.to_implementation.value as Address,
+        changeBlock: r.change_block.value,
+        summaryHash: r.summary_hash.value as Hex,
+        summarySwarmRef: r.summary_swarm_ref.value,
+        selectorsAdded: Number(r.selectors_added.value),
+        selectorsRemoved: Number(r.selectors_removed.value),
+        sameSurface: r.same_surface.value,
+        model: r.model.value,
+        requestId: r.zerog_request_id.value,
+        provider: r.zerog_provider.value,
+        costUsdMicro: Number(r.cost_usd_micro.value),
+        generatedAt: Number(r.generated_at.value),
       })),
       arkivBlock,
       readAt: Date.now(),
