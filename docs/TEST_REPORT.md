@@ -11,6 +11,7 @@ output is committed under `docs/test-runs/`.
 | 4 — Nym reads | **PASS on retest** (11:37–11:43 IST): 60/60 reads, p95 2.4–3.6 s per run, 4/5 cold boots ready. It had **FAILED** at ~08:00 IST (worker never ready); both records are kept below | [retest](test-runs/test4-nym-pass.txt) · see below |
 | Guard demo (controlled) | **PASS**: forge 11/11; on Sepolia a guarded call passes at ImplA and reverts with `ImplementationChanged` at ImplB (nothing runs); UI simulation shows both | [deploy](test-runs/guard-deploy-sepolia.txt) · [demo](test-runs/guard-demo-sepolia.txt) · see below |
 | 1 — Swarm | **PASS** via the public gateway (gateway stamp): 746/746 uploaded, each read back and keccak-checked, refs on Arkiv, browser reads Swarm first. Own batch: pending the booth | [swarm-upload-gateway.txt](test-runs/swarm-upload-gateway.txt) · see below |
+| Swarm-hosted app | **PARTIAL**: the built app uploads as a collection and re-uploads to the same reference; 4/5 files verify byte-identical from the gateway, but **HTML is refused** — the public gateways are default-deny for websites until a moderator approves the hash | [swarm-site-publish.txt](test-runs/swarm-site-publish.txt) · [arkiv/swarm.md](../arkiv/swarm.md) |
 
 ---
 
@@ -45,13 +46,25 @@ via Anon-RPC (Nym mixnet)", the intent rendered ("Supply · 100 USDC · recipien
 descriptor was fetched **from Swarm through the mixnet** and still passed its hash check:
 `✓ Swarm registry/aave/calldata-lpv3.json · resolved JCS bytes match the ERC-8176 hash on Arkiv`.
 
-**What we did *not* change, and why.** Live reads still default to **direct RPC, labelled
-"not anonymized"**, with Nym one click away and failing closed. Three reasons, all measured above:
-a cold boot costs 10–14 s before the first check can even start, the first read adds another ~15 s,
-and 1 of 5 boots failed outright — a visitor who lands on a Nym-by-default build during that failure
-sees Not verified instead of a result. Working-and-labelled still beats slower-and-sometimes-broken
-as a default. What changed is the honesty of the claim: Nym is now a **verified working** option
-rather than an untested one.
+**What we changed on the strength of this (13:28 IST).** Nym is the **default** again for live
+reads and descriptor downloads; direct RPC became a labelled one-click opt-out. The three
+objections to a Nym default were all measured above, and two of them are now engineered away:
+
+| Objection | What we did |
+| --- | --- |
+| 10–14 s cold boot before the first check | The worker boots **on page load**, while the viewer reads the page. Measured 20.5 s on a cold load, entirely before any interaction. |
+| 1 boot in 5 fails | Boots that fail in **under 30 s** retry automatically, up to 3 attempts — that failure was the worker-bundle CDN download, not the mixnet. A full 120 s tunnel timeout is not retried, so the worst case stays one timeout. |
+| First read costs ~15 s | Unchanged, and still true. Warming the tunnel with an off-camera check before a demo is in the video script. |
+
+Fail-closed behaviour is unchanged: if the mixnet can't be reached the check shows Not verified
+with the reason, and never quietly falls back to direct. This also satisfies EF Anon-RPC's
+qualification requirement ("routes its RPC reads through Anon-RPC by default"), so the project is
+submitted to both EF tracks on the single EF pick.
+
+**Verified after the switch:** a cold page load booted the worker unprompted (ready in 20.5 s) and
+Check → Aave supply returned `VERIFIED · NO CHANGE` from a live read at block 26354453 via the
+mixnet, with the Swarm descriptor fetch also over Nym and hash-checked; the direct ⇄ Nym round
+trip works with no console errors.
 
 **Still open:** why the worker hung at 08:00 and not now. We did not establish a cause, so we can't
 claim it is fixed — only that it worked 4/5 times across 20 minutes at 11:37–11:43 IST. The ask to
@@ -394,8 +407,11 @@ The app is unchanged in one respect: in Nym mode a check fails closed (Not verif
 and never falls back silently. Changes to the fix were committed: fail fast after a failed boot,
 boot-progress display, and a harness A/B switch.
 
-**Update (11:43 IST):** the retest above passed 60/60. The EF target stays **Best CROPS App** — the
-CROPS work is what we actually built and documented over the day — and direct stays the default for
-the reasons measured in the retest. Nym is now an opt-in path we have verified end to end rather
-than one we only tried.
+**Update (11:43 IST):** the retest above passed 60/60.
+
+**Update (13:28 IST):** on those numbers Nym became the **default** again (eager boot + retry), and
+the project is submitted to **both** EF tracks — Best CROPS App (lead property: Security) and Best
+Use of Anon-RPC — which EF permits on one pick ("you will be placed in at most one"). The
+consequence recorded above, "the EF target changes to CROPS", is therefore superseded; it is kept
+because it is the decision we actually made at 08:00 with the evidence we had.
 

@@ -319,3 +319,45 @@ way. Times are IST. Each entry points at the commits it covers.
   note that a non-recursive clone needs before `forge test`; the third-party table now says what
   the Swarm gateway and GitHub raw learn in Nym mode. One stale comment fixed in
   `web/src/lib/config.ts` (it still described Nym as the default). No behaviour changes.
+
+### 13:28 · Nym becomes the default for live reads (EF Anon-RPC qualification)
+- Checked the EF rules rather than assuming: a project gets **three partner picks**, Arkiv's bonus
+  doesn't consume one, and **"one EF prize per project. You can submit to anon-rpc, the alt mempool
+  and CROPS, but you will be placed in at most one."** So CROPS and Anon-RPC share our single EF
+  pick — submitting to both costs nothing, and a third pick is still free.
+- Anon-RPC's qualification is *"routes its RPC reads through Anon-RPC by default"*, which we didn't
+  meet. Flipped it: **live chain reads and descriptor downloads now go through Nym by default**,
+  direct RPC is a labelled one-click opt-out, and every result still records its route.
+- Two engineering changes make the default honest rather than merely compliant:
+  **eager boot** (the worker starts on page load, so the tunnel setup happens while the viewer
+  reads the page — measured 20.5 s on a cold load, entirely before any interaction) and
+  **retry on fast failures** (a boot that dies in under 30 s is the worker-bundle CDN download,
+  which was the only failure in five retest boots; a full 120 s tunnel timeout is not retried, so
+  the worst case stays one timeout).
+- Header pill reworked: it no longer calls Nym "experimental" or says the worker "didn't become
+  ready", both now false. Added a **Retry Nym** button on failure, and the switch to direct now
+  explains what it costs. Fail-closed is unchanged.
+- Verified in the browser: cold load boots the worker unprompted; Check → Aave supply returns
+  `VERIFIED · NO CHANGE` from a live read at block 26354453 via the mixnet, with the Swarm
+  descriptor fetch also over Nym and hash-checked; direct ⇄ Nym round trip, no console errors.
+
+### 13:49 · The app itself is published to Swarm (censorship resistance)
+- `scripts/publish-site.ts` uploads `web/dist` to Swarm as a browsable collection, so the frontend
+  survives our host disappearing. No keys: stampless upload through the public gateway, or our own
+  postage batch when `BEE_API_URL` / `SWARM_POSTAGE_BATCH_ID` are set.
+- Reference: **`91c7ba783dc22f76ecde7b19657a9741a3ead69170cd3c620afcd43d53ff8b95`**.
+  Deterministic — a hand-rolled ustar writer (no new dependency) with sorted paths and zeroed
+  mtime/uid/gid/mode, so the reference is a pure function of file contents and names. **Verified:
+  a re-run on the same build returned the identical reference.** Source maps excluded by default
+  (3.5 MB of a 4.7 MB build; `--with-maps` includes them).
+- **Honest limit, found by testing rather than assumed:** the ethswarm public gateways are
+  **default-deny for websites**. The upload returns `201`, assets serve byte-identically
+  (4/5 verified), but `index.html` 302s to `bzz.link/forbidden` until a moderator approves the
+  hash — their anti-phishing policy, which we are not going to work around. So there is no
+  click-to-view link; any Bee node serves the whole app with `GET /bzz/<ref>/`, and an asset URL
+  demonstrates retrievability today. Written up as friction 5 in `arkiv/swarm.md` with an ask:
+  say so in the upload response instead of letting the 302 be the discovery.
+- Docs updated for both changes: README (privacy routing, CROPS C and P, trade-offs), SUBMISSION
+  (prize picks, a new Anon-RPC partner section, CROPS C/P, feedback), PITCH Q12/Q13, ARCHITECTURE,
+  TEST_REPORT (Test 4 retest consequence + a Swarm-hosted-app row), VIDEO_SCRIPT (an 8-second Nym
+  line in moment (a), a clause in the close, and new pre-recording steps for the boot wait).

@@ -103,16 +103,19 @@ content addresses, so re-stamping under our own batch doesn't change a single Ar
 **12. Isn't the browser's Arkiv read a privacy leak?**
 It reveals your IP to the Arkiv node, but not which contract: every visitor sends the same bulk
 queries and filters locally. The README has a table of what each third party learns. Live chain
-reads are direct by default and labelled "not anonymized".
+reads go through the Nym mixnet by default, so the RPC provider and the Swarm gateway see a Nym
+exit rather than your IP.
 
 **13. You targeted Anon-RPC and it didn't work. Why should we believe the privacy story?**
-We don't sell a privacy story; Security is the lead. Nym's worker wouldn't boot for most of the
-event — two networks, three harness versions — so we shipped direct-and-labelled rather than
-silently-broken. It then started working on a retest: 4 of 5 cold boots, 60/60 reads, p95 2.4–3.6 s,
-and a full Check with both the chain read and the Swarm descriptor fetch over the mixnet. You can
-run that yourself on the Nym diagnostics tab. We kept direct as the default on the numbers, not the
-mood: 10–14 s to boot, ~15 s for the first read, 1 boot in 5 failing. Nym is one click away, labelled,
-and fails closed — it never falls back to direct silently.
+Security is still the lead property; privacy is the one we had to earn twice. Nym's worker wouldn't
+boot for most of the event — two networks, three harness versions — so we shipped direct-and-labelled
+rather than silently-broken, and said so. It then started working on a retest: 4 of 5 cold boots,
+60/60 reads, p95 2.4–3.6 s, and a full Check with both the chain read and the Swarm descriptor fetch
+over the mixnet. On those numbers Nym is the default again, with the worker booting on page load so
+you don't wait for it, and fast boot failures retried. You can re-run the measurement yourself on the
+Nym diagnostics tab. What we will not claim: that we know why it failed at 08:00 or why it works now.
+We didn't find out. What we do claim is that it's measured, it's the default, and when it breaks the
+check says Not verified instead of quietly deanonymizing you.
 
 **14. How do you know your mirror is correct?**
 Every ERC-8176 hash is computed twice (our JCS and the reference library); any mismatch aborts.

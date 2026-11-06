@@ -1,8 +1,12 @@
 # Argos — ETHGlobal Mumbai submission text
 
-Copy each block into the matching field of the ETHGlobal form. Prize picks: **Arkiv** (Mirror
-something Ethereum depends on, plus the Arkiv + Swarm bonus, which doesn't use a pick) and
-**Ethereum Foundation** (Best CROPS App). No third pick.
+Copy each block into the matching field of the ETHGlobal form. Prize picks (three available):
+1. **Arkiv** — Mirror something Ethereum depends on, plus the Arkiv + Swarm bonus, which doesn't
+   use a pick ("Each team can win one Arkiv track prize; the bonus can come on top of it").
+2. **Ethereum Foundation** — submitted to **both Best CROPS App** (lead property: Security) **and
+   Best Use of Anon-RPC**. EF's rule: "One EF prize per project. You can submit to anon-rpc, the
+   alt mempool and CROPS, but you will be placed in at most one." Both use the single EF pick.
+3. Third pick: open.
 
 - Repo: https://github.com/Monarchy712/Argos (MIT)
 - Demo video: VIDEO_URL (fill in after upload)
@@ -80,12 +84,13 @@ TypeScript end to end, Node 24, npm workspaces, everything exact-pinned.
   first run. The public Swarm gateway turned out to accept stampless uploads, which got content on
   Swarm before we had our own postage batch.
 - **What didn't work, then did:** Anon-RPC over Nym was meant to be the default for live reads. Its
-  worker never became ready for most of the event (two networks, three harness versions), so we made
-  live reads direct by default, labelled "not anonymized", with Nym opt-in and failing closed. On a
-  retest at 11:37 IST the same code booted 4 times out of 5 and served 60/60 reads at p95 2.4–3.6 s,
-  including a Check where both the chain read and the Swarm descriptor download went through the
-  mixnet. We never found out what changed, so we kept direct as the default — a 10–14 s boot plus a
-  ~15 s first read is the wrong thing to put in front of someone opening the page once.
+  worker never became ready for most of the event (two networks, three harness versions), so we
+  demoted it to a fail-closed opt-in and moved our EF target to CROPS. On a retest at 11:37 IST the
+  same code booted 4 times out of 5 and served 60/60 reads at p95 2.4–3.6 s, including a Check where
+  both the chain read and the Swarm descriptor download went through the mixnet. We never found out
+  what changed and don't claim it is fixed — but on those numbers we made Nym the default again,
+  with the worker booting on page load so the tunnel setup is paid before the first check, and fast
+  boot failures retried automatically. Direct RPC is now the labelled opt-out.
 
 ---
 
@@ -132,11 +137,12 @@ proxies that binding silently breaks. Argos makes every claim checkable. Descrip
 match a hash published on Arkiv. Status comes from published keys plus the user's own live read.
 A missing or dead watcher fails closed to "Not verified" through Arkiv expiry, which works structurally,
 without us. The other three properties, with honest trade-offs:
-**C:** static app, public data on Arkiv and Swarm; if our watcher stops or refuses you, you see Not verified, not a stale green.
+**C:** static app, public data on Arkiv and Swarm; if our watcher stops or refuses you, you see Not verified, not a stale green — censoring us produces an absence, never a false green. The built app is itself published to Swarm (`scripts/publish-site.ts`, reference in `arkiv/swarm.md`), so the frontend survives our host; the honest gap is that the trusted writer addresses are compiled in, so replacing us means a rebuild.
 **O:** MIT, builds and runs from the repo with no keys.
-**P:** no trackers. Arkiv reads are bulk and contract-independent. Live chain reads are direct by default
-(labelled) because of Anon-RPC/Nym's boot cost, not its correctness; Nym is opt-in, fails closed, and
-is verified working (60/60 reads). The full CROPS section and a per-third-party privacy table are in the README.
+**P:** no trackers. Arkiv reads are bulk and contract-independent. Live chain reads and descriptor
+downloads go through Anon-RPC/Nym **by default** (60/60 reads verified), failing closed rather than
+falling back; direct RPC is a labelled one-click opt-out. The full CROPS section and a
+per-third-party privacy table are in the README.
 
 **Feedback (EF / Anon-RPC).** The specifier lookup, the 18 MB bundle download and its hash check
 all worked. The Nym worker then hung silently, with no log lines and no console errors, on venue
@@ -148,6 +154,53 @@ report. (One boot in five died with `Failed to fetch` on the bundle download —
 legible and retryable, and we'd like the tunnel to fail the same way.) Arkiv's RPC didn't answer
 through the Nym exit in our spike either, so mixed anonymized/direct apps need endpoint support on
 both sides. Details: `docs/TEST_REPORT.md` (Test 4 and the retest above it).
+
+---
+
+## Partner: Ethereum Foundation — Best Use of Anon-RPC
+
+*(Same EF pick as CROPS above; EF place us in at most one.)*
+
+**Qualification — "routes its RPC reads through Anon-RPC by default."** It does. Every live chain
+read and every descriptor download in the Argos web app goes through an `AnonRpcWorker` running
+the Nym anon-client in a sandboxed, null-origin iframe, with no action from the viewer. Direct RPC
+exists only as an explicit, labelled opt-out. The one disclosed exception is Arkiv: its RPC didn't
+answer through the Nym exit in our spike, so those reads go direct — but as a single bulk,
+contract-independent, keyless query that is identical for every visitor, so the Arkiv node learns
+an IP and not which contract you care about.
+
+**How much traffic actually routes through it.** The slot read that decides the status badge, the
+ERC-20 metadata reads used to render amounts, and the Swarm (or GitHub-fallback) descriptor fetch.
+Verified end to end: a Check of Aave v3 supply returned `VERIFIED · NO CHANGE` from a live read at
+block 26354453 via the mixnet, with the descriptor fetched over Nym and still passing its ERC-8176
+hash check.
+
+**Measured, not asserted.** The app ships a **Nym diagnostics** screen that boots the worker and
+runs 20 sequential `eth_getStorageAt` reads, reporting boot time, success count, HTTP statuses and
+p50/p95. A judge can re-run it live. Our numbers: three runs, **60/60 reads, HTTP 200×60, p95
+2.42 / 2.51 / 3.60 s**; 4 of 5 cold boots ready (14.3, 12.7, 9.9, 9.9 s). Raw output:
+`docs/test-runs/test4-nym-pass.txt`.
+
+**Performance trade-off, documented.** A cold boot costs 10–20 s and the first request after it
+~15 s; subsequent reads are ~0.8 s. We hide the setup by booting the worker on page load rather
+than on first use, and retry boots that fail in under 30 s, because the only boot failure we saw
+in five was the worker-bundle CDN download rather than the mixnet. A full 120 s tunnel timeout is
+not retried, so the worst case stays one timeout.
+
+**Fail-closed, never silent.** If the worker can't start or a request times out, the check shows
+**Not verified** with the reason. It never falls back to direct RPC on its own, because a privacy
+tool that quietly deanonymizes you on failure is worse than one that stops. Every result is
+labelled with the route it took.
+
+**Honest history.** This is not a path that just worked. The worker never became ready for most of
+the event across two networks and three harness versions, we shipped direct-by-default because of
+it, and only a retest showed it working. We never established what changed, so we are not claiming
+it is fixed — we are claiming it is measured, default, and fails safely when it breaks. Both the
+failure and the recovery are written up in `docs/TEST_REPORT.md`.
+
+**Post-hackathon viability.** The transport is one module (`web/src/lib/transport.ts`) behind an
+`anonAwareFetch`; anything in the app that fetches goes through it. Nothing about Argos is tied to
+the mixnet being fast, because status is "as of block N" rather than real-time.
 
 ---
 

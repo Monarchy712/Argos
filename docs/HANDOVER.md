@@ -32,9 +32,18 @@ Last updated: **Nov 6 2026, 11:58 IST** (ETHGlobal Mumbai). **Freeze pass done �
   or read `git log --date=format:%H:%M`. Never guess the clock.
 - **Keep the watcher running.** Before the video and before judging, all monitored contracts must
   be fresh on Arkiv: `node scripts/show-arkiv.ts | grep -c '"matches_baseline": true'`.
-- Prize targets: **Arkiv** "Mirror something Ethereum depends on" (confirmed eligible by the Arkiv
-  booth on Nov 6) + Arkiv + Swarm bonus; **EF** "Best CROPS App", lead property **Security**. No third
-  pick. Rules: https://ethglobal.com/events/mumbai/prizes (Arkiv and EF sections).
+- Prize picks — **three available**, two used (rules read from the prize page on Nov 6):
+  1. **Arkiv** "Mirror something Ethereum depends on" (eligibility confirmed by the booth) + the
+     Arkiv + Swarm bonus, which does **not** consume a pick.
+  2. **EF** — submitted to **both** "Best CROPS App" (lead property **Security**) and "Best Use of
+     Anon-RPC". EF's rule: *"One EF prize per project. You can submit to anon-rpc, the alt mempool
+     and CROPS, but you will be placed in at most one."* Both share the one EF pick.
+  3. **Third pick: open.** Owner chose to pursue **0G Private Computer**, blocked on credits (see
+     *Waiting on the owner*).
+  CROPS rules worth remembering when editing docs: *"Apps do NOT need to excel equally in all four
+  areas… structural depth in their lead property while maintaining the others"*, and criterion 3 is
+  *"maintenance of the other three properties, with trade-offs clearly documented."*
+  Rules: https://ethglobal.com/events/mumbai/prizes
 
 ## What Argos is (one paragraph)
 
@@ -108,6 +117,21 @@ The machine was re-cloned before this session, so the first job was `npm install
 - Raw: `docs/test-runs/test4-nym-pass.txt`. Docs updated: TEST_REPORT (row + retest section above the
   preserved FAIL section), `arkiv/friction.md` §6, README ×4, SUBMISSION ×2, PITCH Q13.
 
+### Nym is the default now (13:28), and the app is on Swarm (13:49)
+
+- **Nym by default.** Live chain reads and descriptor downloads go through Anon-RPC/Nym unless the
+  viewer explicitly opts out; direct RPC is a labelled one-click fallback. This satisfies EF
+  Anon-RPC's qualification ("routes its RPC reads through Anon-RPC **by default**"), which is why
+  we can submit to that track at all. Two changes make it liveable: the worker boots **on page
+  load** (20.5 s measured, entirely before interaction) and boots that fail in under 30 s **retry**
+  (that failure is the bundle CDN, not the mixnet). Fail-closed unchanged. Commit `10bafae`.
+- **App on Swarm.** `node scripts/publish-site.ts` (no keys) →
+  `91c7ba783dc22f76ecde7b19657a9741a3ead69170cd3c620afcd43d53ff8b95`. Deterministic: a re-run on
+  the same build gives the identical reference. **Re-run it after any web change** so the published
+  app isn't stale. Known limit: public gateways are default-deny for websites, so assets serve but
+  HTML 302s to `bzz.link/forbidden` until a moderator approves the hash — documented in
+  `arkiv/swarm.md`, not worked around. Commit `30f3185`.
+
 ### Live state right now
 
 - Video demo proxy `0xb8E5525eF80cEEC29Bf8598e303F71077361BFF5`: **ImplA** (`version() = "A"`,
@@ -156,13 +180,20 @@ The machine was re-cloned before this session, so the first job was `npm install
 
 ## Waiting on the owner
 
-- **Nym now works — does that change anything you want?** The EF target is currently **Best CROPS
-  App** and live reads are direct-by-default. The retest numbers (60/60 reads, but a 10–14 s boot
-  and 1-in-5 boot failures) support keeping both as they are, which is what the docs now say.
-  Options if you disagree: (a) keep as is — recommended, lowest risk at T-10h and the CROPS work is
-  what we actually built; (b) keep direct default but add a Nym beat to the video, ~20 s of extra
-  runtime, no code change; (c) switch the default to Nym — needs a code change inside the freeze and
-  risks a Not-verified first impression. I have written everything up as (a).
+- **0G credits (blocking the third pick).** Owner chose the honest version of the 0G idea: on the
+  **Change-detected** path only, 0G Private Computer diffs the old and new implementation and
+  **describes what changed about the functions the descriptor documents** — shown with its request
+  ID, and **never a "safe / unsafe" verdict** (that was explicitly rejected: it contradicts the
+  honesty rule, is unfalsifiable under questioning, and would undercut the CROPS Security lead).
+  Blocked until `ZEROG_API_KEY` is in `.env` (base URL defaults to `https://router-api.0g.ai/v1`).
+  Routes: free credits via the 0G Telegram credits thread (a request message is drafted and was
+  given to the owner, using the already-public Sepolia deployer address
+  `0x060762aa5D602d1A6E9a5AecC3301cf804b7E42C`), or self-serve key + Stripe top-up at
+  https://pc.0g.ai. Estimated 3–4 h once unblocked; **if credits arrive after ~18:00, drop it** —
+  the video and the two solid picks matter more.
+  Open question for that work: mainnet implementations need verified source (Etherscan/Sourcify),
+  and our Sepolia `DemoImplA`/`DemoImplB` are **not verified**, so the video's change-detected
+  moment would have nothing to diff unless that is handled.
 
 - **Swarm booth batch (optional, improves the bonus):** if `BEE_API_URL` and `SWARM_POSTAGE_BATCH_ID`
   appear in `.env`, run `npm run swarm -w importer -- ../.cache/registry --restamp`. It re-uploads under

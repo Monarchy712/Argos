@@ -70,7 +70,7 @@ flowchart LR
 | watcher | `watcher/` | Node 22+ | Event scan + slot polls; writes state records. Signs with the **watcher** wallet. |
 | rebaseline CLI | `watcher/` (`npm run rebaseline`) | Node | Only thing that writes `baseline`. Signs with the **writer** wallet (see decision D1). |
 | contracts | `contracts/` | Foundry | ImplA/ImplB + OZ TransparentUpgradeableProxy on Sepolia for the demo; stretch: atomic guard. |
-| web | `web/` | Browser | Primary UI. Live checks direct by default (labelled); Anon-RPC/Nym opt-in and fail-closed (Test 4: the Nym worker didn't boot at the event). |
+| web | `web/` | Browser | Primary UI. Live checks go through Anon-RPC/Nym by default, fail-closed, with the worker booted on page load; direct RPC is a labelled opt-out (Test 4 failed at 08:00, passed 60/60 on retest at 11:37). |
 
 Node version: SDK requires **Node ≥ 22.10** — VERIFIED (`@arkiv-network/sdk@1.0.1` README).
 Local: Node v24.12.0, Foundry 1.5.1.

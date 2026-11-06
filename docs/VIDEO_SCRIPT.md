@@ -1,4 +1,10 @@
-# Argos — demo video script (target 2:40, hard limit 2:55)
+# Argos — demo video script (target 2:48, hard limit 2:55)
+
+> **Updated 13:53 Nov 6:** live reads now default to Anon-RPC / Nym, and the app is published to
+> Swarm. Two additions below: an **8-second** Nym line in moment (a) and one clause in the close.
+> That puts the target at ~2:48, so hold the other beats to their written lengths. Both EF tracks
+> (CROPS and Anon-RPC) judge this video, and Anon-RPC's first criterion is "works end to end in
+> the demo" — the Nym line is what satisfies it, so don't cut that one if you have to trim.
 
 Rules we follow (ETHGlobal + EF CROPS): **your own voice**, a **laptop screen recording** (not a
 phone), **≥ 720p** (record 1080p), **no speed-up**, no music with text, no AI voiceover, and
@@ -45,6 +51,12 @@ parts top to bottom.
 > The badge is green because our watcher's record on Arkiv is fresh and my own live read of the
 > proxy's implementation slot matches the baseline. Green means no change as of this block, not
 > 'safe'."
+
+Then point at the header pill and the route line under the badge (**+8 s**, keep it this short):
+
+> "And both of those — the chain read and the descriptor download — went through **Anon-RPC over
+> the Nym mixnet**, which is the default here: the provider sees a Nym exit, not my IP. If the
+> mixnet can't be reached, the check says Not verified. It never quietly falls back."
 
 (Optional, 3 s: hover **dg_descriptor entity** / **Swarm 7d65ee6b…** links.)
 
@@ -115,8 +127,8 @@ Action: **Monitored contracts** → **Refresh**.
 
 > "Argos is for wallets that render ERC-7730, registry maintainers and auditors deciding what to
 > re-review, and anyone checking a transaction before they sign. Everything is public on Arkiv and
-> Swarm, the trusted writers are published, and it's MIT-licensed. Argos: it watches, verifies
-> and warns."
+> Swarm — including this app itself, which is published to Swarm so it outlives our host — the
+> trusted writers are published, and it's MIT-licensed. Argos: it watches, verifies and warns."
 
 ---
 
@@ -153,8 +165,12 @@ Run from the repo root (`C:\Users\samya\OneDrive\Desktop\Argos`), Git Bash unles
    ```bash
    npm run dev     # http://localhost:5180
    ```
-   Open it in Chrome; header pill says **Live reads: direct RPC (not anonymized)**. Click **Check transaction**
-   once off camera so the mirror is cached (first load reads ~3,400 rows, ~8 s).
+   Open it in Chrome. The header pill reads **Live reads: Anon-RPC / Nym · booting…** and then
+   **· ready (booted in N s)** after ~10–20 s — the worker starts on page load, so wait for
+   "ready" before recording. If it says **failed**, click **Retry Nym**; if it still fails, click
+   **Use direct RPC** and say on camera that you're switching, rather than re-shooting.
+   Then click **Check transaction** once off camera so the mirror is cached (first load reads
+   ~3,400 rows, ~8 s) — this also warms the Nym tunnel, whose first request costs ~15 s.
 6. **Sepolia gas:** the deployer needs ~0.001 ETH per upgrade (it had 0.013 ETH on Nov 6).
 
 ## Recording checklist
