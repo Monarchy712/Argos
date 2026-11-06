@@ -34,5 +34,7 @@ human decided, reviewed or did by hand. It is kept up to date as the build goes 
 | `packages/core/src/status.ts`, `risky.ts` + tests | generated | specified the GREEN / RED / NOT VERIFIED rules, the A→B→A line and the "never malicious" wording rule |
 | `web/` (screens, transport, descriptor resolver, Arkiv read, styles) | generated; verified in the in-app browser | specified the screens, Nym-by-default with no silent fallback, the resolver interface for Swarm, and badge requirements |
 | `scripts/build-registry-index.ts`, `web/public/registry-index.json` | generated and run | — |
+| `importer/` (registry reader, Arkiv import, verifier) | generated and run | specified idempotency, resumability, abort-on-hash-mismatch, and the verification (counts + 10 spot-checks vs GitHub) |
+| `arkiv/friction.md`, `reach.md`, `why-arkiv.md`, `data-quality.md` | drafted from test evidence and re-read registry issues | set what each must cover; review pending |
 | `README.md`, `UPDATES.md`, `docs/TEST_REPORT.md`, `arkiv/*.md` | drafted | reviewed; final wording |
 | `.env` (not committed) | generated wallet keys locally | funded wallets; added the Arkiv access key |

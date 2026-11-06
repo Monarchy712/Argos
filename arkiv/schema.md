@@ -59,11 +59,23 @@ Same `chain_id`, `address` and identity columns as the baseline, plus:
 | `detected_at` | u64 | unix time |
 | `detected_by` ⓘ | str | `event` or `slot` |
 
-### `dg_descriptor` / `dg_deployment` — registry mirror (writer)
-`dg_descriptor`: `descriptor_hash` ⓘ, `registry_path` ⓘ, `registry_commit` ⓘ, `entity_dir` ⓘ,
-`kind` ⓘ, `swarm_ref`, `storage_mode` ⓘ, `size_bytes`, `file_sha`, `schema_version`, `owner_name`, `imported_at`.
-`dg_deployment`: `chain_id` ⓘ, `address` ⓘ, `descriptor_hash` ⓘ, `registry_commit` ⓘ, `proxy_kind` ⓘ, `monitored` ⓘ.
-*(Written by the importer — build step 3, not yet live.)*
+### `dg_descriptor` — one per registry file (writer, importer) — **768 rows live**
+| attribute | type | meaning |
+| --- | --- | --- |
+| `descriptor_hash` ⓘ | str | ERC-8176 hash of the resolved descriptor ("" for include files) |
+| `registry_path` ⓘ | str | e.g. `registry/aave/calldata-lpv3.json` |
+| `registry_commit` ⓘ | str | last registry commit the file was seen in (40 hex) |
+| `entity_dir` ⓘ | str | protocol folder (`aave`, `kiln`, …; `ercs` for shared token descriptors) |
+| `kind` ⓘ | str | `calldata` / `eip712` / `include` |
+| `file_sha` | str | keccak256 of the raw file bytes as GitHub serves them |
+| `attestation` ⓘ | str | `valid` (an auditor signs exactly this hash) / `stale` (signs other content) / `none` |
+| `storage_mode` ⓘ, `swarm_ref` | str | `registry` and "" until Swarm content is added |
+| `size_bytes`, `schema_version`, `owner_name`, `imported_at` | u64 / str | metadata |
+
+### `dg_deployment` — one per (chain, address, descriptor) (writer, importer) — **2,675 rows live**
+`chain_id` ⓘ u64, `address` ⓘ addr, `descriptor_hash` ⓘ str, `registry_commit` ⓘ str,
+`proxy_kind` ⓘ str (`eip1967` / `beacon` / `diamond` / `safe` / `none` / `no-code` / `unknown` for
+mainnet; `unchecked` for other chains), `monitored` ⓘ bool (a baseline exists).
 
 ## Queried fields
 
@@ -74,6 +86,9 @@ Same `chain_id`, `address` and identity columns as the baseline, plus:
 | Watcher (start / after an expiry) | `$key`, `chain_id`, `address` of its own `dg_current_state` / `dg_latest_change` |
 | `rebaseline` | `dg_baseline` where `chain_id` + `address`, by writer |
 | `renew` | `$expiresAt < head + 30 days` per schema, by owner |
+| Web app, Check | whole mirror (`dg_descriptor` + `dg_deployment`) by writer, paged, once per session; fallback: one contract's rows (shown on screen) |
+| Web app, Browse | `dg_deployment` by `chain_id` / `proxy_kind` / `monitored`; `dg_descriptor` by `entity_dir` / `kind`, then deployments by OR of `descriptor_hash` |
+| Importer | all of its own `dg_descriptor` / `dg_deployment` rows (to plan creates vs patches), all baselines (for `monitored`) |
 
 ## Expiry
 
@@ -81,7 +96,7 @@ Arkiv max lifetime is 7,884,000 blocks ≈ 182.5 days (2 s blocks).
 
 | Entity | Expiry | Renewal |
 | --- | --- | --- |
-| `dg_baseline`, `dg_descriptor`, `dg_deployment`, `dg_latest_change` | `ExpirationTime.max()` (~182 days) | `npm run renew -w watcher` extends anything with < 30 days left |
+| `dg_baseline`, `dg_descriptor`, `dg_deployment`, `dg_latest_change` | `ExpirationTime.max()` (~182 days) | `npm run renew -w watcher` extends anything with < 30 days left; re-running the importer patches rows still in the registry |
 | `dg_current_state` | **10 minutes**, extended on every write (every 120 s, or at once on change) | none on purpose: if the watcher stops, the row expires and clients show **NOT VERIFIED** |
 
 Updates use one `executeBatch` per cycle. A patch never moves expiry, so each current_state

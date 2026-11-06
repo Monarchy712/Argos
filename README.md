@@ -28,7 +28,7 @@ change with its transaction.
 ## How it works
 
 ```
-registry ──► importer ──► Swarm (descriptor JSON) + Arkiv (descriptor/deployment rows)   [build step 3]
+registry ──► importer ──► Arkiv: dg_descriptor (768) + dg_deployment (2,675)   [Swarm content after Test 1]
 chain ─────► watcher ───► Arkiv: dg_current_state (10-min expiry), dg_latest_change
 writer ────► rebaseline ► Arkiv: dg_baseline (the trust anchor; never auto-replaced)
 browser ───► reads Arkiv once (bulk) + live slot reads over Anon-RPC/Nym → GREEN / RED / NOT VERIFIED
@@ -50,7 +50,8 @@ npm ci && npm run dev    # http://localhost:5180
 | Screen | What it does |
 | --- | --- |
 | **Monitored contracts** | One bulk Arkiv read per trusted writer (the same for every visitor, so Arkiv doesn't learn which contract you care about). Shows status badge, protocol, proxy kind, detection mode, baseline vs current implementation, latest change with tx link, and the ERC-8176 descriptor hash. |
-| **Check a transaction** | Paste `{chainId, to, data}` or a raw transaction. Shows the raw calldata, the readable ERC-7730 intent (rendered with `@ethereum-sourcify/clear-signing` from a hash-checked descriptor), risky-calldata flags (upgrades, `changeMasterCopy`, Safe `operation=1`), and a status from the watcher's Arkiv record plus a live code-identity read. |
+| **Check a transaction** | Paste `{chainId, to, data}` or a raw transaction. Shows the raw calldata and the readable ERC-7730 intent. The descriptor's path, commit and hashes come from the **Arkiv registry mirror**, and the file is fetched and checked against them before `@ethereum-sourcify/clear-signing` renders it. Also shows risky-calldata flags (upgrades, `changeMasterCopy`, Safe `operation=1`) and a status from the watcher's Arkiv record plus a live code-identity read. |
+| **Browse mirror** | Filter the mirrored registry by chain, protocol, descriptor kind, proxy kind and "monitored". Each filter is an Arkiv query, and the queries run are shown on screen. |
 | **Nym diagnostics** | Boots the Anon-RPC Nym worker and runs Test 4: 20 slot reads with boot time, success count, HTTP statuses, p50/p95. |
 
 **Status badges.** Each state differs in colour, icon, border and wording:
@@ -61,7 +62,7 @@ npm ci && npm run dev    # http://localhost:5180
 
 **Privacy routing.** Live chain reads and descriptor fetches go through Anon-RPC (Nym) by default. If Nym can't boot or a request times out, the check **fails and shows Not verified**; there is no silent fallback to direct RPC. The viewer can switch to direct RPC explicitly (labelled "not anonymized", never saved). Disclosed exclusions: the one bulk Arkiv read (Arkiv's RPC didn't answer through the Nym exit in our spike) and the harness's one bootstrap read of the Nym specifier contract.
 
-**Descriptor storage.** Descriptors currently come from the EF registry at a pinned commit. Every file is checked against keccak256 in [`web/public/registry-index.json`](web/public/registry-index.json), built by [`scripts/build-registry-index.ts`](scripts/build-registry-index.ts). After Swarm is set up (Test 1), a Swarm source plugs in behind the same `DescriptorSource` interface without UI changes.
+**Descriptor storage.** Descriptor metadata (path, registry commit, raw-file keccak, ERC-8176 hash, attestation status) comes from the Arkiv mirror written by the [importer](importer/src/import.ts). The file itself is fetched from the registry at that commit and must match the hash from Arkiv. A copy of the index ships with the app ([`web/public/registry-index.json`](web/public/registry-index.json)) and is used, with a visible label, only if Arkiv can't be reached. After Swarm is set up (Test 1), a Swarm source plugs in behind the same `DescriptorSource` interface without UI changes.
 
 ## Monitored contracts
 
@@ -78,7 +79,14 @@ npm ci && npm run dev    # http://localhost:5180
 | watcher | `0x8a883182b488cE04f08D348C64d9AC8EecACF2Bf` | `dg_current_state`, `dg_latest_change` |
 
 Network: Arkiv **Rabdi** testnet (chain 7794095), `@arkiv-network/sdk@1.0.1`. Schema, owners and
-expiry: [arkiv/schema.md](arkiv/schema.md).
+expiry: [arkiv/schema.md](arkiv/schema.md). Mirror quality and re-run steps:
+[arkiv/data-quality.md](arkiv/data-quality.md). Why Arkiv: [arkiv/why-arkiv.md](arkiv/why-arkiv.md).
+Who uses it: [arkiv/reach.md](arkiv/reach.md). Feedback: [arkiv/friction.md](arkiv/friction.md).
+
+What's on Arkiv now: **31 baselines** with live `current_state` / `latest_change` (30 mainnet
+registry proxies + the Sepolia demo proxy), and the **ERC-7730 registry mirror**: 768
+`dg_descriptor` + 2,675 `dg_deployment` rows at registry commit `ef582c2`, verified against
+GitHub.
 
 **Run a query** (read-only, no keys needed):
 
@@ -108,6 +116,8 @@ cp .env.example .env   # fill in keys locally; never commit .env
 | `npm run rebaseline -w watcher -- --chain <id> --address <0x..> --kind eip1967` | write or replace a baseline (writer key) |
 | `npm run seed -w watcher` | baseline the selected mainnet proxies that have none (writer key) |
 | `npm run renew -w watcher` | extend long-lived Arkiv rows expiring within 30 days |
+| `npm run import -w importer -- ../.cache/registry [--dry]` | mirror the registry checkout into Arkiv (idempotent, resumable; writer key) |
+| `npm run verify -w importer -- ../.cache/registry` | verify the mirror: counts + random spot-checks against GitHub (no key) |
 | `bash scripts/test3.sh local\|sepolia` | Test 3: proxy-upgrade detection end to end |
 | `node --env-file=.env scripts/test2.ts` | Test 2: Arkiv record lifecycle |
 | `bash scripts/e2e-arkiv.sh` | watcher → Arkiv end to end on the Sepolia demo proxy |
