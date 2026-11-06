@@ -55,6 +55,7 @@ export function ContractsScreen({
   return (
     <div className="page">
       <PageHead
+        eyebrow={`${rows.length} monitored`}
         title="My Contracts"
         sub="Every contract Argos monitors for you, with the baseline it is compared against and the block that comparison was last made at. Open a contract to see its history, investigate a change and read the evidence behind it."
         actions={<a className="btn primary" href="#/add"><Icon name="add" size={15} /> Add a contract</a>}

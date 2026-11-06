@@ -77,6 +77,7 @@ export function ContractWorkspace({
   return (
     <>
       <div className="ws-head">
+       <div className="ws-head-inner">
         <nav className="crumbs" aria-label="Breadcrumb">
           <a href="#/contracts">My Contracts</a>
           <Icon name="chevronRight" size={12} />
@@ -123,6 +124,7 @@ export function ContractWorkspace({
             </a>
           ))}
         </div>
+       </div>
       </div>
 
       <div className="page">

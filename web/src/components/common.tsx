@@ -311,6 +311,68 @@ export function useNow(ms = 15_000): number {
   return now;
 }
 
+/**
+ * Scroll-triggered reveal. One shared IntersectionObserver rather than one per element, and it
+ * opts out entirely under prefers-reduced-motion so the content is simply present — a monitoring
+ * screen must never withhold a status because an animation has not run.
+ */
+let revealObserver: IntersectionObserver | null = null;
+function getRevealObserver() {
+  revealObserver ??= new IntersectionObserver(
+    (entries, obs) => {
+      for (const e of entries) {
+        if (e.isIntersecting) {
+          e.target.classList.add("in");
+          obs.unobserve(e.target);
+        }
+      }
+    },
+    { rootMargin: "0px 0px -8% 0px", threshold: 0.05 },
+  );
+  return revealObserver;
+}
+
+export function Reveal({ children, delay = 0, className = "" }: { children: ReactNode; delay?: number; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || !("IntersectionObserver" in window)) return;
+
+    // Hide only now that we know we can un-hide: `armed` carries the hidden state.
+    el.classList.add("armed");
+    const obs = getRevealObserver();
+    obs.observe(el);
+
+    // Backstop. A tab that is not compositing (hidden pane, background tab, some headless
+    // contexts) can leave the observer silent *and* freeze an already-started transition at its
+    // start value — so merely dropping `armed` is not enough, because an in-flight transition
+    // keeps supplying opacity 0. Land the element with inline styles that cancel the transition
+    // outright. Content is never withheld because an animation could not run.
+    const t = window.setTimeout(() => {
+      el.classList.remove("armed");
+      el.style.transition = "none";
+      el.style.opacity = "1";
+      el.style.transform = "none";
+    }, 1400);
+    return () => {
+      window.clearTimeout(t);
+      obs.unobserve(el);
+    };
+  }, []);
+  return (
+    <div ref={ref} className={`reveal ${className}`} style={delay ? { transitionDelay: `${delay}ms` } : undefined}>
+      {children}
+    </div>
+  );
+}
+
+/** A dot that breathes only where the data behind it really is live. */
+export function LiveDot({ tone = "ok", idle }: { tone?: Tone; idle?: boolean }) {
+  const cls = idle ? "d-idle" : tone === "ok" ? "" : `d-${tone === "neutral" ? "idle" : tone}`;
+  return <span className={`live-dot ${cls}`} aria-hidden />;
+}
+
 /** Close on outside click or Escape — used by the header menus. */
 export function useDismiss<T extends HTMLElement>(open: boolean, onClose: () => void) {
   const ref = useRef<T>(null);

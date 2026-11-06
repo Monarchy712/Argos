@@ -1,27 +1,29 @@
 /**
- * The application frame: one rail, one header, four primary destinations. Every screen renders
- * inside this, so navigation, status language and the network filter never change shape between
- * pages.
+ * The application frame: a sticky translucent bar over a centred column.
  *
- * There is no wallet connector here on purpose. Argos holds no key: Arkiv is read keyless and
- * chain reads are `eth_call`s. The rail says so rather than showing a Connect button that would
+ * Four destinations do not need a permanent rail, and removing it gives the wide technical tables
+ * the full measure of the page — which matters more here than anywhere, because the content is
+ * 42-character addresses and 66-character hashes.
+ *
+ * There is no wallet connector, on purpose. Argos holds no key: Arkiv is read keyless and chain
+ * reads are `eth_call`s. The session menu says so rather than showing a Connect button that would
  * imply the app can sign or write something.
  */
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { CHAINS } from "../lib/config.ts";
 import { contractHref, navigate, type Route } from "../lib/router.ts";
 import { routeLabel, restartNym, transport } from "../lib/transport.ts";
 import type { MonitoredRow } from "../lib/rows.ts";
-import { AsOf, Badge, StatusBadge, Tip, chainName, short, useDismiss, useTransport } from "./common.tsx";
+import { AsOf, Badge, StatusBadge, chainName, short, useDismiss, useTransport } from "./common.tsx";
 import { Icon, type IconName } from "./icons.tsx";
 
 export type NetworkFilter = "all" | number;
 
-const NAV: { id: Route["name"]; label: string; icon: IconName; href: string }[] = [
-  { id: "overview", label: "Overview", icon: "overview", href: "#/" },
-  { id: "contracts", label: "My Contracts", icon: "contracts", href: "#/contracts" },
-  { id: "add", label: "Add Contract", icon: "add", href: "#/add" },
-  { id: "how", label: "How It Works", icon: "how", href: "#/how" },
+const NAV: { id: Route["name"]; label: string; href: string }[] = [
+  { id: "overview", label: "Overview", href: "#/" },
+  { id: "contracts", label: "My Contracts", href: "#/contracts" },
+  { id: "add", label: "Add Contract", href: "#/add" },
+  { id: "how", label: "How It Works", href: "#/how" },
 ];
 
 export function Shell({
@@ -33,82 +35,83 @@ export function Shell({
   setNetwork: (n: NetworkFilter) => void;
   children: ReactNode;
 }) {
-  const [railOpen, setRailOpen] = useState(false);
+  const [sheet, setSheet] = useState(false);
   const attention = rows.filter((r) => r.status.status === "RED").length;
-  // "My Contracts" owns investigations now, so its badge has to carry that signal in the rail.
+  // My Contracts owns investigations, so its tab carries that signal.
   const active = route.name === "contract" ? "contracts" : route.name;
+
+  useEffect(() => setSheet(false), [route.name, route.name === "contract" ? route.address : null]);
 
   return (
     <div className="shell">
-      <aside className="rail" data-open={railOpen} id="argos-rail">
-        <div className="rail-brand">
-          <span className="mark"><Icon name="eye" size={17} style={{ color: "var(--accent)" }} /></span>
-          <span className="word">Argos</span>
-        </div>
+      <header className="topnav">
+        <div className="topnav-inner">
+          <a className="brand" href="#/" aria-label="Argos home">
+            <span className="mark"><ArgosMark size={18} /></span>
+            <span className="word hide-sm">Argos</span>
+          </a>
 
-        <nav className="rail-nav" aria-label="Primary">
-          {NAV.map((n) => (
-            <a
-              key={n.id}
-              href={n.href}
-              className="nav-item"
-              aria-current={active === n.id ? "page" : undefined}
-              onClick={() => setRailOpen(false)}
+          <nav className="nav-links" aria-label="Primary">
+            {NAV.map((n) => (
+              <a key={n.id} href={n.href} className="nav-link" aria-current={active === n.id ? "page" : undefined}>
+                {n.label}
+                {n.id === "contracts" && attention > 0 && <span className="count">{attention}</span>}
+              </a>
+            ))}
+          </nav>
+
+          <div className="nav-tools">
+            <GlobalSearch rows={rows} />
+            <span className="hide-sm"><NetworkMenu network={network} setNetwork={setNetwork} /></span>
+            <span className="hide-sm"><SessionMenu /></span>
+            <Notifications rows={rows} />
+            <button
+              className="icon-btn nav-sheet-toggle"
+              aria-label={sheet ? "Close navigation" : "Open navigation"}
+              aria-expanded={sheet}
+              onClick={() => setSheet((v) => !v)}
             >
-              <Icon name={n.icon} size={16} />
-              {n.label}
-              {n.id === "contracts" && attention > 0 && <span className="count is-bad">{attention}</span>}
-            </a>
-          ))}
-
-          <div className="nav-group" style={{ marginTop: "var(--s-6)" }}>
-            <span className="eyebrow">Monitoring</span>
-            <div style={{ padding: "0 var(--s-3)" }}>
-              <p className="t-12 dimmer" style={{ lineHeight: 1.6 }}>
-                Argos reports what it observed at a block. It never certifies that a contract is safe.
-              </p>
-            </div>
+              <Icon name={sheet ? "close" : "menu"} size={17} />
+            </button>
           </div>
-        </nav>
-
-        <div className="rail-foot">
-          <NetworkMenu network={network} setNetwork={setNetwork} />
-          <TransportControl />
-          <AccountMenu />
         </div>
-      </aside>
+      </header>
 
-      {railOpen && <div className="scrim" onClick={() => setRailOpen(false)} aria-hidden />}
+      {sheet && (
+        <>
+          <div className="nav-scrim" onClick={() => setSheet(false)} aria-hidden />
+          <div className="nav-sheet">
+            {NAV.map((n) => (
+              <a key={n.id} href={n.href} className="menu-item" aria-current={active === n.id ? "page" : undefined}>
+                {n.label}
+                {n.id === "contracts" && attention > 0 && <span className="push"><Badge tone="bad">{attention}</Badge></span>}
+              </a>
+            ))}
+            <div style={{ height: 1, background: "var(--divider)", margin: "var(--s-2) 0" }} />
+            <NetworkMenu network={network} setNetwork={setNetwork} />
+            <SessionMenu />
+          </div>
+        </>
+      )}
 
-      <div className="content">
-        <header className="header">
-          <button
-            className="icon-btn rail-toggle"
-            aria-label="Open navigation"
-            aria-expanded={railOpen}
-            aria-controls="argos-rail"
-            onClick={() => setRailOpen(true)}
-          >
-            <Icon name="menu" size={17} />
-          </button>
-
-          <span className="chip hide-sm">
-            <span className="net-dot" style={{ background: network === "all" ? "var(--info)" : "var(--ok)" }} />
-            {network === "all" ? "All networks" : chainName(network)}
-          </span>
-
-          <GlobalSearch rows={rows} />
-
-          <Notifications rows={rows} />
-        </header>
-
-        {children}
-      </div>
+      <div className="content">{children}</div>
     </div>
   );
 }
 
-/* ------------------------------------------------------------- rail footer */
+/** The Argos mark: an eye, drawn — the hundred-eyed watchman, not a stock glyph. */
+export function ArgosMark({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden focusable="false">
+      <path d="M2.5 12s3.6-6.2 9.5-6.2S21.5 12 21.5 12s-3.6 6.2-9.5 6.2S2.5 12 2.5 12Z"
+            stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+      <circle cx="12" cy="12" r="3.1" fill="#5C63D8" />
+      <circle cx="12" cy="12" r="1.1" fill="#14172A" />
+    </svg>
+  );
+}
+
+/* ------------------------------------------------------------- controls */
 
 function NetworkMenu({ network, setNetwork }: { network: NetworkFilter; setNetwork: (n: NetworkFilter) => void }) {
   const [open, setOpen] = useState(false);
@@ -119,28 +122,24 @@ function NetworkMenu({ network, setNetwork }: { network: NetworkFilter; setNetwo
   ];
   return (
     <div ref={ref} style={{ position: "relative" }}>
-      <button className="rail-ctl" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-haspopup="menu">
-        <span className="net-dot" style={{ background: network === "all" ? "var(--info)" : "var(--ok)" }} />
+      <button className="chip" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-haspopup="menu">
+        <span className={`live-dot ${network === "all" ? "d-info" : ""}`} />
         <span className="lines">
           <span className="l1">{network === "all" ? "All networks" : chainName(network)}</span>
-          <span className="l2">{network === "all" ? `${options.length - 1} chains` : `chain ${network}`}</span>
         </span>
-        <Icon name="chevronDown" size={14} className="chev" />
+        <Icon name="chevronDown" size={13} style={{ color: "var(--faint)" }} />
       </button>
       {open && (
-        <div className="card" role="menu" style={{ position: "absolute", bottom: "calc(100% + 8px)", left: 0, right: 0, zIndex: 40, boxShadow: "var(--shadow-2)", padding: 4 }}>
+        <div className="menu" role="menu" style={{ top: "calc(100% + 8px)", right: 0, minWidth: 200 }}>
           {options.map((o) => (
             <button
               key={String(o.id)}
               role="menuitemradio"
               aria-checked={network === o.id}
-              className="nav-item"
-              onClick={() => {
-                setNetwork(o.id);
-                setOpen(false);
-              }}
+              className="menu-item"
+              onClick={() => { setNetwork(o.id); setOpen(false); }}
             >
-              <Icon name={network === o.id ? "check" : "minus"} size={14} style={{ opacity: network === o.id ? 1 : 0.25 }} />
+              <Icon name="check" size={14} style={{ opacity: network === o.id ? 1 : 0.15 }} />
               {o.label}
             </button>
           ))}
@@ -151,84 +150,59 @@ function NetworkMenu({ network, setNetwork }: { network: NetworkFilter; setNetwo
 }
 
 /**
- * The real connection state of this app: which route live chain reads take. Nym by default; a
- * switch to direct is an explicit, labelled opt-out, never silent.
+ * The real connection state of this app: which route live reads take, and the fact that no key is
+ * held. Nym by default; switching to direct is an explicit, labelled opt-out, never silent.
  */
-function TransportControl() {
+function SessionMenu() {
   const t = useTransport();
   const [open, setOpen] = useState(false);
   const ref = useDismiss<HTMLDivElement>(open, () => setOpen(false));
-  const [dot, halo] =
-    t.mode === "direct" ? ["var(--warn)", "rgba(242,184,75,0.14)"]
-    : t.nym.state === "ready" ? ["var(--ok)", "rgba(39,201,149,0.14)"]
-    : t.nym.state === "failed" ? ["var(--bad)", "rgba(240,91,104,0.14)"]
-    : ["var(--info)", "rgba(85,185,232,0.14)"];
+  const dot =
+    t.mode === "direct" ? "d-warn"
+    : t.nym.state === "ready" ? ""
+    : t.nym.state === "failed" ? "d-bad" : "d-info";
   const sub =
-    t.mode === "direct" ? "not anonymized"
-    : t.nym.state === "ready" ? `ready${t.nym.bootMs ? ` · ${(t.nym.bootMs / 1000).toFixed(1)}s` : ""}`
-    : t.nym.state === "failed" ? "failed" : "booting…";
+    t.mode === "direct" ? "Direct RPC"
+    : t.nym.state === "ready" ? "Nym ready"
+    : t.nym.state === "failed" ? "Nym failed" : "Nym booting";
 
   return (
     <div ref={ref} style={{ position: "relative" }}>
-      <button className="rail-ctl" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
-        <span className="net-dot" style={{ background: dot, boxShadow: `0 0 0 3px ${halo}` }} />
-        <span className="lines">
-          <span className="l1">{t.mode === "nym" ? "Anon-RPC · Nym" : "Direct RPC"}</span>
-          <span className="l2">{sub}</span>
-        </span>
-        <Icon name="chevronDown" size={14} className="chev" />
+      <button className="chip" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-haspopup="menu">
+        <span className={`live-dot ${dot}`} />
+        <span className="lines"><span className="l1">{sub}</span></span>
+        <Icon name="chevronDown" size={13} style={{ color: "var(--faint)" }} />
       </button>
       {open && (
-        <div className="card" style={{ position: "absolute", bottom: "calc(100% + 8px)", left: 0, width: 300, zIndex: 40, boxShadow: "var(--shadow-2)" }}>
-          <div className="card-body tight stack-s">
-            <div className="sec-title t-13">Live read route</div>
+        <div className="menu" style={{ top: "calc(100% + 8px)", right: 0, width: 320, padding: "var(--s-4)" }}>
+          <div className="stack-s">
+            <span className="eyebrow">Live read route</span>
             <p className="t-12 dim" style={{ lineHeight: 1.6 }}>
-              Live chain reads go through the Nym mixnet by default, so the RPC provider sees a Nym exit
-              instead of your IP. Direct is faster but <b>not anonymized</b>: the provider sees your IP and
-              which contract you opened. Not saved — a reload returns to Nym.
+              Chain reads go through the Nym mixnet by default, so the RPC provider sees a Nym exit instead
+              of your IP. Direct is faster but <b>not anonymized</b>: the provider sees your IP and which
+              contract you opened. Not saved — a reload returns to Nym.
             </p>
-            <div className="row">
+            {t.nym.state === "failed" && t.nym.error && (
+              <p className="t-12" style={{ color: "var(--warn-ink)" }}>{t.nym.error}</p>
+            )}
+            <div className="row" style={{ gap: "var(--s-2)" }}>
               {t.mode === "nym" ? (
                 <button className="btn sm" onClick={() => { transport.setMode("direct"); setOpen(false); }}>Use direct RPC</button>
               ) : (
-                <button className="btn sm primary" onClick={() => { transport.setMode("nym"); setOpen(false); }}>Back to Nym</button>
+                <button className="btn sm iris" onClick={() => { transport.setMode("nym"); setOpen(false); }}>Back to Nym</button>
               )}
               {t.nym.state === "failed" && (
                 <button className="btn sm" onClick={() => void restartNym().catch(() => {})}>Retry Nym</button>
               )}
             </div>
-            {t.nym.state === "failed" && t.nym.error && (
-              <p className="t-12" style={{ color: "var(--warn)" }}>{t.nym.error}</p>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
-/** No wallet connector: Argos reads, it never signs. The footer states that rather than hiding it. */
-function AccountMenu() {
-  const [open, setOpen] = useState(false);
-  const ref = useDismiss<HTMLDivElement>(open, () => setOpen(false));
-  return (
-    <div ref={ref} style={{ position: "relative" }}>
-      <button className="rail-ctl" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-haspopup="menu">
-        <span className="avatar" aria-hidden />
-        <span className="lines">
-          <span className="l1">Read-only session</span>
-          <span className="l2">no wallet connected</span>
-        </span>
-        <Icon name="chevronDown" size={14} className="chev" />
-      </button>
-      {open && (
-        <div className="card" style={{ position: "absolute", bottom: "calc(100% + 8px)", left: 0, width: 300, zIndex: 40, boxShadow: "var(--shadow-2)" }}>
-          <div className="card-body tight stack-s">
-            <div className="sec-title t-13">No wallet is connected</div>
+            <div style={{ height: 1, background: "var(--divider)", margin: "var(--s-2) 0" }} />
+
+            <span className="eyebrow">Session</span>
             <p className="t-12 dim" style={{ lineHeight: 1.6 }}>
-              Argos never asks for a wallet. It reads Arkiv without a key and reads chains with
-              <code> eth_call</code>. Nothing in this app can sign, send or spend. Baseline records are
-              published by the Argos writer, not by your browser.
+              <b>No wallet is connected,</b> and Argos never asks for one. It reads Arkiv without a key and
+              reads chains with <span className="mono">eth_call</span>. Nothing here can sign, send or spend.
+              Baseline records are published by the Argos writer, not by your browser.
             </p>
             <a className="btn sm" href="#/how" onClick={() => setOpen(false)}>
               <Icon name="how" size={13} /> How Argos works
@@ -240,8 +214,6 @@ function AccountMenu() {
   );
 }
 
-/* ------------------------------------------------------------------ header */
-
 function GlobalSearch({ rows }: { rows: MonitoredRow[] }) {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
@@ -250,17 +222,20 @@ function GlobalSearch({ rows }: { rows: MonitoredRow[] }) {
     const needle = q.trim().toLowerCase();
     if (!needle) return [];
     return rows
-      .filter((r) => r.protocol.toLowerCase().includes(needle) || r.address.toLowerCase().includes(needle) || r.baseline.implementation.toLowerCase().includes(needle))
+      .filter((r) =>
+        r.protocol.toLowerCase().includes(needle) ||
+        r.address.toLowerCase().includes(needle) ||
+        r.baseline.implementation.toLowerCase().includes(needle))
       .slice(0, 7);
   }, [q, rows]);
 
   return (
-    <div ref={ref} className="search" style={{ position: "relative" }}>
+    <div ref={ref} className="search">
       <Icon name="search" size={15} />
       <input
         type="search"
         value={q}
-        placeholder="Search contracts by name, proxy or implementation…"
+        placeholder="Search contracts…"
         aria-label="Search monitored contracts"
         onChange={(e) => { setQ(e.target.value); setOpen(true); }}
         onFocus={() => setOpen(true)}
@@ -272,23 +247,19 @@ function GlobalSearch({ rows }: { rows: MonitoredRow[] }) {
         }}
       />
       {open && q.trim() && (
-        <div className="card" style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, right: 0, zIndex: 40, boxShadow: "var(--shadow-2)", padding: 4, maxHeight: 360, overflowY: "auto" }}>
+        <div className="menu" style={{ top: "calc(100% + 8px)", left: 0, right: 0, maxHeight: 380, overflowY: "auto" }}>
           {matches.length === 0 ? (
             <div className="t-12 dimmer" style={{ padding: "var(--s-3)" }}>No monitored contract matches “{q.trim()}”.</div>
           ) : (
             matches.map((r) => (
-              <a
-                key={r.id}
-                className="nav-item"
-                href={contractHref(r.chainId, r.address)}
-                onClick={() => { setQ(""); setOpen(false); }}
-              >
-                <Icon name="contracts" size={14} />
-                <span style={{ minWidth: 0 }}>
-                  <span style={{ display: "block", color: "var(--ink)", fontWeight: 600 }}>{r.protocol}</span>
-                  <span className="mono" style={{ fontSize: 11, color: "var(--ink-3)" }}>{chainName(r.chainId)} · {short(r.address, 10, 8)}</span>
+              <a key={r.id} className="menu-item" href={contractHref(r.chainId, r.address)} onClick={() => { setQ(""); setOpen(false); }}>
+                <span style={{ minWidth: 0, flex: 1 }}>
+                  <span style={{ display: "block", color: "var(--ink)", fontWeight: 550 }}>{r.protocol}</span>
+                  <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
+                    {chainName(r.chainId)} · {short(r.address, 10, 8)}
+                  </span>
                 </span>
-                <span className="push"><StatusBadge status={r.status.status} /></span>
+                <StatusBadge status={r.status.status} />
               </a>
             ))
           )}
@@ -307,20 +278,26 @@ function Notifications({ rows }: { rows: MonitoredRow[] }) {
 
   return (
     <div ref={ref} style={{ position: "relative" }}>
-      <button className="icon-btn" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label={`Notifications: ${changed.length} changes detected, ${unverified.length} not verified`}>
+      <button
+        className="icon-btn"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-label={`Notifications: ${changed.length} changes detected, ${unverified.length} not verified`}
+      >
         <Icon name="bell" size={16} />
         {changed.length > 0 && <span className="pip" />}
       </button>
       {open && (
-        <div className="card" style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, width: 380, maxWidth: "calc(100vw - 32px)", zIndex: 40, boxShadow: "var(--shadow-2)" }}>
-          <div className="card-head" style={{ padding: "var(--s-3) var(--s-4)" }}>
-            <div className="grow sec-title t-13">Needs attention</div>
+        <div className="menu" style={{ top: "calc(100% + 8px)", right: 0, width: 400, maxWidth: "calc(100vw - 32px)", padding: 0 }}>
+          <div className="row" style={{ padding: "var(--s-4) var(--s-5)", borderBottom: "1px solid var(--divider)" }}>
+            <span className="sec-title" style={{ flex: 1 }}>Needs attention</span>
             <span className="eyebrow">{total}</span>
           </div>
-          <div style={{ maxHeight: 400, overflowY: "auto" }}>
+          <div style={{ maxHeight: 420, overflowY: "auto" }}>
             {total === 0 ? (
-              <div className="t-13 dim" style={{ padding: "var(--s-4)" }}>
-                Every monitored contract matched its baseline at its last check. That is an observation, not a guarantee.
+              <div className="t-13 dim" style={{ padding: "var(--s-5)", lineHeight: 1.6 }}>
+                Every monitored contract matched its baseline at its last check. That is an observation, not a
+                guarantee.
               </div>
             ) : (
               [...changed, ...unverified].map((r) => (
@@ -328,20 +305,19 @@ function Notifications({ rows }: { rows: MonitoredRow[] }) {
                   key={r.id}
                   href={contractHref(r.chainId, r.address, r.status.status === "RED" ? "investigate" : "overview")}
                   className="feed-item"
-                  style={{ textDecoration: "none", color: "inherit" }}
                   onClick={() => setOpen(false)}
                 >
-                  <span className={`tl-dot s-${r.status.status === "RED" ? "bad" : "warn"}`} style={{ width: 24, height: 24 }}>
-                    <Icon name={r.status.status === "RED" ? "alert" : "question"} size={12} />
+                  <span className={`tl-dot s-${r.status.status === "RED" ? "bad" : "warn"}`}>
+                    <Icon name={r.status.status === "RED" ? "alert" : "question"} size={14} />
                   </span>
                   <span className="feed-txt">
-                    <b>{r.protocol}</b>
-                    <div className="t-12 dim" style={{ marginTop: 2 }}>{r.status.reasons[0]}</div>
-                    <div style={{ marginTop: 4 }}>
+                    <span className="strong">{r.protocol}</span>
+                    <span style={{ display: "block", marginTop: 3 }}>{r.status.reasons[0]}</span>
+                    <span style={{ display: "block", marginTop: 5 }}>
                       <AsOf block={r.current?.checkedBlock ?? r.baseline.block} at={r.current?.checkedAt} />
-                    </div>
+                    </span>
                   </span>
-                  <Icon name="chevronRight" size={14} style={{ color: "var(--ink-3)", marginTop: 4 }} />
+                  <Icon name="chevronRight" size={14} style={{ color: "var(--faint)", marginTop: 4 }} />
                 </a>
               ))
             )}
@@ -352,11 +328,12 @@ function Notifications({ rows }: { rows: MonitoredRow[] }) {
   );
 }
 
-/** Small reusable header for pages that are not a contract workspace. */
-export function PageHead({ title, sub, actions }: { title: string; sub?: ReactNode; actions?: ReactNode }) {
+/** Page header for the non-workspace screens. */
+export function PageHead({ title, sub, actions, eyebrow }: { title: string; sub?: ReactNode; actions?: ReactNode; eyebrow?: string }) {
   return (
     <div className="page-head">
       <div className="grow">
+        {eyebrow && <div className="eyebrow" style={{ marginBottom: "var(--s-3)" }}>{eyebrow}</div>}
         <h1 className="page-title">{title}</h1>
         {sub && <p className="page-sub">{sub}</p>}
       </div>
@@ -365,4 +342,5 @@ export function PageHead({ title, sub, actions }: { title: string; sub?: ReactNo
   );
 }
 
-export { Badge, Tip, routeLabel };
+export { Badge, routeLabel };
+export type { IconName };

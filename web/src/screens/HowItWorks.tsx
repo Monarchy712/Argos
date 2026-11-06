@@ -6,8 +6,7 @@
  * rather than as a logo in a list.
  */
 import { NymDiagnosticsScreen } from "./NymDiagnostics.tsx";
-import { PageHead } from "../components/Shell.tsx";
-import { Badge, Callout, Card, CardHead } from "../components/common.tsx";
+import { Badge, Callout, Card, CardHead, Reveal } from "../components/common.tsx";
 import { Icon, type IconName } from "../components/icons.tsx";
 
 interface Node {
@@ -59,31 +58,28 @@ const FLOW: Node[] = [
 export function HowItWorksScreen() {
   return (
     <div className="page">
-      <PageHead
-        title="How Argos works"
-        sub="Argos watches the code behind contracts you interact with and tells you when it changes. It detects, verifies and warns. It does not block transactions, and it never claims a contract is safe."
-      />
-
-      <Card stripe="info">
-        <div className="card-body">
-          <p className="prose" style={{ fontSize: 16, color: "var(--ink)", maxWidth: "70ch" }}>
-            <b>The problem in one sentence.</b> A wallet decides what to show you based on the contract's{" "}
-            <i>address</i> — but an upgradeable contract can swap out its code while keeping that address, so the wallet
-            keeps showing a confident, readable description of code that is no longer the code being run.
+      <section className="band hero">
+        <div style={{ position: "relative", maxWidth: "56ch" }}>
+          <div className="eyebrow" style={{ marginBottom: "var(--s-4)" }}>How it works</div>
+          <h1 className="display">The address stays the same. The code does not.</h1>
+          <p className="page-sub" style={{ color: "var(--band-muted)" }}>
+            A wallet decides what to show you from the contract&rsquo;s <i>address</i>. An upgradeable contract can
+            replace its code and keep that address — so the wallet keeps rendering a confident, readable description of
+            code that is no longer the code being run.
           </p>
-          <p className="prose" style={{ marginTop: "var(--s-3)" }}>
+          <p className="prose" style={{ color: "var(--band-muted)", marginTop: "var(--s-4)" }}>
             Argos records what the code was when you decided to trust it, watches for it changing, and shows you the
             evidence when it does. That is the whole product.
           </p>
         </div>
-      </Card>
+      </section>
 
       <Card>
         <CardHead title="The path your monitoring data takes" sub="Each step, in order, with what it can and cannot tell you." icon="layers" />
         <div className="card-body">
           <div className="flow">
             {FLOW.map((n, i) => (
-              <div key={n.title}>
+              <Reveal key={n.title} delay={i * 50}>
                 <div className={`flow-node k-${n.kind}`}>
                   <span className="n-glyph"><Icon name={n.icon} size={19} /></span>
                   <div>
@@ -108,12 +104,12 @@ export function HowItWorksScreen() {
                 )}
 
                 {n.edge && (
-                  <div className="flow-arrow" style={{ height: 40 }}>
+                  <div className="flow-arrow">
                     <Icon name="arrowDown" size={14} />
                     <span className="label">{n.edge}</span>
                   </div>
                 )}
-              </div>
+              </Reveal>
             ))}
           </div>
         </div>

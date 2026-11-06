@@ -142,6 +142,7 @@ export function AddContractScreen({ rows, manifest }: { rows: MonitoredRow[]; ma
   return (
     <div className="page">
       <PageHead
+        eyebrow={`Step ${step} of 4`}
         title="Add a contract"
         sub="Argos inspects the contract, shows you the evidence it can gather, and then asks you to decide. The first implementation Argos observes is not automatically trustworthy, and Argos will not decide for you."
       />
@@ -228,10 +229,14 @@ export function AddContractScreen({ rows, manifest }: { rows: MonitoredRow[]; ma
                 <Tip text="Argos reads the EIP-1967 implementation and beacon slots, the diamond loupe, and the Safe singleton slot. Anything else is reported as unsupported rather than guessed at." />
               </dt>
               <dd>
-                {(PROXY_KINDS as readonly string[]).includes(ins.kind) && ins.kind !== "none" ? (
+                {ins.kind !== "none" && (PROXY_KINDS as readonly string[]).includes(ins.kind) ? (
                   <Badge tone="info" icon="layers">{ins.kind}</Badge>
+                ) : ins.kind === "none" ? (
+                  // Not a proxy. Still monitorable: the code identity falls back to the codehash,
+                  // which changes if the address is ever redeployed to.
+                  <Badge icon="layers">not a proxy &middot; tracked by codehash</Badge>
                 ) : (
-                  <Badge tone="warn" icon="question">not an upgradeable pattern Argos can read</Badge>
+                  <Badge tone="warn" icon="question">not a pattern Argos can read</Badge>
                 )}
               </dd>
 
