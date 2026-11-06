@@ -29,8 +29,13 @@ watcher looks broken. Deploy the watcher, not just the site.
 ## Vercel (the web app)
 
 `vercel.json` holds everything: build with `npm install --no-audit --no-fund && npm run build`,
-publish `web/dist`. Import the GitHub repo in Vercel and accept the detected settings — no
-environment variables, because the browser does all the reading itself.
+publish `web/dist`. Import the GitHub repo in Vercel and accept the detected settings.
+
+**No environment variables.** The browser does all the reading itself, which is the CROPS
+"no keys needed" claim. Three optional overrides exist — `VITE_MAINNET_RPC_URL`,
+`VITE_SEPOLIA_RPC_URL`, `VITE_SWARM_GATEWAY` — but their defaults are the same public endpoints,
+so there is no reason to set them. If you ever do: anything prefixed `VITE_` is compiled into the
+public bundle, so never put a keyed RPC URL there.
 
 There are deliberately **no rewrites**. The app has no client-side routing (the tabs are React
 state, not URLs), so a catch-all rewrite to `index.html` would only hide genuine 404s.
@@ -53,11 +58,15 @@ the site on Railway too.)
 
    | Variable | Why |
    | --- | --- |
-   | `ARKIV_WATCHER_PRIVATE_KEY` | signs `dg_current_state` / `dg_latest_change`. **This key is the one that matters** — see below |
-   | `ARKIV_RPC_URL` | Arkiv Rabdi endpoint |
-   | `ARKIV_ACCESS_KEY` | optional, avoids the keyless rate limit |
-   | `MAINNET_RPC_URL` | reads the 30 mainnet proxies |
-   | `SEPOLIA_RPC_URL` | reads the 2 Sepolia demo proxies |
+   | `ARKIV_WATCHER_PRIVATE_KEY` | **required.** Signs `dg_current_state` / `dg_latest_change`. This is the key that matters — see below |
+   | `MAINNET_RPC_URL` | **required.** Reads the 30 mainnet proxies |
+   | `SEPOLIA_RPC_URL` | **required.** Reads the 2 Sepolia demo proxies |
+   | `ARKIV_ACCESS_KEY` | optional but recommended; avoids the keyless rate limit |
+
+   Add nothing else. `ARKIV_RPC_URL` appears in `.env.example` but **no code reads it** — the
+   endpoint comes from the SDK's `rabdi()` helper. `ARKIV_WRITER_PRIVATE_KEY`,
+   `SEPOLIA_DEPLOYER_PRIVATE_KEY` and `ZEROG_API_KEY` are deliberately absent: the watcher never
+   needs them, and every key you add is exposure bought for nothing.
 
 4. Deploy, then confirm in the logs that cycles are running with `"failed":0`.
 
