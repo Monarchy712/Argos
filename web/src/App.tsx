@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { buildLocalRows, buildRows, demoRows, findRow, userRows, useArkiv, useManifest } from "./lib/rows.ts";
+import { buildLocalRows, buildRows, byStatus, demoRows, findRow, userRows, useArkiv, useManifest } from "./lib/rows.ts";
 import { useWatchlist } from "./lib/watchlist.ts";
 import { useRoute } from "./lib/router.ts";
 import { Shell, type NetworkFilter } from "./components/Shell.tsx";
@@ -22,8 +22,9 @@ export function App() {
   const networkRows = useMemo(() => userRows(arkivRows), [arkivRows]);
 
   // Two populations, never blended:
-  //   yours   — contracts you added, whether or not the publisher has written them to Arkiv.
-  //   network — what the Argos watcher monitors on Arkiv, including the demo proxies.
+  //   yours   — contracts you added, whether or not the publisher has written them to Arkiv,
+  //             plus the Sepolia proxies this deployment's operator deployed and upgrades.
+  //   network — the registry contracts the Argos watcher monitors on Arkiv.
   //
   // A contract you added that the publisher *did* write is monitored properly by the watcher, so
   // the Arkiv row wins — it carries change history, evidence and continuous coverage. One that has
@@ -32,7 +33,9 @@ export function App() {
   const yours = useMemo(() => {
     const local = buildLocalRows(watch.entries, watch.checks, now);
     const onArkiv = new Map(arkivRows.map((r) => [r.id, r]));
-    return local.map((l) => onArkiv.get(l.id) ?? l);
+    const added = local.map((l) => onArkiv.get(l.id) ?? l);
+    const addedIds = new Set(added.map((r) => r.id));
+    return [...added, ...demoRows(arkivRows).filter((r) => !addedIds.has(r.id))].sort(byStatus);
   }, [watch.entries, watch.checks, arkivRows, now]);
 
   const byNetwork = <T extends { chainId: number }>(list: T[]) =>
@@ -58,7 +61,6 @@ export function App() {
         <ContractsScreen
           rows={mine}
           fleet={fleet}
-          demos={demoRows(arkivRows)}
           watch={watch}
           arkiv={arkiv}
           now={now}

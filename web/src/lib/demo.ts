@@ -7,8 +7,9 @@
  *
  * These are real contracts on Sepolia with real baselines on Arkiv. The Transaction Guard
  * demonstration and the A→B→A upgrade walkthrough both need them, so neither the contracts nor
- * their Arkiv entities are ever deleted. What they are *not* is somebody's monitored holding, so
- * they are excluded from My Contracts and from every user-facing count.
+ * their Arkiv entities are ever deleted. They are the contracts this deployment's operator owns
+ * and upgrades, so they are listed under **Yours** in My Contracts (with a Demo badge) rather
+ * than in the Argos network list of registry contracts.
  */
 
 /** The Sepolia demo proxy upgraded A→B→A in the walkthrough (contracts/deployments/11155111.json). */
@@ -51,6 +52,12 @@ export const DEMO_CONTRACTS: readonly DemoContract[] = [
     address: GUARD_DEMO.proxy,
     label: GUARD_DEMO.label,
     why: "The only proxy exposing the getter ArgosGuard needs, for the Transaction Guard demonstration.",
+  },
+  {
+    chainId: 11155111,
+    address: "0x319480a00314B03453d1f43b96eCc9F1C4f6EF1d",
+    label: "Argos test proxy",
+    why: "Deployed for the watcher's end-to-end run (contracts/deployments/11155111-e2e.json); upgrade it to see a change detected.",
   },
 ];
 
