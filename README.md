@@ -258,7 +258,7 @@ before `forge test` — the contract tests need `forge-std` and `openzeppelin-co
 
 ## AI usage
 
-Built with an AI coding assistant (Claude Code). Details per file: [AI_USAGE.md](AI_USAGE.md).
+Designed and built by Samyaak, with Claude Code as a coding assistant for implementation. Details per file: [AI_USAGE.md](AI_USAGE.md).
 
 ## CROPS
 
