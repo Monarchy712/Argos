@@ -100,6 +100,16 @@ Every column a client filters on is indexed: `chain_id`, `address`, `matches_bas
   ([#3098](https://github.com/ethereum/clear-signing-erc7730-registry/issues/3098)) better than a
   hosted API.
 
+## What we kept off Arkiv, and why
+
+- **Descriptor and explanation text.** An Arkiv `str` caps at 128 bytes, so the content goes to
+  Swarm and the Arkiv row carries its hash (`dg_descriptor.swarm_ref` + ERC-8176 hash,
+  `dg_change_note.summary_hash`). The browser renders the bytes only if they hash to the Arkiv value.
+- **A contract you added before a baseline exists.** It stays in your browser's local storage.
+  Publishing it would need our key and would tell everyone which contracts you care about.
+- **Anything per-user.** Entities are public, and a watchlist is a profile.
+- **Verdicts.** No row says "safe"; rows carry observations (implementation, block, tx, `checked_at`).
+
 ## What Arkiv doesn't do for us (stated honestly)
 
 - **It doesn't make the watcher correct.** A live watcher can still be wrong (a bad RPC answer).

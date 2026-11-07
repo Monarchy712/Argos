@@ -68,6 +68,18 @@ two writer addresses are published in the README.
    with their own key, and clients choose which `$creator`s they trust. Arkiv makes multiple
    independent monitors cheap to consume side by side.
 
+## Can they try it today?
+
+Yes, with no account, wallet or key:
+
+- **App:** <https://argosapp.vercel.app>. Open **My Contracts** for the 33 watched contracts, or
+  **Add Contract** with any registry address (e.g. Aave v3 Pool
+  `0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2`) to see its mirror rows and Swarm-verified descriptor.
+- **From a terminal:** `npm ci && node scripts/show-arkiv.ts` (watcher liveness + every verdict) or
+  `node scripts/query-mirror.ts stale` (the 3 stale attestations).
+- **From their own code:** one `createPublicClient` query filtered on our watcher's `$creator`
+  (see [schema.md](schema.md#run-a-query)).
+
 ## Roadmap (after the event)
 
 - EIP-712 domain drift (#2975): for proxies bound to `eip712-*` descriptors, compare
