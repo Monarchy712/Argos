@@ -548,7 +548,9 @@ textarea.input { height: auto; min-height: 110px; padding: var(--s-3); line-heig
   background: var(--surface-3); color: var(--ink-faint); border: 1px solid var(--hairline);
   font-family: var(--font-data); font-size: var(--t-micro); font-weight: 600;
 }
-.step .lines { min-width: 0; }
+/* Grid, not the default inline flow: these are two stacked lines ("STEP 1" over its name), and
+   without this they render back to back as "STEP 1Identify contract". */
+.step .lines { display: grid; gap: 1px; min-width: 0; }
 .step .s-k { font-family: var(--font-data); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); }
 .step .s-v { font-size: var(--t-sm); color: var(--ink-subtle); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .step.is-done .num { background: var(--pass-soft); color: var(--pass); border-color: var(--pass-line); }
@@ -789,6 +791,85 @@ a.flow-node:hover { border-color: var(--hairline-strong); color: inherit; }
 
 .hero { position: relative; overflow: hidden; padding: var(--s-8) var(--s-7); }
 .hero-art { position: absolute; inset: 0; pointer-events: none; }
+
+/* The hero is a two-column field on wide screens: the claim on the left, a live-reading visual
+   on the right. Below 1024 the visual drops rather than shrinking into illegibility. */
+.hero-split {
+  position: relative; display: grid; gap: var(--s-7);
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+}
+@media (min-width: 1024px) {
+  .hero-split { grid-template-columns: minmax(0, 1fr) minmax(0, 420px); gap: var(--s-8); }
+}
+@media (max-width: 1023px) { .hero-visual { display: none; } }
+
+/* ---- the scan: an abstract field of blocks under a slow sweep -------------
+   Each cell is a block Argos could read; the sweep is the reading passing over
+   them. Nothing here is data — it is a texture that means something, which is
+   why it is a grid of blocks and not a decorative blob. */
+/* Matches the SVG's own viewBox (354 × 276) so the field fills the box instead of letterboxing. */
+.scan { position: relative; width: 100%; aspect-ratio: 354 / 276; }
+.scan svg { width: 100%; height: 100%; display: block; overflow: visible; }
+
+.scan-cell {
+  fill: var(--surface-2);
+  stroke: var(--hairline);
+  stroke-width: 1;
+  animation: cellBreathe 7s ease-in-out infinite;
+}
+@keyframes cellBreathe {
+  0%, 100% { fill: var(--surface-2); }
+  50%      { fill: var(--surface-3); }
+}
+
+/* The sweep itself: a soft vertical band crossing the field, slowly, forever. */
+.scan-sweep { animation: sweepX 9s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
+@keyframes sweepX {
+  0%   { transform: translateX(-80px); opacity: 0; }
+  12%  { opacity: 1; }
+  88%  { opacity: 1; }
+  100% { transform: translateX(440px); opacity: 0; }
+}
+
+/* One cell diverges each cycle — the thing the product exists to notice. */
+.scan-flag {
+  animation: flagPulse 9s ease-in-out infinite;
+  transform-box: fill-box; transform-origin: center;
+}
+@keyframes flagPulse {
+  0%, 46%   { stroke: var(--hairline); fill: var(--surface-2); }
+  54%, 78%  { stroke: var(--fail); fill: var(--fail-soft); }
+  100%      { stroke: var(--hairline); fill: var(--surface-2); }
+}
+.scan-halo {
+  stroke: var(--fail); fill: none; opacity: 0;
+  transform-box: fill-box; transform-origin: center;
+  animation: haloOut 9s ease-out infinite;
+}
+@keyframes haloOut {
+  0%, 50%  { opacity: 0; transform: scale(0.6); }
+  58%      { opacity: 0.55; transform: scale(1); }
+  76%, 100%{ opacity: 0; transform: scale(2.1); }
+}
+
+/* The two traces: baseline held flat, observation tracking it then stepping away. */
+.scan-trace { fill: none; stroke-width: 1.5; stroke-linecap: round; }
+.scan-trace.base { stroke: var(--hairline-strong); }
+.scan-trace.obs {
+  stroke: var(--accent); stroke-dasharray: 300;
+  animation: traceDraw 9s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+@keyframes traceDraw {
+  0%        { stroke-dashoffset: 300; }
+  40%, 100% { stroke-dashoffset: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scan-cell, .scan-sweep, .scan-flag, .scan-halo, .scan-trace.obs { animation: none; }
+  .scan-sweep { opacity: 0.5; }
+  .scan-trace.obs { stroke-dashoffset: 0; }
+}
 
 /* ============================================================ responsive */
 @media (max-width: 1100px) {

@@ -98,17 +98,19 @@ export function DiagramCompare() {
       <path d="M264 95 H318" className="wire" />
       <path d="M264 104 H318" className="wire" />
 
+      {/* Sublabels are kept short enough to sit inside the 220-unit box at 10px mono (~6 units a
+          character). SVG text does not wrap, so anything longer is silently clipped. */}
       <rect x="326" y="14" width="220" height="42" rx="8" className="node ok" />
       <text x="340" y="33" className="label">Matches baseline</text>
-      <text x="340" y="48" className="mono-label">no change seen as of block N</text>
+      <text x="340" y="48" className="mono-label">no change at block N</text>
 
       <rect x="326" y="68" width="220" height="42" rx="8" className="node bad" />
       <text x="340" y="87" className="label">Changed</text>
-      <text x="340" y="102" className="mono-label">different code behind the address</text>
+      <text x="340" y="102" className="mono-label">different code now</text>
 
       <rect x="326" y="122" width="220" height="42" rx="8" className="node" />
       <text x="340" y="141" className="label">Not verified</text>
-      <text x="340" y="156" className="mono-label">no fresh reading — never assumed safe</text>
+      <text x="340" y="156" className="mono-label">no fresh reading</text>
 
       <text x="14" y="190" className="mono-label">Every answer carries the block it was true at.</text>
     </svg>
