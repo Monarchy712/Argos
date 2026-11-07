@@ -3,7 +3,7 @@
  *
  * The row on Arkiv carries facts (which implementations, how many selectors moved, which model,
  * which 0G request id) and `summary_hash`; the words themselves are bytes on Swarm. We fetch
- * those bytes over the same transport as everything else (Nym by default) and **render them only
+ * those bytes from the Swarm gateway and **render them only
  * if keccak256(bytes) equals the hash on Arkiv** — the same rule as descriptors. A gateway that
  * returns different words gets rejected rather than displayed, because an unverified sentence
  * about what changed is worth less than no sentence at all.
@@ -12,7 +12,6 @@
  * commit); a change note does not exist anywhere else, so if Swarm can't serve it the UI says so.
  */
 import { keccak256, toHex, type Hex } from "viem";
-import { anonAwareFetch } from "./transport.ts";
 import { SWARM_GATEWAY } from "./config.ts";
 
 export type ChangeNoteText =
@@ -33,7 +32,7 @@ export async function fetchChangeNote(swarmRef: string, summaryHash: Hex): Promi
     result = { state: "unavailable", error: "the Arkiv row carries no usable Swarm reference" };
   } else {
     try {
-      const res = await anonAwareFetch(`${SWARM_GATEWAY}/bytes/${swarmRef}`, { signal: AbortSignal.timeout(20_000) });
+      const res = await fetch(`${SWARM_GATEWAY}/bytes/${swarmRef}`, { signal: AbortSignal.timeout(20_000) });
       if (!res.ok) throw new Error(`Swarm HTTP ${res.status}`);
       const bytes = new Uint8Array(await res.arrayBuffer());
       const got = keccak256(toHex(bytes));

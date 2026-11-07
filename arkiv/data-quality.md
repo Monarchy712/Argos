@@ -12,8 +12,8 @@ At registry commit `ef582c2f03bfbd062b7e3889b55dd3b45c3d5494`:
 
 | Entity | Rows | One per | Key fields |
 | --- | --- | --- | --- |
-| `dg_descriptor` | **768** = 617 calldata + 129 EIP-712 + 22 include files | registry file (`registry/**`, `ercs/**`; tests and `sigs/` excluded) | `descriptor_hash` (ERC-8176), `file_sha`, `registry_path`, `registry_commit`, `entity_dir`, `kind`, `attestation`, `storage_mode` = `swarm` + `swarm_ref` (746 descriptors; content on Swarm, see [swarm.md](swarm.md)) or `registry` (22 include files) |
-| `dg_deployment` | **2,675** | (chain, contract address, descriptor hash) from each descriptor's `context.contract.deployments` / `context.eip712.deployments` | `chain_id`, `address`, `descriptor_hash`, `proxy_kind`, `monitored`, `registry_commit` |
+| `dg_descriptor` | **771** = 620 calldata + 129 EIP-712 + 22 include files | registry file (`registry/**`, `ercs/**`; tests and `sigs/` excluded) | `descriptor_hash` (ERC-8176), `file_sha`, `registry_path`, `registry_commit`, `entity_dir`, `kind`, `attestation`, `storage_mode` = `swarm` + `swarm_ref` (746 descriptors; content on Swarm, see [swarm.md](swarm.md)) or `registry` (22 include files) |
+| `dg_deployment` | **2,678** | (chain, contract address, descriptor hash) from each descriptor's `context.contract.deployments` / `context.eip712.deployments` | `chain_id`, `address`, `descriptor_hash`, `proxy_kind`, `monitored`, `registry_commit` |
 
 All rows are written by the writer wallet `0x623EdFf351EB13aCCFc56cBf541eE4D45BDADCf4`; readers
 filter on it with `.createdBy(...)`.
@@ -21,17 +21,18 @@ filter on it with `.createdBy(...)`.
 ## Can people filter it the way they search for it?
 
 The questions people actually ask of the registry, and the Arkiv query that answers each. Every
-field below is indexed (ⓘ in [schema.md](schema.md)). Each is a filter in the **Browse mirror**
-screen (which prints the query it ran) or one command:
+field below is indexed (ⓘ in [schema.md](schema.md)), and each is reachable either as one
+read-only command or from the app's **Add Contract** inspection, which runs the deployment and
+descriptor lookups against the mirror and shows what it found:
 
 | People ask | Arkiv query (writer's rows only) | Try it |
 | --- | --- | --- |
 | "Is there a descriptor for this contract?" (what a wallet asks before signing) | `dg_deployment WHERE chain_id = 1 AND address = 0x8787…` → `dg_descriptor WHERE descriptor_hash = …` | `node scripts/query-mirror.ts deployments 1 0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2` |
 | "Which attestations no longer match the file?" | `dg_descriptor WHERE attestation = "stale"` | `node scripts/query-mirror.ts stale` |
 | "Everything from one protocol" | `dg_descriptor WHERE entity_dir = "safe"` | `node scripts/query-mirror.ts protocol safe` |
-| "Which deployments on chain X are upgradeable proxies?" | `dg_deployment WHERE chain_id = 1 AND proxy_kind = "beacon"` | Browse → chain + proxy kind |
-| "Which descriptors does Argos monitor?" | `dg_deployment WHERE monitored = true` | Browse → monitored |
-| "Which EIP-712 descriptors exist?" | `dg_descriptor WHERE kind = "eip712"` | Browse → kind |
+| "Which deployments on chain X are upgradeable proxies?" | `dg_deployment WHERE chain_id = 1 AND proxy_kind = "beacon"` | `node scripts/query-mirror.ts proxies 1 beacon` |
+| "Which descriptors does Argos monitor?" | `dg_deployment WHERE monitored = true` | `node scripts/show-arkiv.ts` (every monitored contract) |
+| "Which EIP-712 descriptors exist?" | `dg_descriptor WHERE kind = "eip712"` | `node scripts/query-mirror.ts kind eip712` |
 | "Has the code behind this descriptor changed?" | `dg_current_state WHERE chain_id = … AND address = …` (watcher's rows) | `node scripts/show-arkiv.ts` |
 
 Not filterable by design: free text (owner names are stored but not indexed), and proxy kind for
@@ -102,7 +103,7 @@ npm run verify -w importer -- ../.cache/registry         # client-side verificat
 | Import run 1 | 3,443 creates in 173 batches, 0 failures, 17.3 min, **1.65 tGLM** (~0.00048 tGLM per row) |
 | Import run 2 (same commit) | plan: **0 creates**, 6 patches (a protocol-folder fix for `ercs/` rows), 3,437 unchanged |
 | Import run 3 (dry) | plan: **0 creates, 0 patches**, 3,443 unchanged |
-| Client read, counts | `dg_descriptor` 617 / 129 / 22 = registry; `dg_deployment` 2,675 = registry (3,443 rows read keyed in 11 s) |
+| Client read, counts (re-run 2026-11-07) | `dg_descriptor` 620 / 129 / 22 = registry; `dg_deployment` 2,678 = registry — **MIRROR VERIFY: PASS** (3,449 rows read in 10 s) |
 | 10 random descriptors vs GitHub raw @ `ef582c2` | **10/10**: `keccak256(GitHub bytes) == file_sha` and `computeDescriptorHash(resolved from GitHub) == descriptor_hash` |
 | Stale attestations on Arkiv | exactly the 3 listed above |
 | Re-verify, Nov 6 ~08:55 IST | counts match again, **10/10** new random spot-checks pass; upstream `master` is still `ef582c2`, so the mirror is current |

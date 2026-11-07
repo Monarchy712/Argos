@@ -16,10 +16,11 @@ import { DeploymentSchema, DescriptorSchema, TRUSTED_CREATORS } from "@driftguar
 import { http } from "viem";
 import type { RegistryManifest } from "./descriptors.ts";
 import { PAGE_SIZE, pageAll } from "./paging.ts";
+import { viteEnvOr } from "./env.ts";
 
 /** Same optional rate-limit key as lib/arkiv.ts; see the note there. Empty means keyless. */
 const client = createPublicClient({
-  chain: rabdi({ accessKey: (import.meta.env.VITE_ARKIV_ACCESS_KEY as string | undefined) ?? "" }),
+  chain: rabdi({ accessKey: viteEnvOr("VITE_ARKIV_ACCESS_KEY", "") }),
   transport: http(undefined, { retryCount: 0, timeout: 20_000 }),
 });
 

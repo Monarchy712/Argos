@@ -51,16 +51,48 @@ const detectionFor = (kind: string) =>
   : (PROXY_KINDS as readonly string[]).includes(kind) ? "event+slot"
   : "unsupported";
 
+/**
+ * Index rows by contract, keeping the newest when a contract has more than one.
+ *
+ * `new Map(rows.map(...))` keeps whichever row happens to arrive last, and Arkiv pages are ordered
+ * by `$key` — an address-derived hash with no relation to time. One contract on Sepolia really did
+ * end up with two `dg_current_state` rows (two watcher processes ran briefly at once), and the
+ * older of them still asserted `matches_baseline: true` for an implementation that had since
+ * changed. Which one the UI rendered was down to how the two keys happened to sort.
+ *
+ * This is only a tie-break, not a repair: duplicates are still a watcher-side problem. But the row
+ * a reader sees must be the most recent observation, not an arbitrary one.
+ */
+function newestBy<T extends { chainId: number; address: string }>(rows: readonly T[], at: (r: T) => number): Map<string, T> {
+  const m = new Map<string, T>();
+  for (const r of rows) {
+    const id = idOf(r.chainId, r.address);
+    const kept = m.get(id);
+    if (!kept || at(r) > at(kept)) m.set(id, r);
+  }
+  return m;
+}
+
 export function buildRows(snap: ArkivSnapshot, manifest: RegistryManifest | null, now: number): MonitoredRow[] {
-  const cur = new Map(snap.current.map((c) => [idOf(c.chainId, c.address), c]));
-  const chg = new Map(snap.changes.map((c) => [idOf(c.chainId, c.address), c]));
-  const notes = new Map(snap.changeNotes.map((n) => [idOf(n.chainId, n.address), n]));
+  const cur = newestBy(snap.current, (c) => c.checkedAt);
+  const chg = newestBy(snap.changes, (c) => Number(c.changeBlock));
+  // A contract accumulates one note per change, so group them and pick per contract below: the
+  // note shown beside a change must be the note *for that change*, not the latest one it has.
+  const notesFor = new Map<string, ChangeNoteRow[]>();
+  for (const n of snap.changeNotes) {
+    const id = idOf(n.chainId, n.address);
+    notesFor.set(id, [...(notesFor.get(id) ?? []), n]);
+  }
 
   return snap.baselines
     .map((b) => {
       const id = idOf(b.chainId, b.address);
       const current = cur.get(id) ?? null;
       const change = chg.get(id) ?? null;
+      const mine = notesFor.get(id) ?? [];
+      const changeNote =
+        (change && mine.find((n) => n.changeBlock === change.changeBlock)) ??
+        mine.reduce<ChangeNoteRow | null>((best, n) => (!best || n.changeBlock > best.changeBlock ? n : best), null);
       const desc = manifest ? descriptorFor(manifest, b.chainId, b.address) : null;
       const isDemoProxy = id === idOf(DEMO_PROXY.chainId, DEMO_PROXY.address);
       const isGuardDemo = id === idOf(GUARD_DEMO.chainId, GUARD_DEMO.proxy);
@@ -95,7 +127,7 @@ export function buildRows(snap: ArkivSnapshot, manifest: RegistryManifest | null
         baseline: b,
         current,
         change,
-        changeNote: notes.get(id) ?? null,
+        changeNote,
         descriptorHash: b.descriptorHash || desc?.descriptorHash || null,
         descriptorPath: desc?.path ?? null,
         status,

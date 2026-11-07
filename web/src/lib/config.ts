@@ -1,12 +1,10 @@
 /**
- * Browser-side configuration. No secrets here: the web app holds no keys. Arkiv is read keyless,
- * and chain reads go direct unless the viewer explicitly opts in to Anon-RPC (Nym); see
- * lib/transport.ts for why direct is the default.
+ * Browser-side configuration. No secrets here: the web app holds no keys. Arkiv is read keyless
+ * and live chain reads go straight to a public RPC endpoint; lib/chain.ts carries the label the UI
+ * uses to disclose that.
  */
 export { ARKIV_BLOCK_SECONDS, TRUSTED_CREATORS } from "@driftguard/core";
-
-/** Nym anon-client specifier (IWorkerSpecifier) on Ethereum mainnet, from ethereum/anon-rpc adopters.json5. */
-export const NYM_SPECIFIER = "0x3aCD9742C68F6d993066Ae25533e09b9e1f60eD0";
+import { viteEnv } from "./env.ts";
 
 export interface ChainInfo {
   id: number;
@@ -15,7 +13,8 @@ export interface ChainInfo {
   explorer: string;
 }
 
-const env = import.meta.env;
+// Read through lib/env.ts so this module imports cleanly under `node --test`; see the note there.
+const env = { VITE_MAINNET_RPC_URL: viteEnv("VITE_MAINNET_RPC_URL"), VITE_SEPOLIA_RPC_URL: viteEnv("VITE_SEPOLIA_RPC_URL"), VITE_SWARM_GATEWAY: viteEnv("VITE_SWARM_GATEWAY") };
 export const CHAINS: Record<number, ChainInfo> = {
   1: { id: 1, name: "Ethereum", rpcUrl: env.VITE_MAINNET_RPC_URL ?? "https://ethereum-rpc.publicnode.com", explorer: "https://etherscan.io" },
   11155111: {
@@ -26,8 +25,6 @@ export const CHAINS: Record<number, ChainInfo> = {
   },
 };
 
-/** Used only by the harness to read the Nym specifier contract (bootstrap; reveals only "loads the Nym worker"). */
-export const BOOTSTRAP_RPC_URL = CHAINS[1]!.rpcUrl;
 
 export const ARKIV_EXPLORER = "https://rabdi.explorer.arkiv.network";
 /**
@@ -42,7 +39,7 @@ export const ARKIV_REFRESH_MS = 90_000;
  * `Access-Control-Allow-Origin: *`. What it returns is never trusted: keccak256 of the bytes must
  * equal the ERC-8176 hash on the writer's Arkiv row, or the descriptor is rejected.
  */
-export const SWARM_GATEWAY = (import.meta.env.VITE_SWARM_GATEWAY as string | undefined) ?? "https://api.gateway.ethswarm.org";
+export const SWARM_GATEWAY = env.VITE_SWARM_GATEWAY ?? "https://api.gateway.ethswarm.org";
 
 /**
  * Argos's own demonstration contracts. Re-exported from lib/demo.ts, which has no Vite-only

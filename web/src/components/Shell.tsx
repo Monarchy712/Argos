@@ -12,9 +12,9 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { CHAINS } from "../lib/config.ts";
 import { contractHref, navigate, type Route } from "../lib/router.ts";
-import { routeLabel, restartNym, transport } from "../lib/transport.ts";
+import { ROUTE_LABEL } from "../lib/chain.ts";
 import type { MonitoredRow } from "../lib/rows.ts";
-import { AsOf, Badge, StatusBadge, chainName, short, useDismiss, useTransport } from "./common.tsx";
+import { AsOf, Badge, StatusBadge, chainName, short, useDismiss } from "./common.tsx";
 import { Icon, type IconName } from "./icons.tsx";
 
 export type NetworkFilter = "all" | number;
@@ -151,26 +151,18 @@ function NetworkMenu({ network, setNetwork }: { network: NetworkFilter; setNetwo
 
 /**
  * The real connection state of this app: which route live reads take, and the fact that no key is
- * held. Nym by default; switching to direct is an explicit, labelled opt-out, never silent.
+ * held. Both are disclosed rather than implied — a monitoring tool that overstates what it protects
+ * is worse than one that says plainly where its reads go.
  */
 function SessionMenu() {
-  const t = useTransport();
   const [open, setOpen] = useState(false);
   const ref = useDismiss<HTMLDivElement>(open, () => setOpen(false));
-  const dot =
-    t.mode === "direct" ? "d-warn"
-    : t.nym.state === "ready" ? ""
-    : t.nym.state === "failed" ? "d-bad" : "d-info";
-  const sub =
-    t.mode === "direct" ? "Direct RPC"
-    : t.nym.state === "ready" ? "Nym ready"
-    : t.nym.state === "failed" ? "Nym failed" : "Nym booting";
 
   return (
     <div ref={ref} style={{ position: "relative" }}>
       <button className="chip" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-haspopup="menu">
-        <span className={`live-dot ${dot}`} />
-        <span className="lines"><span className="l1">{sub}</span></span>
+        <span className="live-dot" />
+        <span className="lines"><span className="l1">Read-only</span></span>
         <Icon name="chevronDown" size={13} style={{ color: "var(--faint)" }} />
       </button>
       {open && (
@@ -178,23 +170,10 @@ function SessionMenu() {
           <div className="stack-s">
             <span className="eyebrow">Live read route</span>
             <p className="t-12 dim" style={{ lineHeight: 1.6 }}>
-              Chain reads go through the Nym mixnet by default, so the RPC provider sees a Nym exit instead
-              of your IP. Direct is faster but <b>not anonymized</b>: the provider sees your IP and which
-              contract you opened. Not saved — a reload returns to Nym.
+              Live chain reads go from this browser straight to a public RPC endpoint — <b>{ROUTE_LABEL}</b>.
+              The provider sees your IP and which contract you opened. Arkiv is read keyless in one bulk,
+              contract-independent query, so it learns nothing about which contract you are looking at.
             </p>
-            {t.nym.state === "failed" && t.nym.error && (
-              <p className="t-12" style={{ color: "var(--warn-ink)" }}>{t.nym.error}</p>
-            )}
-            <div className="row" style={{ gap: "var(--s-2)" }}>
-              {t.mode === "nym" ? (
-                <button className="btn sm" onClick={() => { transport.setMode("direct"); setOpen(false); }}>Use direct RPC</button>
-              ) : (
-                <button className="btn sm iris" onClick={() => { transport.setMode("nym"); setOpen(false); }}>Back to Nym</button>
-              )}
-              {t.nym.state === "failed" && (
-                <button className="btn sm" onClick={() => void restartNym().catch(() => {})}>Retry Nym</button>
-              )}
-            </div>
 
             <div style={{ height: 1, background: "var(--divider)", margin: "var(--s-2) 0" }} />
 
@@ -342,5 +321,5 @@ export function PageHead({ title, sub, actions, eyebrow }: { title: string; sub?
   );
 }
 
-export { Badge, routeLabel };
+export { Badge };
 export type { IconName };

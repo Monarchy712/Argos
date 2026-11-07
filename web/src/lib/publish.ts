@@ -13,15 +13,16 @@
  * never deployed.
  */
 import type { CodeIdentity } from "@driftguard/core";
+import { viteEnvOr } from "./env.ts";
 
 /** Where the publisher lives. Unset in a build with no server, which is an honest blocked state. */
-export const PUBLISHER_URL = ((import.meta.env.VITE_ARGOS_API_URL as string | undefined) ?? "").replace(/\/$/, "");
+export const PUBLISHER_URL = viteEnvOr("VITE_ARGOS_API_URL", "").replace(/\/$/, "");
 /**
  * Publish token for this deployment. Present in the bundle, so it is **not** a user secret — it
  * gates casual use of a write endpoint, nothing more. The thing that must never reach the browser
  * is ARKIV_WRITER_PRIVATE_KEY, and it does not: the server signs, the browser only asks.
  */
-const PUBLISH_TOKEN = (import.meta.env.VITE_ARGOS_PUBLISH_TOKEN as string | undefined) ?? "";
+const PUBLISH_TOKEN = viteEnvOr("VITE_ARGOS_PUBLISH_TOKEN", "");
 
 export const publisherConfigured = () => PUBLISHER_URL.length > 0;
 

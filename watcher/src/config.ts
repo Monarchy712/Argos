@@ -5,7 +5,7 @@ import { mainnet, sepolia, foundry } from "viem/chains";
 
 const WATCHER_DIR = fileURLToPath(new URL("..", import.meta.url));
 
-/** RPC per chain, from .env. The watcher uses ordinary RPC (only the browser goes through Nym). */
+/** RPC per chain, from .env. Server-side reads; the browser reads chains on its own (web/src/lib/chain.ts). */
 const RPC_ENV: Record<number, string> = {
   1: "MAINNET_RPC_URL",
   11155111: "SEPOLIA_RPC_URL",

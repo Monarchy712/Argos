@@ -6,7 +6,6 @@
  * what the picture cannot say. No third-party logos: they are other people's marks, and fetching
  * them would hand a visitor's IP to a CDN on a page about not being observed.
  */
-import { NymDiagnosticsScreen } from "./NymDiagnostics.tsx";
 import { DiagramCompare, DiagramEvidence, DiagramProxy, DiagramRead, DiagramSelectors } from "../components/Diagrams.tsx";
 import { Badge, Card, Reveal } from "../components/common.tsx";
 import { Icon } from "../components/icons.tsx";
@@ -127,26 +126,15 @@ export function HowItWorksScreen() {
             <div className="card-body stack-s">
               <span className="eyebrow">Privacy</span>
               <ul className="reasons">
-                <li>Reads route through the Nym mixnet by default, so the RPC provider sees an exit, not you.</li>
+                <li>Arkiv is read keyless, in one bulk query that does not name the contract you opened.</li>
                 <li>Fonts and assets are served from this origin — nothing is fetched from a CDN.</li>
-                <li>Switching to direct RPC is explicit, and every result stays labelled with its route.</li>
+                <li>Live chain reads go direct to a public RPC, and every result says so rather than implying otherwise.</li>
               </ul>
             </div>
           </Card>
         </div>
       </Reveal>
 
-      <details className="disclose">
-        <summary>
-          <Icon name="chevronRight" size={13} className="chev" />
-          Privacy routing diagnostics
-          <span className="push" />
-          <Badge tone="info">Nym</Badge>
-        </summary>
-        <div className="d-body">
-          <NymDiagnosticsScreen />
-        </div>
-      </details>
     </div>
   );
 }

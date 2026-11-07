@@ -107,7 +107,44 @@ large" (or split it automatically).
   (`!(handle->flags & UV_HANDLE_CLOSING)`), probably keep-alive sockets. We set `process.exitCode`
   and let the process exit on its own.
 
-## 6. Anon-RPC / Nym (not Arkiv, but it shaped our Arkiv design)
+## 6. There is no way to say "one entity per key", and paging order hid the consequence
+
+This one cost us a **wrong answer on screen**, which is worse than lost time, so it is the item
+we would most like fixed.
+
+**What we expected.** Our watcher keeps one `dg_current_state` per contract and patches it. We
+assumed "one row per contract" was an invariant we controlled.
+
+**What happened.** On 2026-11-06 two watcher processes ran at once for a few minutes (one
+backgrounded, one started by hand). Each created its own `dg_current_state` row for the same
+Sepolia contract, because a create cannot be made conditional on absence — there is no upsert, no
+unique constraint, and no "create only if no entity matches this filter". We then compounded it:
+we loaded our row keys with `.orderBy(asc("$key"))` and kept the last one seen per contract.
+`$key` ordering is unrelated to write time, so we patched an arbitrary one of the pair forever and
+left the other frozen. The frozen row still said `matches_baseline: true` for an implementation
+that had since changed, and a reader taking either row got a different answer — one of them a
+false green, which is the single failure mode this project exists to prevent.
+
+**How to reproduce.** Write two entities of the same named schema with the same indexed
+`chain_id` + `address` from the same wallet, then read them back with `.orderBy(asc("$key"))`.
+Nothing in the API or the response indicates that two rows answer to the same logical identity.
+
+**What we did.** `loadKeys` now takes the row with the newest payload timestamp (`checked_at` /
+`detected_at`) rather than the last one paged, counts duplicates per schema, and reports the count
+so the condition is visible instead of inferred ([`watcher/src/arkivSink.ts`](../watcher/src/arkivSink.ts)).
+Readers independently take the newest observation, with a test for it.
+
+**Asks, in order of how much they'd have helped:**
+1. An optional **uniqueness constraint** on a set of indexed columns per schema, so a second
+   create fails loudly instead of silently duplicating a logical row.
+2. A **conditional create** (`createIfNotExists` with a filter), which is the operation every
+   "one row per X" writer actually wants.
+3. `orderBy` on **`$createdAt`** (or any server-side write-order field). We could only sort by a
+   payload timestamp we happened to write ourselves; a reader without one has no way to pick.
+4. A duplicate count, or any hint, in query results when several rows share the values a caller
+   filtered on.
+
+## 7. Anon-RPC / Nym (not Arkiv, but it shaped our Arkiv design)
 
 - **Arkiv's RPC didn't answer through the Nym exit** in our spike (0/25), while Ethereum RPCs did. So
   we designed Arkiv reads as one bulk, contract-independent, keyless read. If Arkiv endpoints
@@ -153,6 +190,9 @@ large" (or split it automatically).
   non-indexed columns are compile errors. It caught real mistakes for us.
 - `executeBatch` with mixed creates, patches, deletes and extensions in one transaction gave
   atomic per-contract writes and atomic rebaselines (create the new baseline + delete the old one).
-- Expiry as a first-class feature. Our "dead watcher → NOT VERIFIED" signal is just a 10-minute
-  expiry, with no extra infrastructure.
-- Fast reads: keyed p50 226 ms, and the 3,443-row mirror reads back in seconds.
+- Expiry as a first-class feature. We first built "dead watcher → NOT VERIFIED" as a 10-minute
+  expiry, with no extra infrastructure, and it worked on the first try. We later moved freshness
+  onto `checked_at` and added a heartbeat entity, because expiry-as-liveness also deleted the
+  history we wanted to keep — but having retention be a property of the data, rather than a cron
+  job we maintain, is still the thing we'd miss most in Postgres.
+- Fast reads: keyed p50 226 ms, and the ~3,450-row mirror reads back in seconds.

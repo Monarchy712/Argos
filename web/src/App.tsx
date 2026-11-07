@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { primeNym } from "./lib/transport.ts";
 import { buildLocalRows, buildRows, demoRows, findRow, userRows, useArkiv, useManifest } from "./lib/rows.ts";
 import { useWatchlist } from "./lib/watchlist.ts";
 import { useRoute } from "./lib/router.ts";
@@ -18,9 +17,6 @@ export function App() {
   const watch = useWatchlist();
   const now = useNow();
   const [network, setNetwork] = useState<NetworkFilter>("all");
-
-  // Boot the Nym worker while the viewer reads this page, so the first live read doesn't wait.
-  useEffect(() => primeNym(), []);
 
   const arkivRows = useMemo(() => (arkiv.snap ? buildRows(arkiv.snap, manifest, now) : []), [arkiv.snap, manifest, now]);
   const networkRows = useMemo(() => userRows(arkivRows), [arkivRows]);
@@ -80,6 +76,7 @@ export function App() {
           tab={route.tab}
           focusEvent={route.event}
           arkiv={arkiv}
+          watch={watch}
           manifest={manifest}
           now={now}
         />

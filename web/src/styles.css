@@ -919,7 +919,6 @@ a.flow-node:hover { border-color: var(--hairline-strong); color: inherit; }
 .nav-scrim { position: fixed; inset: 0; z-index: 50; background: rgba(0, 0, 0, 0.5); }
 
 /* ============================================ legacy class compatibility
-   The Nym diagnostics panel is instrumentation kept verbatim from the
    Test 4 A/B work and still uses pre-redesign class names. */
 .card-pad      { padding: var(--s-5); }
 .section-title { font-size: var(--t-md); font-weight: var(--w-strong); color: var(--ink); margin: 0 0 var(--s-1); }

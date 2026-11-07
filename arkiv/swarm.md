@@ -9,7 +9,7 @@ the Arkiv row, and renders it only if its hash matches that row.
 
 | | Swarm | Arkiv |
 | --- | --- | --- |
-| What | The **resolved** descriptor (includes merged) as **RFC 8785 JCS bytes**, one upload per descriptor: **746** (617 calldata + 129 EIP-712), 2.42 MB total | `dg_descriptor` (768 rows: metadata + the Swarm reference), `dg_deployment` (2,675), `dg_baseline`, `dg_current_state`, `dg_latest_change` |
+| What | The **resolved** descriptor (includes merged) as **RFC 8785 JCS bytes**, one upload per descriptor: **746** (620 calldata + 129 EIP-712), 2.42 MB total | `dg_descriptor` (771 rows: metadata + the Swarm reference), `dg_deployment` (2,678), `dg_baseline`, `dg_current_state`, `dg_latest_change` |
 | Why | Content-addressed and served by any gateway or Bee node: the bytes don't depend on GitHub or on us | Queryable, owned by our writer wallet (`$creator`), with expiry as the freshness signal |
 | Field holding the reference | | **`dg_descriptor.swarm_ref`** (64-hex, unencrypted), with `storage_mode = "swarm"` |
 

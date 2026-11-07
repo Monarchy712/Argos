@@ -7,8 +7,9 @@ the user sees.
 ## The short answer
 
 **If this data sat in our Postgres, people could no longer:**
-- trust a green badge after we stop: a dead watcher's rows would keep saying "OK". On Arkiv they
-  expire, and every client shows **Not verified** within 10 minutes (§1);
+- trust a green badge after we stop: in a database our rows would keep saying "OK" forever. On
+  Arkiv the record carries its own `checked_at` and a published heartbeat, so every client shows
+  **Not verified** within 5 minutes, and nothing we own gets to decide otherwise (§1);
 - check who wrote a row without trusting our server. On Arkiv, `$creator` is part of every
   entity, so clients filter on two published keys (§2);
 - query it without asking us for an API key, or keep using it if we shut down (§3, §4);
@@ -18,31 +19,39 @@ the user sees.
 - **Filter it**: "every mainnet beacon-proxy deployment", "every stale attestation", "every
   descriptor bound to this address" are single Arkiv queries
   (`node scripts/query-mirror.ts stale`, or the **Browse mirror** screen). On GitHub you clone
-  and parse 768 files.
+  and parse 771 files.
 - **See the proxy binding the registry doesn't record**: each deployment row carries its proxy kind,
   and each monitored contract has a baseline, current state and latest change.
 - **Fetch the content without GitHub**: each `dg_descriptor` row points at the resolved descriptor
   on Swarm (`swarm_ref`) and carries the ERC-8176 hash that the bytes must match
   ([swarm.md](swarm.md)).
 
-## 1. Expiry is the freshness signal → the "Not verified" badge
+## 1. The record carries its own freshness → the "Not verified" badge
 
-`dg_current_state` rows expire **10 minutes** after the watcher's last write. A healthy watcher
-rewrites every 120 s (patch + extend in one `executeBatch`). If the watcher stops, crashes, loses
-its key or runs out of gas, its rows disappear from every query within 10 minutes, and every
-client shows **NOT VERIFIED: no live watcher record**.
+A healthy watcher rewrites `dg_current_state` every 120 s and publishes a `dg_watcher_health`
+heartbeat per chain. A record older than **300 s** is stale, and every client shows
+**NOT VERIFIED: no live watcher record**. If the watcher stops, crashes, loses its key or runs out
+of gas, that is what a user sees within 5 minutes — never a green badge nobody is backing.
 
-- **What the user sees:** a contract never stays green on stale data. We tested it: we killed the
-  watcher, waited 11 minutes, and the Sepolia demo proxy flipped to Not verified while its baseline
-  and latest change stayed visible
+*(This mechanism changed during the build. `dg_current_state` originally expired after 10 minutes,
+so a dead watcher appeared as rows vanishing. That worked but destroyed every observation older
+than ten minutes. Records are now long-lived and freshness comes from `checked_at`, which
+`computeStatus` already measured. Same user-visible outcome, sooner, and the history survives.
+Full reasoning: [`schema.md`](schema.md#expiry-freshness-and-liveness--three-different-things).)*
+
+- **What the user sees:** a contract never stays green on stale data. We tested it by killing the
+  watcher and watching the Sepolia demo proxy flip to Not verified while its baseline and latest
+  change stayed visible
   ([E2E report](../docs/TEST_REPORT.md#e2e--watcher-with-the-arkiv-sink-on-the-sepolia-demo-proxy--pass)).
-- **Why not a database:** a database row keeps saying "OK" after its writer dies, unless every client
-  also implements and agrees on a staleness rule. On Arkiv, liveness is enforced by the storage
-  layer itself, not by each reader's honesty. (Clients still apply a 5-minute `checked_at` rule
-  on top, to catch a live-but-stuck watcher.)
-- Long-lived records (baselines, latest changes, the registry mirror) use the maximum lifetime
-  (~182 days) and are renewed by `npm run renew -w watcher`. Data no one renews ages out instead
-  of rotting forever.
+- **Why not a database:** in Postgres, *we* would own the staleness rule. We could change it, log
+  a different `checked_at`, or serve a cached green while the watcher was down, and no reader could
+  tell. On Arkiv the inputs are public and signed by a published key: anyone can run
+  `node scripts/show-arkiv.ts` and derive the badge themselves from `checked_at` and the
+  heartbeat. The freshness rule stops being a promise from our server and becomes arithmetic a
+  reader does on data we cannot retroactively edit.
+- **The part that is still storage-enforced:** expiry. Every entity uses the maximum lifetime
+  (~182 days) and is renewed by `npm run renew -w watcher`. We cannot renew rows after we stop
+  paying attention, so the dataset ages out instead of standing as authority forever.
 
 ## 2. `$creator` is the trust anchor → "trusted writers" under the table
 
@@ -66,7 +75,7 @@ Every column a client filters on is indexed: `chain_id`, `address`, `matches_bas
 `registry_commit`.
 
 - **What the user sees:** the Monitored table is three bulk queries. **Browse mirror** filters
-  3,443 registry rows by chain, protocol, kind and proxy kind with Arkiv queries, not a
+  3,449 registry rows by chain, protocol, kind and proxy kind with Arkiv queries, not a
   downloaded JSON. "Show me every attested descriptor on a contract that changed since baseline"
   is a query, not a crawler.
 - **Why not GitHub:** the registry on GitHub is files in folders. You can't ask it "which Base
@@ -94,7 +103,7 @@ Every column a client filters on is indexed: `chain_id`, `address`, `matches_bas
 ## What Arkiv doesn't do for us (stated honestly)
 
 - **It doesn't make the watcher correct.** A live watcher can still be wrong (a bad RPC answer).
-  The app adds the user's own independent live read of the implementation slot to cross-check (direct RPC by default; Nym opt-in).
+  The app adds the user's own independent live read of the implementation slot to cross-check (a direct RPC read, labelled as such).
 - **It isn't private:** entities are public, and the browser's keyless read reveals its IP to the
   Arkiv node (it's the one direct call, disclosed in the README's CROPS section).
 - **Keyless reads have a cost budget** ([friction](friction.md#2-keyless-reads-have-a-cost-budget-that-isnt-documented-with-numbers)),

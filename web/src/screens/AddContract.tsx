@@ -11,7 +11,7 @@
 import { Fragment, useState } from "react";
 import { codeIdentityHash, inspectContract, readIdentity, type CodeIdentity, type Inspection } from "@driftguard/core";
 import { getAddress, isAddress, type Address } from "viem";
-import { clientFor } from "../lib/chain.ts";
+import { ROUTE_LABEL, clientFor } from "../lib/chain.ts";
 import { ARKIV_EXPLORER, CHAINS } from "../lib/config.ts";
 import { architectureLabel, failureOutcome, outcomeOf, type Outcome } from "../lib/inspection.ts";
 import { lookupContract, type ContractLookup } from "../lib/mirror.ts";
@@ -19,12 +19,11 @@ import { RegistryFallbackSource, SwarmFirstSource, type FetchRecord, type Regist
 import { pendingStore, type PendingStatus } from "../lib/pending.ts";
 import { publishBaseline as publish, publishHeadline, type PublishState } from "../lib/publish.ts";
 import { contractHref, navigate } from "../lib/router.ts";
-import { routeLabel } from "../lib/transport.ts";
 import type { ArkivState, MonitoredRow } from "../lib/rows.ts";
 import { PageHead } from "../components/Shell.tsx";
 import {
   AddressLink, Badge, Callout, Card, CardHead, Skeleton, SwarmLink, Tip,
-  chainName, short, toast, useTransport,
+  chainName, short, toast,
 } from "../components/common.tsx";
 import { Icon } from "../components/icons.tsx";
 
@@ -55,7 +54,6 @@ const STEPS: { n: Step; k: string; v: string }[] = [
 ];
 
 export function AddContractScreen({ rows, manifest, arkiv }: { rows: MonitoredRow[]; manifest: RegistryManifest | null; arkiv: ArkivState }) {
-  const transport = useTransport();
   const [step, setStep] = useState<Step>(1);
   const [chainId, setChainId] = useState<number>(1);
   const [address, setAddress] = useState("");
@@ -76,7 +74,7 @@ export function AddContractScreen({ rows, manifest, arkiv }: { rows: MonitoredRo
     setFailure(null);
     setBusy(true);
     const t0 = performance.now();
-    const route = routeLabel(transport.mode);
+    const route = ROUTE_LABEL;
     const addr = getAddress(trimmed);
     try {
       const client = clientFor(chainId);
@@ -260,7 +258,7 @@ export function AddContractScreen({ rows, manifest, arkiv }: { rows: MonitoredRo
               <button className="btn primary" onClick={() => void inspect()} disabled={!validAddress || busy}>
                 <Icon name="search" size={14} /> {busy ? "Inspecting…" : "Inspect contract"}
               </button>
-              <span className="asof">reads go {routeLabel(transport.mode)}</span>
+              <span className="asof">reads go {ROUTE_LABEL}</span>
             </div>
             {busy && <Skeleton lines={3} />}
           </div>

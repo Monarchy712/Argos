@@ -9,7 +9,6 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import type { Status } from "@driftguard/core";
 import { ARKIV_EXPLORER, CHAINS, SWARM_GATEWAY } from "../lib/config.ts";
-import { transport, type TransportSnapshot } from "../lib/transport.ts";
 import { Icon, type IconName } from "./icons.tsx";
 
 export type Tone = "ok" | "bad" | "warn" | "info" | "neutral";
@@ -318,9 +317,6 @@ export function Compare({
 
 /* ------------------------------------------------------------------- hooks */
 
-export function useTransport(): TransportSnapshot {
-  return useSyncExternalStore(transport.subscribe, transport.get);
-}
 
 /** Re-render every `ms` so time-based status (staleness) stays honest without new data. */
 export function useNow(ms = 15_000): number {

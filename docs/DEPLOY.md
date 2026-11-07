@@ -21,9 +21,10 @@ itself. The watcher is the only part that signs anything.
 If the **web host** dies, nothing is lost: the bundle is also on Swarm, and anyone can run
 `npm ci && npm run dev` from this MIT repo with no keys.
 
-If the **watcher** dies, every monitored contract reads **NOT VERIFIED** about ten minutes later,
-because `dg_current_state` rows expire. That is the intended fail-closed behaviour — Argos would
-rather say "I don't know" than show a stale green — but it means a hosted site with a dead
+If the **watcher** dies, every monitored contract reads **NOT VERIFIED** about five minutes later,
+because its newest `dg_current_state` reading goes stale (`checked_at` older than 300 s) and the
+`dg_watcher_health` heartbeat stops advancing. That is the intended fail-closed behaviour — Argos
+would rather say "I don't know" than show a stale green — but it means a hosted site with a dead
 watcher looks broken. Deploy the watcher, not just the site.
 
 ## Vercel (the web app)

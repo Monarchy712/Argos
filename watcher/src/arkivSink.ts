@@ -75,8 +75,14 @@ export class ArkivSink implements Sink {
   private readonly writerAddress: Address;
   private readonly watcherAddress: Address;
   /** contractId → key + expiry of our current_state / latest_change row (null = unknown, look up). */
-  private stateKeys: Map<string, { key: Hex; expiresAt: bigint }> | null = null;
-  private changeKeys: Map<string, { key: Hex; expiresAt: bigint }> | null = null;
+  private stateKeys: Map<string, { key: Hex; expiresAt: bigint; at: bigint }> | null = null;
+  private changeKeys: Map<string, { key: Hex; expiresAt: bigint; at: bigint }> | null = null;
+  /**
+   * Contracts found holding more than one of our rows, per schema, at the last key load. Should be
+   * zero; a non-zero count means something else wrote rows as this wallet (a second watcher), and
+   * the extra rows are frozen at whatever they last said. Surfaced so it is reported, not guessed.
+   */
+  duplicateRows: Record<string, number> = {};
   /** Arkiv head as of the last loadKeys, to turn an `$expiresAt` block into "how long left". */
   private arkivBlock = 0n;
 
@@ -233,13 +239,26 @@ export class ArkivSink implements Sink {
    * `$expiresAt` comes back too, so `writeCycle` can extend a row only when its window is
    * actually running down. Extending on every write would mean an extra operation per contract
    * per cycle — thousands a day — to move an expiry that is months away.
+   *
+   * WHEN A CONTRACT ALREADY HAS TWO ROWS. It should not, and patching is what keeps it from
+   * happening — but it did: two watcher processes ran at once on 2026-11-06 and each created a
+   * `dg_current_state` row for the same Sepolia contract. Rows are paged in `$key` order, which is
+   * unrelated to time, so taking the last one seen meant patching an arbitrary one of the pair
+   * forever and leaving the other frozen at whatever it last said. The frozen row claimed
+   * `matches_baseline: true` for an implementation that had since changed. Now the newest row
+   * wins, so the one that keeps being updated is the one a reader would also pick, and the count is
+   * reported so the duplicate is visible rather than inferred.
    */
   private async loadKeys(): Promise<void> {
-    const load = async (schema: typeof CurrentStateSchema | typeof LatestChangeSchema) => {
-      const m = new Map<string, { key: Hex; expiresAt: bigint }>();
+    const load = async <S extends typeof CurrentStateSchema | typeof LatestChangeSchema>(
+      schema: S,
+      newness: (row: Record<string, { value: bigint }>) => bigint,
+    ) => {
+      const m = new Map<string, { key: Hex; expiresAt: bigint; at: bigint }>();
+      let duplicates = 0;
       for (let offset = 0; ; ) {
         const page = await this.pub
-          .select({ $key: true, $expiresAt: true, chain_id: true, address: true })
+          .select()
           .from(schema)
           .createdBy(this.watcherAddress)
           .orderBy(asc("$key"))
@@ -247,16 +266,23 @@ export class ArkivSink implements Sink {
           .offset(offset)
           .fetch();
         for (const r of page.entities) {
-          m.set(contractId(Number(r.chain_id.value), getAddress(r.address.value)), { key: r.$key, expiresAt: r.$expiresAt });
+          const id = contractId(Number(r.chain_id.value), getAddress(r.address.value));
+          const at = newness(r as unknown as Record<string, { value: bigint }>);
+          const kept = m.get(id);
+          if (kept) duplicates++;
+          if (!kept || at > kept.at) m.set(id, { key: r.$key, expiresAt: r.$expiresAt, at });
         }
         const covered = page.entities.length + page.skipped;
         if (covered < 100) break;
         offset += covered;
       }
-      return m;
+      return { rows: m, duplicates };
     };
-    this.stateKeys = await load(CurrentStateSchema);
-    this.changeKeys = await load(LatestChangeSchema);
+    const state = await load(CurrentStateSchema, (r) => r.checked_at!.value);
+    const change = await load(LatestChangeSchema, (r) => r.detected_at!.value);
+    this.stateKeys = state.rows;
+    this.changeKeys = change.rows;
+    this.duplicateRows = { dg_current_state: state.duplicates, dg_latest_change: change.duplicates };
     this.arkivBlock = await this.pub.getBlockNumber();
   }
 
@@ -351,9 +377,12 @@ export class ArkivSink implements Sink {
         // `currentBlock + MAX_LIFETIME`, so that is what is recorded here. It is only used to
         // decide whether a renewal is due; the next loadKeys replaces it with the node's value.
         const assumedExpiry = this.arkivBlock === 0n ? 0n : this.arkivBlock + MAX_LIFETIME;
+        // A row created now is the newest observation of that contract by definition, so it wins
+        // any later duplicate comparison until loadKeys reads the node's own timestamps back.
+        const createdAt = BigInt(Math.floor(Date.now() / 1000));
         createdFor.forEach((c, i) => {
           const map = c.kind === "state" ? this.stateKeys! : this.changeKeys!;
-          map.set(c.id, { key: res.createdEntities[i]! as Hex, expiresAt: assumedExpiry });
+          map.set(c.id, { key: res.createdEntities[i]! as Hex, expiresAt: assumedExpiry, at: createdAt });
         });
       };
       try {

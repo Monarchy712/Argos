@@ -2,7 +2,7 @@
  * The app's only Arkiv access: one bulk read per trusted creator, the same rows for every visitor
  * whatever contract they care about, filtered client-side. Arkiv learns "someone opened
  * Argos", not which contract. Keyless (the browser holds no key), and therefore direct: it is
- * the one disclosed exclusion from Anon-RPC (Arkiv's RPC didn't answer through the Nym exit).
+ * one bulk, contract-independent query, so Arkiv never learns which contract a viewer opened.
  */
 import { createPublicClient } from "@arkiv-network/sdk";
 import { rabdi } from "@arkiv-network/sdk/chains";
@@ -11,6 +11,7 @@ import { BaselineSchema, ChangeNoteSchema, CurrentStateSchema, LatestChangeSchem
 import { http, type Address, type Hex } from "viem";
 import { ARKIV_BLOCK_SECONDS } from "./config.ts";
 import { PAGE_SIZE, pageAll } from "./paging.ts";
+import { viteEnvOr } from "./env.ts";
 
 export interface BaselineRow {
   key: Hex;
@@ -94,9 +95,9 @@ export interface ArkivSnapshot {
  * Setting this puts the key in the published bundle, where anyone can read it and spend the
  * quota. It is a read/rate-limit token, not a signing key — the Arkiv keys that can *write*
  * (ARKIV_WRITER_PRIVATE_KEY, ARKIV_WATCHER_PRIVATE_KEY) stay on the server and are never
- * referenced here. Supplying it is an operator's trade of quota-anonymity for throughput.
+ * referenced here. Supplying it raises the read rate limit for a deployment.
  */
-const ACCESS_KEY = (import.meta.env.VITE_ARKIV_ACCESS_KEY as string | undefined) ?? "";
+const ACCESS_KEY = viteEnvOr("VITE_ARKIV_ACCESS_KEY", "");
 
 const client = createPublicClient({ chain: rabdi({ accessKey: ACCESS_KEY }), transport: http(undefined, { retryCount: 0, timeout: 20_000 }) });
 

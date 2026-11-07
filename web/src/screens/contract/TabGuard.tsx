@@ -13,13 +13,13 @@ import { encodeFunctionData, isHex, parseAbi, type Hex } from "viem";
 import { getAddress } from "viem";
 import { GUARD_COPY, simulateGuard, type GuardSim } from "../../lib/guard.ts";
 import { GUARD_DEMO } from "../../lib/config.ts";
-import { routeLabel } from "../../lib/transport.ts";
 import { contractHref } from "../../lib/router.ts";
 import type { TabProps } from "./Workspace.tsx";
 import {
-  AddressLink, Badge, Callout, Card, CardHead, Compare, Tip, short, useTransport,
+  AddressLink, Badge, Callout, Card, CardHead, Compare, Tip, short,
 } from "../../components/common.tsx";
 import { Icon } from "../../components/icons.tsx";
+import { ROUTE_LABEL } from "../../lib/chain.ts";
 
 const EXAMPLES: { label: string; data: Hex }[] = [
   { label: "increment()", data: encodeFunctionData({ abi: parseAbi(["function increment()"]), args: [] }) },
@@ -27,7 +27,6 @@ const EXAMPLES: { label: string; data: Hex }[] = [
 ];
 
 export function TabGuard({ row }: TabProps) {
-  const transport = useTransport();
   const [data, setData] = useState<string>(EXAMPLES[0]!.data);
   const [sim, setSim] = useState<GuardSim | null>(null);
   const [busy, setBusy] = useState(false);
@@ -158,7 +157,7 @@ export function TabGuard({ row }: TabProps) {
                   </dt>
                   <dd><Badge tone={copy.tone} icon={sim.status === "VERIFIED" ? "check" : sim.status === "BLOCKED" ? "close" : "question"}>{copy.label}</Badge></dd>
                   <dt>Route</dt>
-                  <dd className="t-13">{routeLabel(transport.mode)}</dd>
+                  <dd className="t-13">{ROUTE_LABEL}</dd>
                 </dl>
                 {sim.guardedData && sim.status !== "UNSUPPORTED" && (
                   <div className="stack-s">

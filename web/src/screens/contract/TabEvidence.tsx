@@ -5,16 +5,17 @@
  * check a claim finds the Arkiv entity, the Swarm reference and the hash here — including a live
  * re-verification of the descriptor bytes against the hash published on Arkiv.
  */
-import { useState } from "react";
-import { RegistryFallbackSource, SwarmFirstSource, descriptorFor, type FetchRecord } from "../../lib/descriptors.ts";
+import { useEffect, useState } from "react";
+import { RegistryFallbackSource, SwarmFirstSource, descriptorFor, type FetchRecord, type RegistryManifest } from "../../lib/descriptors.ts";
+import { lookupContract } from "../../lib/mirror.ts";
 import { ARKIV_EXPLORER, CHAINS, SWARM_GATEWAY, TRUSTED_CREATORS } from "../../lib/config.ts";
-import { routeLabel } from "../../lib/transport.ts";
 import type { TabProps } from "./Workspace.tsx";
 import {
   AddressLink, ArkivLink, Badge, Callout, Card, CardHead, SwarmLink, Tip, TxLink,
-  ago, short, useTransport,
+  ago, short,
 } from "../../components/common.tsx";
 import { Icon } from "../../components/icons.tsx";
+import { ROUTE_LABEL } from "../../lib/chain.ts";
 
 type Verify =
   | { state: "idle" }
@@ -23,20 +24,49 @@ type Verify =
   | { state: "failed"; error: string; log: FetchRecord[]; route: string };
 
 export function TabEvidence({ row, manifest, now }: TabProps) {
-  const transport = useTransport();
   const [verify, setVerify] = useState<Verify>({ state: "idle" });
-  const desc = manifest ? descriptorFor(manifest, row.chainId, row.address) : null;
-  const swarmEntry = desc && manifest?.swarm?.[desc.path];
+  /**
+   * Demo switch: corrupt the descriptor bytes after they are downloaded and before they are
+   * hashed, which is exactly the position a compromised gateway or a network attacker occupies.
+   * It exists because "we check the hash" is a claim, and a reader has no way to tell a real check
+   * from a decorative one unless they can watch it fail. Nothing here touches Swarm or Arkiv —
+   * only the bytes in this tab, for this one verification.
+   */
+  const [tamperNext, setTamperNext] = useState(false);
+  /**
+   * The Arkiv-backed manifest, which is the only one carrying `swarm_ref` per descriptor.
+   *
+   * The `manifest` prop comes from the bundled `registry-index.json` that ships with the app — a
+   * last-resort copy for when Arkiv is unreachable, and it has no `swarm` map at all. Using it
+   * here meant this tab silently verified against the pinned GitHub commit and never touched
+   * Swarm, while the page claimed Swarm was the source. `lookupContract` reuses the session's
+   * bulk mirror read, so this costs no extra Arkiv query.
+   */
+  const [mirror, setMirror] = useState<RegistryManifest | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void lookupContract(row.chainId, row.address).then(
+      (l) => alive && setMirror(l.manifest),
+      () => alive && setMirror(null),
+    );
+    return () => { alive = false; };
+  }, [row.chainId, row.address]);
+
+  // Prefer Arkiv; fall back to the bundled index only when Arkiv could not be read.
+  const index = mirror ?? manifest;
+  const desc = index ? descriptorFor(index, row.chainId, row.address) : null;
+  const swarmEntry = desc && index?.swarm?.[desc.path];
   const explorer = CHAINS[row.chainId]?.explorer;
 
   async function verifyDescriptor() {
-    if (!manifest || !desc) return;
-    const route = routeLabel(transport.mode);
+    if (!index || !desc) return;
+    const route = ROUTE_LABEL;
     setVerify({ state: "running" });
+    const opts = { tamperPath: tamperNext ? desc.path : null };
     const source =
-      manifest.swarm && Object.keys(manifest.swarm).length > 0
-        ? new SwarmFirstSource(manifest)
-        : new RegistryFallbackSource(manifest);
+      index.swarm && Object.keys(index.swarm).length > 0
+        ? new SwarmFirstSource(index, opts)
+        : new RegistryFallbackSource(index, opts);
     try {
       await source.fetchDescriptor(desc.path);
       setVerify({ state: "done", log: [...source.log], ok: source.log.every((f) => f.ok || f.fellBack), route });
@@ -114,8 +144,9 @@ export function TabEvidence({ row, manifest, now }: TabProps) {
         </div>
         <div className="card-foot">
           Rows created by any other address are ignored by this app. <span className="mono">dg_current_state</span> rows carry
-          kept for months, while a contract turns to Not verified as soon as its newest reading is over five minutes old —
-          so a stopped watcher cannot leave a stale green, and the trail of when it stopped survives to be read.
+          the time they were written and are kept for months, while a contract turns to Not verified as soon as its newest
+          reading is over five minutes old — so a stopped watcher cannot leave a stale green, and the trail of when it
+          stopped survives to be read.
         </div>
       </Card>
 
@@ -144,7 +175,7 @@ export function TabEvidence({ row, manifest, now }: TabProps) {
           <>
             <div className="evidence">
               <Row k="Registry file" v={desc.path} />
-              <Row k="Registry commit" v={manifest?.commit ?? "—"} />
+              <Row k="Registry commit" v={index?.commit ?? "—"} />
               <Row k="ERC-8176 hash" v={desc.descriptorHash ?? "—"}>
                 <Tip text="A hash over the resolved descriptor bytes. Argos recomputes it from whatever it downloads and refuses to render a descriptor that does not match." />
               </Row>
@@ -168,14 +199,35 @@ export function TabEvidence({ row, manifest, now }: TabProps) {
               )}
             </div>
 
+            <div className="card-body" style={{ borderTop: "1px solid var(--divider)" }}>
+              <label className="check">
+                <input type="checkbox" checked={tamperNext} onChange={(e) => setTamperNext(e.target.checked)} />
+                <span>
+                  <b>Demo: corrupt the bytes after download.</b> Changes one word in the descriptor between the gateway
+                  serving it and Argos hashing it — what a compromised gateway or a network attacker could do. Then press
+                  Verify now: the hash stops matching what Arkiv publishes, and Argos renders nothing from it rather than
+                  falling back to another copy.
+                </span>
+              </label>
+            </div>
+
             {verify.state !== "idle" && (
               <div className="card-body" style={{ borderTop: "1px solid var(--divider)" }}>
-                {verify.state === "running" && <p className="t-13 dim">Fetching the descriptor {routeLabel(transport.mode)} and recomputing its hash…</p>}
+                {verify.state === "running" && <p className="t-13 dim">Fetching the descriptor bytes and recomputing their hash…</p>}
                 {verify.state === "failed" && (
-                  <Callout tone="bad"><b>Verification failed:</b> {verify.error}</Callout>
+                  <Callout tone="bad">
+                    <b>Descriptor rejected: {tamperNext ? "the corrupted bytes do not match the published hash" : "verification failed"}.</b>{" "}
+                    {verify.error}
+                    {tamperNext && (
+                      <>
+                        {" "}Nothing was rendered from these bytes. A mismatch is never a reason to try another source —
+                        that would let whoever broke the first copy choose the second.
+                      </>
+                    )}
+                  </Callout>
                 )}
                 {verify.state === "done" && verify.ok && (
-                  <Callout tone="ok"><b>Verified.</b> Every file fetched {verify.route} hashes to the value published on Arkiv.</Callout>
+                  <Callout tone="ok"><b>Verified.</b> Every file fetched hashes to the value published on Arkiv.</Callout>
                 )}
                 {(verify.state === "done" || verify.state === "failed") && verify.log.length > 0 && (
                   <ul className="vlog" style={{ marginTop: "var(--s-3)" }}>

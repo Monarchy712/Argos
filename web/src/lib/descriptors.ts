@@ -12,8 +12,8 @@
  */
 import type { DescriptorResolver, RegistryIndex } from "@ethereum-sourcify/clear-signing";
 import { keccak256, toHex } from "viem";
-import { anonAwareFetch } from "./transport.ts";
 import { SWARM_GATEWAY } from "./config.ts";
+import { viteEnvOr } from "./env.ts";
 
 export interface RegistryManifest {
   source: string;
@@ -77,7 +77,7 @@ export class RegistryFallbackSource implements DescriptorSource {
       throw new DescriptorIntegrityError(`${path} is not in the pinned registry manifest`);
     }
     try {
-      const res = await anonAwareFetch(url);
+      const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       let bytes: Uint8Array = new Uint8Array(await res.arrayBuffer());
       if (path === this.tamperPath) bytes = tamper(bytes);
@@ -126,7 +126,7 @@ export class SwarmFirstSource implements DescriptorSource {
     const url = `${SWARM_GATEWAY}/bytes/${entry.ref}`;
     let bytes: Uint8Array;
     try {
-      const res = await anonAwareFetch(url, { signal: AbortSignal.timeout(15_000) });
+      const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       bytes = new Uint8Array(await res.arrayBuffer());
     } catch (err) {
@@ -160,7 +160,7 @@ export function makeResolver(manifest: RegistryManifest, source: DescriptorSourc
 let manifestPromise: Promise<RegistryManifest> | null = null;
 /** The committed manifest ships with the app (same origin), so loading it reveals nothing. */
 export function loadManifest(): Promise<RegistryManifest> {
-  manifestPromise ??= fetch(`${import.meta.env.BASE_URL}registry-index.json`).then((r) => {
+  manifestPromise ??= fetch(`${viteEnvOr("BASE_URL", "/")}registry-index.json`).then((r) => {
     if (!r.ok) throw new Error(`registry manifest: HTTP ${r.status}`);
     return r.json();
   });

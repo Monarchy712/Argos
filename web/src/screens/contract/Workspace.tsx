@@ -6,6 +6,7 @@
 import type { ArkivState, MonitoredRow } from "../../lib/rows.ts";
 import { contractEvents } from "../../lib/rows.ts";
 import type { RegistryManifest } from "../../lib/descriptors.ts";
+import type { WatchlistState } from "../../lib/watchlist.ts";
 import { CONTRACT_TABS, contractHref, type ContractTab } from "../../lib/router.ts";
 import { AddressLink, AsOf, Badge, Empty, StatusBadge, chainName } from "../../components/common.tsx";
 import { Icon } from "../../components/icons.tsx";
@@ -28,10 +29,13 @@ export interface TabProps {
   manifest: RegistryManifest | null;
   now: number;
   focusEvent: string | null;
+  /** the two stores a tab can ask to re-read: the watcher snapshot, and this browser's own checks */
+  arkiv: ArkivState;
+  watch: WatchlistState;
 }
 
 export function ContractWorkspace({
-  row, chainId, address, tab, focusEvent, arkiv, manifest, now,
+  row, chainId, address, tab, focusEvent, arkiv, watch, manifest, now,
 }: {
   row: MonitoredRow | null;
   chainId: number;
@@ -39,6 +43,7 @@ export function ContractWorkspace({
   tab: ContractTab;
   focusEvent: string | null;
   arkiv: ArkivState;
+  watch: WatchlistState;
   manifest: RegistryManifest | null;
   now: number;
 }) {
@@ -73,6 +78,7 @@ export function ContractWorkspace({
   const events = contractEvents(row, now);
   const changeCount = events.filter((e) => e.kind === "change").length;
   const hasChange = row.change !== null;
+  const tabProps: TabProps = { row, manifest, now, focusEvent, arkiv, watch };
 
   return (
     <>
@@ -128,11 +134,11 @@ export function ContractWorkspace({
       </div>
 
       <div className="page">
-        {tab === "overview" && <TabOverview row={row} manifest={manifest} now={now} focusEvent={focusEvent} />}
-        {tab === "history" && <TabHistory row={row} manifest={manifest} now={now} focusEvent={focusEvent} />}
-        {tab === "investigate" && <TabInvestigate row={row} manifest={manifest} now={now} focusEvent={focusEvent} />}
-        {tab === "evidence" && <TabEvidence row={row} manifest={manifest} now={now} focusEvent={focusEvent} />}
-        {tab === "guard" && <TabGuard row={row} manifest={manifest} now={now} focusEvent={focusEvent} />}
+        {tab === "overview" && <TabOverview {...tabProps} />}
+        {tab === "history" && <TabHistory {...tabProps} />}
+        {tab === "investigate" && <TabInvestigate {...tabProps} />}
+        {tab === "evidence" && <TabEvidence {...tabProps} />}
+        {tab === "guard" && <TabGuard {...tabProps} />}
       </div>
     </>
   );

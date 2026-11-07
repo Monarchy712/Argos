@@ -19,9 +19,8 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { PROXY_KINDS, type ProxyKind, type StatusResult } from "@driftguard/core";
 import type { Address, Hex } from "viem";
-import { liveIdentity } from "./chain.ts";
+import { ROUTE_LABEL, liveIdentity } from "./chain.ts";
 import { pendingStore, type PendingBaseline } from "./pending.ts";
-import { routeLabel, transport } from "./transport.ts";
 
 const idOf = (chainId: number, address: string) => `${chainId}:${address.toLowerCase()}`;
 
@@ -91,7 +90,7 @@ export function useWatchlist() {
       setChecks({});
       return;
     }
-    const route = routeLabel(transport.get().mode);
+    const route = ROUTE_LABEL;
     setChecking(true);
     setChecks((prev) => {
       const next = { ...prev };
@@ -127,7 +126,23 @@ export function useWatchlist() {
     void verify(entries);
   }, [entries, verify]);
 
-  return { entries, checks, checking, refresh: () => verify(entries) };
+  /**
+   * Re-read one contract. The contract workspace's "Check now" goes through this rather than
+   * doing its own read: the comparison panel there is rendered from `checks`, so a read that
+   * lands anywhere else leaves the panel showing the stale result.
+   */
+  const refreshOne = useCallback(
+    (chainId: number, address: string) => {
+      const id = idOf(chainId, address);
+      const entry = pendingStore.get().find((e) => idOf(e.chainId, e.address) === id);
+      return entry ? verify([entry]) : Promise.resolve();
+    },
+    [verify],
+  );
+
+  return { entries, checks, checking, refresh: () => verify(entries), refreshOne };
 }
+
+export type WatchlistState = ReturnType<typeof useWatchlist>;
 
 export const watchKey = idOf;

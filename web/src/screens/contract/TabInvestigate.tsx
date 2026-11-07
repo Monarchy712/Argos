@@ -13,14 +13,13 @@
 import { useEffect, useState } from "react";
 import { diffSelectors, selectorsFromBytecode, withoutErrorSelectors, type Selector, type SelectorDiff } from "@driftguard/core";
 import { isAddress, type Address } from "viem";
-import { clientFor } from "../../lib/chain.ts";
+import { ROUTE_LABEL, clientFor } from "../../lib/chain.ts";
 import { fetchChangeNote, type ChangeNoteText } from "../../lib/changeNote.ts";
 import { contractHref } from "../../lib/router.ts";
-import { routeLabel } from "../../lib/transport.ts";
 import type { TabProps } from "./Workspace.tsx";
 import {
   AddressLink, AiNote, ArkivLink, AsOf, Badge, Callout, Card, CardHead, Compare, Empty,
-  Skeleton, SwarmLink, Tip, TxLink, ago, short, useTransport,
+  Skeleton, SwarmLink, Tip, TxLink, ago, short,
 } from "../../components/common.tsx";
 import { Icon } from "../../components/icons.tsx";
 
@@ -31,7 +30,6 @@ type DiffState =
   | { state: "failed"; error: string; route: string };
 
 export function TabInvestigate({ row, now }: TabProps) {
-  const transport = useTransport();
   const change = row.change;
   const note = row.changeNote;
   const [diff, setDiff] = useState<DiffState>({ state: "idle" });
@@ -59,7 +57,7 @@ export function TabInvestigate({ row, now }: TabProps) {
 
   async function readSelectors() {
     if (!comparable) return;
-    const route = routeLabel(transport.mode);
+    const route = ROUTE_LABEL;
     setDiff({ state: "running" });
     try {
       const client = clientFor(row.chainId);
@@ -213,7 +211,7 @@ export function TabInvestigate({ row, now }: TabProps) {
             <p className="prose">
               Argos can read the deployed bytecode of both implementations and compare the 4-byte values their dispatchers
               push. Nothing is sent: these are <span className="mono">eth_getCode</span> reads, routed{" "}
-              {routeLabel(transport.mode)}.
+              {ROUTE_LABEL}.
             </p>
           ) : diff.state === "running" ? (
             <Skeleton lines={3} />

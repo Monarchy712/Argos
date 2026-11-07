@@ -169,7 +169,7 @@ export async function inspectContract(client: PublicClient, address: Address, bl
 
   // ---- the slot reads, all at once -----------------------------------------------------------
   // Four independent storage reads. They used to run one after another, which cost four
-  // round trips — fine against a local node, painful through the Nym mixnet, where each hop is
+  // round trips — fine against a local node, painful against a rate-limited public endpoint, where each is
   // seconds. Precedence still decides the *answer* below; it never needed to decide the reads.
   // Promise.all rejects on the first failure, which is the behaviour wanted: a probe that could
   // not be run must raise InspectionError rather than contribute a "not this kind" answer.

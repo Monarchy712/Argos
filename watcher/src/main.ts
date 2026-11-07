@@ -69,6 +69,8 @@ async function main() {
   const cycleCount = new Map<number, number>();
   let lastRenewalSweep = 0;
   let lastDriftCheck = 0;
+  /** Last reported duplicate-row counts, so a standing condition is logged once, not every cycle. */
+  let lastDuplicateReport = "";
 
   // The baseline publisher, when ARGOS_HTTP_PORT is set. It lives in this process because the
   // writer key is already here and because a new baseline starts monitoring: the loop below picks
@@ -116,6 +118,27 @@ async function main() {
             failed: r.failed,
             ms: Date.now() - started,
           });
+
+          // A contract holding two of our rows means something else wrote as this wallet, and the
+          // row that is no longer patched keeps asserting whatever it last saw. Not fatal, but it
+          // has to be said out loud: it was found by querying Arkiv, not from any log line.
+          // Reported when the count changes rather than every cycle — it is a standing condition,
+          // and repeating it each poll would bury the cycle lines it sits next to.
+          if (sink.name === "arkiv") {
+            const dups = Object.entries((sink as ArkivSink).duplicateRows).filter(([, n]) => n > 0);
+            const fingerprint = JSON.stringify(Object.fromEntries(dups));
+            if (fingerprint !== lastDuplicateReport) {
+              lastDuplicateReport = fingerprint;
+              if (dups.length > 0) {
+                log("DUPLICATE ARKIV ROWS — a second writer used this wallet", {
+                  byClass: Object.fromEntries(dups),
+                  detail: "The newest row per contract is the one patched and the one a reader sees; the others are frozen at whatever they last said and will not update.",
+                });
+              } else {
+                log("duplicate Arkiv rows cleared", {});
+              }
+            }
+          }
 
           // Heartbeat: the process is alive, it got this far, and this is how fresh that is.
           // Separate from every contract's current_state, and long-lived, so it can still be

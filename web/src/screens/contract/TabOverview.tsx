@@ -4,13 +4,13 @@
  */
 import { useState } from "react";
 import { PROXY_KINDS, type ProxyKind } from "@driftguard/core";
-import { liveIdentity } from "../../lib/chain.ts";
-import { routeLabel } from "../../lib/transport.ts";
+import { ROUTE_LABEL, liveIdentity } from "../../lib/chain.ts";
+import { watchKey } from "../../lib/watchlist.ts";
 import { contractHref } from "../../lib/router.ts";
 import type { TabProps } from "./Workspace.tsx";
 import {
   AddressLink, AsOf, Badge, Callout, Card, CardHead, Compare, Tip,
-  ago, short, statusTone, useTransport,
+  ago, short, statusTone,
 } from "../../components/common.tsx";
 import { Icon } from "../../components/icons.tsx";
 
@@ -20,16 +20,32 @@ type Live =
   | { state: "ok"; identity: string; block: bigint; ms: number; matches: boolean; route: string }
   | { state: "failed"; error: string; route: string };
 
-export function TabOverview({ row, now }: TabProps) {
-  const transport = useTransport();
+export function TabOverview({ row, now, arkiv, watch }: TabProps) {
   const [live, setLive] = useState<Live>({ state: "idle" });
+  const [asked, setAsked] = useState(false);
   const tone = statusTone(row.status.status);
   const supported = (PROXY_KINDS as readonly string[]).includes(row.proxyKind);
   const isDiamond = row.proxyKind === "diamond";
 
+  /**
+   * For a contract you baselined in this browser there is no watcher: the comparison below IS a
+   * live read, held in the watchlist store. So "Check now" has to re-run *that* read — a read
+   * kept in this component would refresh the footnote and leave the comparison stale.
+   */
+  const own = row.source === "local";
+  const check = own ? watch.checks[watchKey(row.chainId, row.address)] : undefined;
+
   async function checkNow() {
-    const route = routeLabel(transport.mode);
+    setAsked(true);
+    if (own) {
+      await watch.refreshOne(row.chainId, row.address);
+      return;
+    }
+    // An Arkiv row's comparison is the watcher's record, so pull a fresh snapshot of it, and read
+    // the chain here too: the point of the second read is that it is the viewer's own, not ours.
+    const route = ROUTE_LABEL;
     setLive({ state: "running" });
+    void arkiv.refresh();
     try {
       const r = await liveIdentity(row.chainId, row.address as `0x${string}`, row.proxyKind as ProxyKind);
       setLive({
@@ -44,6 +60,26 @@ export function TabOverview({ row, now }: TabProps) {
       setLive({ state: "failed", error: (err instanceof Error ? err.message : String(err)).split("\n")[0]!, route });
     }
   }
+
+  // One footer for both paths: a local row's result is read back out of the store it just wrote.
+  const shown: Live = !own
+    ? live
+    : !asked || !check
+      ? { state: "idle" }
+      : check.state === "pending"
+        ? { state: "running" }
+        : check.state === "ok"
+          ? {
+              state: "ok",
+              identity: check.codeIdentity,
+              block: check.block,
+              ms: check.ms,
+              matches: check.codeIdentity.toLowerCase() === row.baseline.codeIdentity.toLowerCase(),
+              route: check.route,
+            }
+          : { state: "failed", error: check.error, route: check.route };
+
+  const busy = shown.state === "running";
 
   const verdict =
     row.status.status === "GREEN" ? {
@@ -67,8 +103,8 @@ export function TabOverview({ row, now }: TabProps) {
           title="Implementation comparison"
           sub="The trust anchor you approved, against what the watcher last read from the chain."
           actions={
-            <button className="btn sm" onClick={() => void checkNow()} disabled={live.state === "running" || !supported}>
-              <Icon name="refresh" size={13} /> {live.state === "running" ? "Reading…" : "Check now"}
+            <button className="btn sm" onClick={() => void checkNow()} disabled={busy || !supported}>
+              <Icon name="refresh" size={13} /> {busy ? "Reading…" : "Check now"}
             </button>
           }
         />
@@ -158,22 +194,24 @@ export function TabOverview({ row, now }: TabProps) {
           </div>
         </div>
 
-        {live.state !== "idle" && (
+        {shown.state !== "idle" && (
           <div className="card-foot" style={{ color: "var(--text-2)" }}>
-            {live.state === "running" && <>Reading the proxy slots {routeLabel(transport.mode)}…</>}
-            {live.state === "failed" && (
+            {shown.state === "running" && <>Reading the proxy slots {ROUTE_LABEL}…</>}
+            {shown.state === "failed" && (
               <span style={{ color: "var(--warn-ink)" }}>
-                Live read failed {live.route}: {live.error}. The watcher record above is unaffected.
+                Live read failed {shown.route}: {shown.error.replace(/\.$/, "")}.{" "}
+                {own ? "The comparison above reports that failure rather than assuming nothing changed."
+                     : "The watcher record above is unaffected."}
               </span>
             )}
-            {live.state === "ok" && (
+            {shown.state === "ok" && (
               <>
-                <b style={{ color: live.matches ? "var(--ok-ink)" : "var(--bad-ink)" }}>
-                  {live.matches ? "Your own live read matches the baseline" : "Your own live read differs from the baseline"}
+                <b style={{ color: shown.matches ? "var(--ok-ink)" : "var(--bad-ink)" }}>
+                  {shown.matches ? "Your own live read matches the baseline" : "Your own live read differs from the baseline"}
                 </b>{" "}
-                at block <span className="mono">{live.block.toString()}</span> · {live.ms} ms · {live.route} · identity{" "}
-                <span className="mono">{short(live.identity, 12, 8)}</span>. This is an observation at that block, not a
-                statement about later blocks.
+                at block <span className="mono">{shown.block.toString()}</span> · {shown.ms} ms · {shown.route} · identity{" "}
+                <span className="mono">{short(shown.identity, 12, 8)}</span>.{" "}
+                {own ? "The comparison above is this read." : "This is an observation at that block, not a statement about later blocks."}
               </>
             )}
           </div>

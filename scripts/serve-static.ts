@@ -10,8 +10,9 @@
  *
  * NOTE for the privacy table in README: when the app is served from a host rather than from a
  * local `npm run dev`, that host sees visitor IP addresses and which paths they fetch. It does
- * NOT see which contract they check -- that is a direct browser-to-RPC call (over Nym by
- * default) and a bulk, contract-independent Arkiv read.
+ * NOT see which contract they check -- that is a direct browser-to-RPC call and a bulk,
+ * contract-independent Arkiv read. The RPC provider does see it, which the app labels on every
+ * result rather than leaving to assumption.
  */
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { createServer } from "node:http";
@@ -54,8 +55,7 @@ createServer((req, res) => {
   res.writeHead(200, {
     "content-type": TYPES[ext] ?? "application/octet-stream",
     "cache-control": immutable ? "public, max-age=31536000, immutable" : "no-cache",
-    // The app talks to Arkiv, Swarm and public RPCs from the browser, and boots the Nym worker
-    // in a sandboxed null-origin iframe. No framing of this page by anyone else.
+    // No framing of this page by anyone else.
     "x-content-type-options": "nosniff",
     "x-frame-options": "DENY",
     "referrer-policy": "no-referrer",

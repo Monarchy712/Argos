@@ -11,15 +11,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@anon-rpc/browser-harness": "0.4.0",
     "@arkiv-network/sdk": "1.0.1",
     "@driftguard/core": "0.1.0",
     "@ethereum-sourcify/clear-signing": "0.3.1",
     "react": "19.2.9",
     "react-dom": "19.2.9",
-    "viem": "2.56.3",
-    "@anon-rpc/browser-harness-v033": "npm:@anon-rpc/browser-harness@0.3.3",
-    "@anon-rpc/browser-harness-v032": "npm:@anon-rpc/browser-harness@0.3.2"
+    "viem": "2.56.3"
   },
   "devDependencies": {
     "@types/react": "19.3.0",

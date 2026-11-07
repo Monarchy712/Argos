@@ -32,7 +32,7 @@ human decided, reviewed or did by hand. It is kept up to date as the build goes 
 | `scripts/select-mainnet-proxies.ts`, `watcher/monitored-mainnet.json` | generated and run | set the cap of ~30 with attested contracts first |
 | `scripts/show-arkiv.ts`, `scripts/cleanup-test-rows.ts` | generated | — |
 | `packages/core/src/status.ts`, `risky.ts` + tests | generated | specified the GREEN / RED / NOT VERIFIED rules, the A→B→A line and the "never malicious" wording rule |
-| `web/` (screens, transport, descriptor resolver, Arkiv read, styles) | generated; verified in the in-app browser | specified the screens, Nym-by-default with no silent fallback, the resolver interface for Swarm, and badge requirements |
+| `web/` (screens, chain reads, descriptor resolver, Arkiv read, styles) | generated; verified in the in-app browser | specified the screens, the resolver interface for Swarm, that a live read is labelled with the route it took, and badge requirements |
 | `scripts/build-registry-index.ts`, `web/public/registry-index.json` | generated and run | — |
 | `importer/` (registry reader, Arkiv import, verifier) | generated and run | specified idempotency, resumability, abort-on-hash-mismatch, and the verification (counts + 10 spot-checks vs GitHub) |
 | `importer/src/swarm.ts`, `web/src/lib/descriptors.ts` (`SwarmFirstSource`), `arkiv/swarm.md` | generated and run; found that the public gateway accepts stampless uploads; verified Swarm read, tamper rejection and fallback in the in-app browser | set the Swarm plan (JCS bytes, one hash for Swarm + ERC-8176, never encrypted refs on Arkiv, registry fallback) |

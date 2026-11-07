@@ -7,7 +7,7 @@ after Mumbai, and for what.
 
 | Signal | Number | Source |
 | --- | --- | --- |
-| Descriptor files / deployments in the registry | **768 files, 2,675 deployments of 2,060 distinct contracts on 151 chains**, from **85 protocol folders** with **180 distinct owners** | our import at `ef582c2`; re-run with `npm run import -w importer -- ../.cache/registry --dry` |
+| Descriptor files / deployments in the registry | **771 files, 2,678 deployments of 2,060 distinct contracts on 151 chains**, from **85 protocol folders** with **180 distinct owners** | our import at `ef582c2`; re-run with `npm run import -w importer -- ../.cache/registry --dry` |
 | Registry contributors / commits | **95 contributors, 559 commits** since Feb 2024; 131 stars, **222 forks** (most are protocols opening PRs to add their descriptors) | GitHub API, `ethereum/clear-signing-erc7730-registry` |
 | Wallet-side library that consumes it | `@ethereum-sourcify/clear-signing`: **4,310 npm downloads in the last 30 days** (2,475 in the last 7) | `api.npmjs.org/downloads/point/last-month/@ethereum-sourcify/clear-signing` |
 | Standard | ERC-7730 (Draft), eight authors including Ledger engineers (`@lcastillo-ledger`, `@paoun-ledger`) and Sourcify (`@kuzdogan`) | [ERC-7730 header](https://eips.ethereum.org/EIPS/eip-7730) |
@@ -58,7 +58,7 @@ two writer addresses are published in the README.
 ## How it spreads
 
 1. **The mirror is useful on day one, even without our watcher.** `dg_descriptor` /
-   `dg_deployment` make the whole registry (768 files, 2,675 deployments) queryable by chain,
+   `dg_deployment` make the whole registry (771 files, 2,678 deployments) queryable by chain,
    address, protocol, kind, proxy kind and attestation status. GitHub can't do that. That alone
    is reason to point at the Arkiv data.
 2. **Contribute upstream:** propose a link from #3098/#2975 to Argos's Arkiv schema as the

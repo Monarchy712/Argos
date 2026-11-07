@@ -45,7 +45,6 @@ flowchart LR
   subgraph Browser [Companion web app: React + Vite]
     UI[browse / paste tx / status badge]
     CS[@ethereum-sourcify/clear-signing<br/>custom resolver]
-    AW[AnonRpcWorker<br/>Nym, sandboxed iframe]
   end
 
   REG --> IMP
@@ -57,10 +56,8 @@ flowchart LR
 
   UI -->|1 bulk keyless query, direct| ARK
   UI --> CS
-  CS -->|descriptor by Swarm ref| AW
-  UI -->|live eth_getStorageAt / eth_getCode / eth_call| AW
-  AW -->|Nym mixnet| CHAIN
-  AW -->|Nym mixnet| SW
+  CS -->|descriptor by Swarm ref, direct| SW
+  UI -->|live eth_getStorageAt / eth_getCode / eth_call, direct| CHAIN
 ```
 
 | Component | Dir | Runtime | Trust/role |
@@ -70,7 +67,7 @@ flowchart LR
 | watcher | `watcher/` | Node 22+ | Event scan + slot polls; writes state records. Signs with the **watcher** wallet. |
 | rebaseline CLI | `watcher/` (`npm run rebaseline`) | Node | Only thing that writes `baseline`. Signs with the **writer** wallet (see decision D1). |
 | contracts | `contracts/` | Foundry | ImplA/ImplB + OZ TransparentUpgradeableProxy on Sepolia for the demo; stretch: atomic guard. |
-| web | `web/` | Browser | Primary UI. Live checks go through Anon-RPC/Nym by default, fail-closed, with the worker booted on page load; direct RPC is a labelled opt-out (Test 4 failed at 08:00, passed 60/60 on retest at 11:37). |
+| web | `web/` | Browser | Primary UI. Live checks are direct `eth_call`/`eth_getStorageAt` reads, labelled `direct RPC, not anonymized`. The Anon-RPC/Nym transport was removed on 2026-11-07 (§5). |
 
 Node version: SDK requires **Node ≥ 22.10** — VERIFIED (`@arkiv-network/sdk@1.0.1` README).
 Local: Node v24.12.0, Foundry 1.5.1.
@@ -224,7 +221,7 @@ On page load the web app does **one bulk read per trusted creator**: all `dg_bas
 monitored contracts, so 1 page each). It then filters by contract client-side. Arkiv therefore
 learns "someone loaded Argos", not which contract they care about. `dg_descriptor` /
 `dg_deployment` (≈2.8k rows) load lazily the same way only on the Browse page. This direct read
-is the **one disclosed exclusion** from Anon-RPC (Arkiv's RPC doesn't answer through the Nym
+is a single bulk, contract-independent query, so Arkiv never learns which contract was opened (the
 exit, per spike S2).
 
 ## 3. Swarm
@@ -260,8 +257,8 @@ the hash auditors attest in the registry's `sigs/`.
 
 **Verify on read (web + importer):** download → `keccak256(bytes) == descriptor_hash` from a
 trusted Arkiv row → else reject and show NOT VERIFIED. The web app fetches Swarm through the
-Nym worker (`worker.fetch` to the gateway's `/bytes/:ref`) so the gateway doesn't learn the
-user's IP (ASSUMED the gateway answers Nym exits → Test 4 add-on).
+browser directly to the gateway's `/bytes/:ref`; the gateway therefore sees the user's IP and
+   which descriptor, which the UI discloses rather than implies.
 
 **Fallback (if uploads are blocked):** `storage_mode = "registry"`, `swarm_ref = ""`;
 readers fetch `raw.githubusercontent.com/ethereum/clear-signing-erc7730-registry/<commit>/<path>`,
@@ -320,12 +317,24 @@ Sepolia demo proxy.
 - **RPC:** ordinary RPC for the watcher (Sepolia + mainnet endpoints from `.env`). The watcher's
   RPC provider learns which contracts we monitor; that is public anyway (it's on Arkiv).
 
-## 5. Companion web app + Anon-RPC / Nym
+## 5. Companion web app  ·  Anon-RPC / Nym (REMOVED 2026-11-07)
 
-> **Update after Test 4 (2026-11-06):** the Nym worker never became ready on two networks with
-> three harness versions. Live reads now default to **direct RPC, labelled "not anonymized"**, and
-> Nym is opt-in and fail-closed. The EF target moved from "Best Use of Anon-RPC" to **"Best CROPS
-> App"** with Security as the lead property. The design below remains the intended Nym path.
+>  **REMOVED 2026-11-07. The subsections below are a design record, not current behaviour.**
+>
+> History: the Nym worker never became ready on two networks with three harness versions (Test 4),
+> was demoted to a fail-closed opt-in, then made default again after a retest served 60/60 reads at
+> p95 2.4-3.6 s. We never established what changed either time.
+>
+> EF places a project in at most one prize, so carrying a default privacy path we could not explain
+> bought nothing: the EF pick is **Best CROPS App** (Security as lead property) and the integration
+> was deleted — `web/src/lib/transport.ts`, `web/src/screens/NymDiagnostics.tsx` and the three
+> `@anon-rpc/browser-harness*` dependencies. The main bundle fell 771.6 kB → 633.7 kB and the
+> 10-20 s cold start went with it.
+>
+> **Current behaviour:** live chain reads and Swarm descriptor downloads go direct from the browser,
+> labelled `direct RPC, not anonymized` (`ROUTE_LABEL` in `web/src/lib/chain.ts`). Arkiv stays a
+> keyless bulk, contract-independent read. Kept here because the failure write-up is the useful
+> feedback for the Anon-RPC team; see `docs/TEST_REPORT.md`.
 
 ### 5.1 Facts
 
@@ -359,9 +368,8 @@ Optional per-contract `isolationKey` so successive checks aren't linkable (suppo
 2. **Check a transaction** — paste either a raw tx hex (`0x02…`, decoded with viem
    `parseTransaction`) or `{to, data, chainId}`. Shows: readable intent from
    `format(tx, { descriptorResolverOptions: { type: "custom", resolver } })` where the resolver's
-   `fetchDescriptor` returns Swarm-verified JSON; the badge; the live Nym check result; risky-calldata
+   `fetchDescriptor` returns Swarm-verified JSON; the badge; the live direct-RPC check result; risky-calldata
    flags.
-3. **Nym diagnostics** — boot time, per-call latency, success count; "Run 20 reads" (Test 4).
 
 ### 5.4 Status function (`packages/core/src/status.ts`, pure and unit-tested)
 
@@ -369,7 +377,7 @@ Inputs: trusted baseline, trusted current_state (+ `$expiresAt`), latest_change,
 read, `now`.
 
 - **RED — "Monitored change detected"** if any trusted source shows `code_identity !=
-  baseline` *now*: `current_state.matches_baseline == false`, or the live Nym read differs from
+  baseline` *now*: `current_state.matches_baseline == false`, or the live direct read differs from
   the baseline.
 - **GREEN — "Verified recently, no change"** only if baseline exists AND current_state exists, isn't
   expired, `now - checked_at ≤ 5 min` AND `matches_baseline` AND (live read absent or equal to
@@ -395,8 +403,8 @@ execution" — informational.
    and the user's signature, or in the same block before the user's transaction (including a
    deliberate front-run). GREEN means "no change seen as of block N", not "safe at execution".
 2. **Watcher latency.** Detection lags by up to one cycle (60 s) + confirmations (≈2 blocks).
-   The live Nym read narrows this to seconds but not to zero.
-3. **Liveness ≠ correctness.** A live watcher can still be wrong (RPC lies). The live Nym read
+   The live read narrows this to seconds but not to zero.
+3. **Liveness ≠ correctness.** A live watcher can still be wrong (RPC lies). The live read
    is a second, independent source. Neither is proof.
 4. **Upgrades are not malicious by default.** RED says a change happened since baseline, and asks
    the user to check whether the descriptor still describes the new code. That's all.
@@ -420,7 +428,6 @@ execution" — informational.
 | --- | --- | --- |
 | `@arkiv-network/sdk` | 1.0.1 | latest; spike-tested |
 | `viem` | 2.56.3 | spike-tested with Arkiv 1.0.1 + harness (latest is 2.57.16; upgrade only if needed) |
-| `@anon-rpc/browser-harness` | 0.4.0 | latest; 0.3.3 fallback if 0.4.0 regresses in Test 4 |
 | `@ethereum-sourcify/clear-signing` | 0.3.1 | latest; spike-tested |
 | `@ethersphere/bee-js` | 13.2.0 | latest |
 | `canonicalize` | 5.1.0 | latest (RFC 8785 reference impl) |
@@ -447,8 +454,6 @@ step for jobs).
 | --- | --- | --- |
 | A1 | ~~OZ 5.x proxy deploys its own ProxyAdmin; upgrades via `ProxyAdmin.upgradeAndCall`~~ **CLOSED: VERIFIED** in OZ v5.6.1 source. New: 5.6 refuses empty init data | Test 3 |
 | A2 | ~~Sepolia RPC supports `eth_getLogs` over 2k-block ranges~~ **CLOSED: VERIFIED** with an address filter (PublicNode rejects unfiltered calls, -32001 on lagging backends is retried) | Test 3 |
-| A3 | A Sepolia RPC endpoint answers requests from the Nym exit; ≥18/20 and p95 < ~10 s through harness 0.4.0 | Test 4 |
-| A4 | Swarm gateway answers through Nym | Test 4 add-on |
 | A5 | ~~Arkiv batch write / patch vs expiry / `key` type~~ **CLOSED: VERIFIED** `executeBatch({creates,patches,deletes,extensions})` in one tx; a patch never moves expiry (pair with an extension); hashes stored as `str` | Test 2 |
 | A6 | ~~Keyless browser reads un-throttled~~ **CLOSED, partly FALSE:** keyless reads have a cost budget (429 `ANON_COST_LIMITED`, limit 10000, reset ~217 s). A single bulk read per page load is fine; the watcher and importer use an access key | Test 2 |
 | A7 | ~~Expired entities leave queries promptly~~ **CLOSED: VERIFIED** 2-minute entity gone after ~94–102 s of polling; 10-minute watcher row gone after the watcher stopped | Test 2, E2E |

@@ -15,11 +15,11 @@
 | Time | Screen | Say / do |
 | --- | --- | --- |
 | 0:00–0:30 | How it works (diagram) | "Clear signing turns calldata into a sentence you can read. The sentence comes from an ERC-7730 descriptor, and the descriptor is bound to an **address**. For a proxy, the address survives an upgrade. **48% of mainnet registry contracts (314 of 652) are proxies**, and the registry records no implementation for any of them. So after an upgrade, your wallet shows the same confident sentence for code nobody reviewed. The registry team lists an external monitor as one fix (#3098). We built it." |
-| 0:30–0:50 | Diagram | "Three parts. The importer mirrors the whole registry to **Arkiv**: 3,443 rows, queryable. Descriptor content goes to **Swarm**. A watcher records each proxy's code at a baseline and publishes current state with a 10-minute expiry. The app checks everything and holds no keys." |
+| 0:30–0:50 | Diagram | "Three parts. The importer mirrors the whole registry to **Arkiv**: 3,449 rows, queryable. Descriptor content goes to **Swarm**. A watcher records each proxy's code at a baseline, publishes every observation with the time it was taken, and publishes a heartbeat. The app checks everything and holds no keys." |
 | 0:50–1:30 | **Check**: Aave supply | Load the Aave example → Check. "Raw calldata, readable intent: supply 100 USDC. The descriptor came from **Swarm** by the reference on its Arkiv row, and its bytes hash to the ERC-8176 hash our writer published. Green means our watcher's fresh record **and my own live slot read** both match the baseline, as of this block. Not 'safe'." Click the **dg_descriptor entity** link: "public, and you can see who wrote it." |
 | 1:30–1:50 | Check, tamper on | Tick tamper → Check. "Change one word in the downloaded bytes: rejected, expected vs actual hash, nothing rendered. A mismatch never falls back to another copy." Untick. |
 | 1:50–2:50 | Terminal → Check → Monitored | `bash scripts/demo-upgrade.sh B` (≈15 s). "Live upgrade of our Sepolia proxy, A to B." Check → *Demo proxy: increment()* → **RED**: "my live read already sees B." While the watcher catches up (~70 s), switch to **Browse mirror**: Monitored only → Query: "every filter is an Arkiv query; here's the query text; every row links to its Arkiv entity and Swarm bytes." Back to **Monitored → Refresh**: row is RED with block and tx link. "We never say malicious. We say: check that the descriptor still describes this code." |
-| 2:50–3:30 | Monitored (talk, no live wait) | "What if our watcher dies? Its records **expire** after 10 minutes and every contract turns **Not verified**. We show that in the video. A database row would keep saying OK forever. On Arkiv, liveness is enforced by storage, and trust is two published `$creator` keys, not our server. We don't have a server." |
+| 2:50–3:30 | Monitored (talk, no live wait) | "What if our watcher dies? A reading older than **5 minutes** stops counting and every contract turns **Not verified**, with the reason. We show that in the video. In our Postgres, *we* would own that staleness rule and could serve a cached green while the watcher was down. On Arkiv the inputs are public and signed, so anyone can redo the arithmetic — trust is two published `$creator` keys, not our server. We don't have a server." |
 | 3:30–4:00 | How it works → Check it yourself | "Who's it for: wallets rendering ERC-7730 (the reference library is at 4,300 downloads a month), registry maintainers and auditors deciding what to re-review (we already found **3 stale attestations**), and anyone about to sign. It's MIT, it runs from the repo with no keys, and it's live now on 30 mainnet registry proxies plus two Sepolia demo proxies. Argos watches, verifies and warns." |
 
 After the demo: `bash scripts/demo-upgrade.sh A` so the next judge sees green (then rebaseline when you can).
@@ -103,19 +103,20 @@ content addresses, so re-stamping under our own batch doesn't change a single Ar
 **12. Isn't the browser's Arkiv read a privacy leak?**
 It reveals your IP to the Arkiv node, but not which contract: every visitor sends the same bulk
 queries and filters locally. The README has a table of what each third party learns. Live chain
-reads go through the Nym mixnet by default, so the RPC provider and the Swarm gateway see a Nym
+reads go direct to a public RPC endpoint, and every result is labelled so, so nothing implies a
 exit rather than your IP.
 
-**13. You targeted Anon-RPC and it didn't work. Why should we believe the privacy story?**
-Security is still the lead property; privacy is the one we had to earn twice. Nym's worker wouldn't
-boot for most of the event — two networks, three harness versions — so we shipped direct-and-labelled
-rather than silently-broken, and said so. It then started working on a retest: 4 of 5 cold boots,
-60/60 reads, p95 2.4–3.6 s, and a full Check with both the chain read and the Swarm descriptor fetch
-over the mixnet. On those numbers Nym is the default again, with the worker booting on page load so
-you don't wait for it, and fast boot failures retried. You can re-run the measurement yourself on the
-Nym diagnostics tab. What we will not claim: that we know why it failed at 08:00 or why it works now.
-We didn't find out. What we do claim is that it's measured, it's the default, and when it breaks the
-check says Not verified instead of quietly deanonymizing you.
+**13. You built on Anon-RPC and then removed it. Why?**
+Because EF places a project in at most one prize, and Argos is a security tool before it is a
+privacy tool. Nym's worker wouldn't become ready for most of the event across two networks and
+three harness versions; a retest later served 60/60 reads at p95 2.4-3.6 s and we never established
+what changed. Shipping a default privacy path we couldn't explain, to chase a prize we'd be placed
+in at most one of anyway, was the wrong trade. So we spent the EF pick on CROPS and took the
+integration out. The app got 138 kB smaller and lost a 10-20 s cold start. What we claim now is
+narrower and true: no trackers, no third-party assets, keyless bulk Arkiv reads that don't reveal
+which contract you opened, and live reads labelled `direct RPC, not anonymized` so the one thing we
+don't protect is stated rather than implied. The failure and the retest stay written up in
+docs/TEST_REPORT.md as feedback for that team.
 
 **14. How do you know your mirror is correct?**
 Every ERC-8176 hash is computed twice (our JCS and the reference library); any mismatch aborts.

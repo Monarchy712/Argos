@@ -1,196 +1,244 @@
-# Argos — demo video script (target 2:48, hard limit 2:55)
+# Argos — demo video script (target 2:45, hard limit 2:55)
 
-> **Updated 13:53 Nov 6:** live reads now default to Anon-RPC / Nym, and the app is published to
-> Swarm. Two additions below: an **8-second** Nym line in moment (a) and one clause in the close.
-> That puts the target at ~2:48, so hold the other beats to their written lengths. Both EF tracks
-> (CROPS and Anon-RPC) judge this video, and Anon-RPC's first criterion is "works end to end in
-> the demo" — the Nym line is what satisfies it, so don't cut that one if you have to trim.
+> **Rewritten Nov 7.** The app was rebuilt around four destinations (Overview / My Contracts /
+> Add Contract / How It Works) plus a five-tab workspace per contract. The old screens the previous
+> script drove — "Check a transaction", "Browse mirror", "Monitored contracts" — **no longer
+> exist**. Liveness also moved from a 10-minute entity expiry to `checked_at` freshness (**5
+> minutes**) plus a `dg_watcher_health` heartbeat, so moment (d) is now a **5-minute** wait, not 10.
 
-Rules we follow (ETHGlobal + EF CROPS): **your own voice**, a **laptop screen recording** (not a
-phone), **≥ 720p** (record 1080p), **no speed-up**, no music with text, no AI voiceover, and
-**≤ 3:00** for the EF CROPS prize. Cuts are fine and used twice (marked ✂). We never speed up a
-wait; we cut it and say so.
+## ⚠️ The hard constraint: under 3:00
 
-The four moments the judges need to see: (a) a descriptor **fetched from Swarm** passes its hash
-check against Arkiv, (b) a **tampered** descriptor is rejected, (c) a **live A→B upgrade** turns the
-badge **RED**, (d) a **stopped watcher** makes the status expire to **NOT VERIFIED**.
+Both EF CROPS ("3 minutes max") and 0G ("under 3 mins") cap the video at **3:00**. A 4-minute cut
+disqualifies the two tracks it would be made for. **Target 2:45, absolute ceiling 2:55.** Every
+line below is timed against that.
 
-Measured rehearsal timings (Nov 6, 09:24 IST): the upgrade tx mined in **14 s**. The watcher
-wrote the RED record **~70 s** after the tx. A stopped watcher's rows show *stale* after 5 min
-and are **gone from Arkiv after 10 min** (expiry).
+Rules: **your own voice**, a **laptop screen recording** (not a phone), **≥ 720p** (record 1080p),
+**no speed-up**, no music under speech, no AI voiceover. Cuts are fine and used twice (marked ✂).
+Never speed up a wait — cut it and say so.
+
+---
+
+## What has to be on screen, per track
+
+| Track | The thing a judge must see |
+| --- | --- |
+| **0G** | A real inference in the main flow, with its **request id**, model and cost, and a reason to come back tomorrow |
+| **Arkiv — mirror** | The registry mirrored and **filterable** (a query that returns the 3 stale attestations) |
+| **Arkiv — from scratch** | `$creator` trust, freshness → NOT VERIFIED, entity keys as citations |
+| **CROPS (lead: Security)** | The hash check **rejecting** tampered bytes, and failing closed with no stale green |
+
+Four moments carry all four: **(a)** a descriptor from Swarm passes its hash check against Arkiv,
+**(b)** corrupted bytes are **rejected**, **(c)** a live A→B upgrade turns the badge **RED** and
+0G explains what changed, **(d)** a stopped watcher turns everything **NOT VERIFIED**.
 
 ---
 
 ## Recording plan: two clips
 
-- **Clip 1** (0:00–1:55): problem → (a) → (b) → (c). One take, one ✂ while the watcher catches up.
-- **Off camera, ~12 min:** switch the proxy back to A, let the watcher record it, **stop the
-  watcher**, wait 10+ minutes.
-- **Clip 2** (1:55–2:40): (d) → close.
+- **Clip 1** (0:00–2:05): problem → (a) → (b) → (c), including the 0G panel. One ✂ while the
+  watcher catches up.
+- **Off camera (~8 min):** switch the proxy back to A, let the watcher record it, **stop the
+  watcher**, wait 6+ minutes.
+- **Clip 2** (2:05–2:45): (d) → close.
 - Then restart the watcher and re-baseline (see *After recording*).
 
 ---
 
 ## Script
 
-### 0:00–0:15 · Problem (screen: How it works tab, diagram visible)
+### 0:00–0:18 · The problem (screen: How It Works, diagram visible)
 
-> "Wallets use ERC-7730 descriptors to turn raw calldata into a readable intent. A descriptor is
-> bound to a contract address. But 48% of the mainnet contracts in the registry, 314 of 652, are
-> upgradeable proxies. After an upgrade the wallet still shows the same confident intent, while
-> different code runs. Argos watches for that."
+> "Wallets use ERC-7730 descriptors to turn raw calldata into a readable intent — 'supply 100
+> USDC' instead of hex. A descriptor is bound to a contract address. But 48% of the mainnet
+> contracts in Ethereum's registry — 314 of 652 — are upgradeable proxies. After an upgrade, the
+> wallet shows the same confident intent while different code runs behind it. Nothing in the
+> registry records which implementation a descriptor was written for. Argos watches for that."
 
-### 0:15–0:45 · (a) Descriptor from Swarm, hash-checked against Arkiv (screen: Check a transaction)
+### 0:18–0:33 · What you'd actually use it for (screen: My Contracts)
 
-Action: *Load an example… → Aave v3: supply 100 USDC* → **Check transaction**. Point at the three
-parts top to bottom.
+> "You add the proxies you actually sign transactions to and accept a baseline once. From then on
+> a watcher checks them every sixty seconds. This is the reason to open it tomorrow: on a normal
+> day it's a two-second answer, and on the day something moves, it tells you what moved."
 
-> "Here's an Aave supply. Raw calldata at the top, and the readable intent: supply 100 USDC. The
-> descriptor came from **Swarm**, by the reference stored on its Arkiv entity, and its keccak hash
-> matches the ERC-8176 hash our writer published on Arkiv. That's this line: Swarm, check mark.
-> The badge is green because our watcher's record on Arkiv is fresh and my own live read of the
-> proxy's implementation slot matches the baseline. Green means no change as of this block, not
-> 'safe'."
+Point at the bell: *"changed and not-verified counts live here."*
 
-Then point at the header pill and the route line under the badge (**+8 s**, keep it this short):
+### 0:33–1:05 · (a) + (b) Descriptor from Swarm, then rejected (screen: a contract → **Evidence**)
 
-> "And both of those — the chain read and the descriptor download — went through **Anon-RPC over
-> the Nym mixnet**, which is the default here: the provider sees a Nym exit, not my IP. If the
-> mixnet can't be reached, the check says Not verified. It never quietly falls back."
+Open **Aave DAO** → **Evidence**. Point at the Arkiv records block.
 
-(Optional, 3 s: hover **dg_descriptor entity** / **Swarm 7d65ee6b…** links.)
+> "Every claim has a record behind it. These are Arkiv entity keys — the baseline, the current
+> state — and the two wallets Argos trusts. A row written by any other address isn't rendered at
+> all."
 
-### 0:45–1:05 · (b) Tampered descriptor rejected (same screen)
+Press **Verify now**.
 
-Action: tick **Demo: tamper with the downloaded descriptor** → **Check transaction**.
+> "That just fetched this descriptor's bytes **from Swarm**, by the reference stored on its Arkiv
+> entity, and recomputed the keccak hash. It matches the ERC-8176 hash our writer published on
+> Arkiv — that's the green line, source SWARM."
 
-> "Now I tamper with the downloaded bytes, the way a compromised gateway or network could. One
-> word changes, the hash no longer matches Arkiv, and Argos renders nothing: descriptor rejected,
-> expected hash, actual hash. It doesn't fall back to another copy on a mismatch."
+Tick **Demo: corrupt the bytes after download** → **Verify now**.
 
-Action: untick the box.
+> "Now I corrupt one word after the gateway serves it — exactly what a compromised gateway or a
+> network attacker could do. The hash no longer matches, and Argos renders **nothing**. Expected
+> hash, actual hash, descriptor rejected. It does not fall back to another copy, because whoever
+> broke the first one would get to choose the second."
 
-### 1:05–1:55 · (c) Live upgrade A→B turns the badge RED (terminal + browser)
+Untick the box.
 
-Action: switch to the terminal and run:
+### 1:05–2:05 · (c) Live upgrade → RED, and 0G explains it (terminal + browser)
+
+Terminal:
 
 ```bash
 bash scripts/demo-upgrade.sh B
 ```
 
-> "This is our demo proxy on Sepolia. I'm upgrading it from implementation A to B, through its
+> "This is our own proxy on Sepolia. I'm upgrading it from implementation A to B through its
 > ProxyAdmin, right now."
 
-Wait for `implementation slot now: 0x1f31…` (~15 s; the helper then waits for 2 confirmations
-before returning, which doesn't matter for the browser check). Switch to the browser: *Load an example… →
-Demo proxy: increment()* → **Check transaction**.
+Wait for `implementation slot now: 0x1f31…` (~15 s).
 
-> "Same check as before, on the proxy. Red: change detected. My live read already sees
-> implementation B, which differs from the baseline."
+✂ **Cut** (~60 s of waiting removed — keep the terminal clock or block number in shot across the
+cut so it's visibly a cut, not a speed-up).
 
-✂ **Cut** (≤ 60 s of waiting removed; keep the terminal clock or block number in shot after the cut).
+Browser: **My Contracts** → the demo proxy → it is **RED**.
 
-Action: **Monitored contracts** tab → **Refresh**. Point at the demo proxy row.
+> "One watcher cycle later: change detected. Baseline A, current B, the block, and a link to the
+> upgrade transaction."
 
-> "About a minute later the watcher has picked up the Upgraded event and written it to Arkiv:
-> baseline A, current B, the block, and a link to the upgrade transaction. Argos doesn't say this
-> upgrade is malicious. It says: check whether the descriptor still describes the code that runs
-> now."
+Open the **Investigate Change** tab.
+
+> "Detection is the easy half. The question a reader is actually left with is *what* changed — and
+> this is where 0G is doing the work. The watcher recovered the function selectors from the
+> **deployed bytecode** of both implementations — no block explorer, no verified source, so it
+> works on unverified contracts — diffed them, and asked a model on **0G Private Computer** to
+> describe the difference."
+
+Point at the footer.
+
+> "Model, the **0G request id**, the provider, and what it cost — about a tenth of a cent. The
+> sentences themselves live on Swarm; Arkiv carries their keccak hash, and the browser renders
+> them only if they hash to that value. So a gateway can't put different words in the model's
+> mouth. And notice what it never says: safe, unsafe, malicious, benign. A description, never a
+> verdict — an AI confidence score would be the same unearned confidence this project exists to
+> warn about."
+
+*(If the call surface is unchanged, add 4 s: "Here the selectors are identical — same call surface,
+different code. That's the worst case for clear signing, because nothing in a wallet's UI would
+look any different.")*
 
 **End of clip 1.**
 
-### Off camera (≈ 12 minutes)
+### Off camera (≈ 8 minutes)
 
 ```bash
 bash scripts/demo-upgrade.sh A
 ```
 
-Wait until the watcher terminal prints a `"change"` line back to `0xcea0…` (~70 s). Then press
-**Ctrl+C** in the watcher terminal (it prints `stopping after current cycle`, or just exits when Git Bash kills it outright; either is fine) and note the time.
-Wait **at least 10 minutes**.
+Wait for the watcher to log a `"change"` line back to `0xcea0…` (~70 s). Then **Ctrl+C** the
+watcher and note the time. Wait **at least 6 minutes** (freshness is 5).
 
-### 1:55–2:25 · (d) Watcher stopped → NOT VERIFIED (terminal + browser)
+### 2:05–2:35 · (d) Watcher stopped → NOT VERIFIED (terminal + browser)
 
-Action: show the stopped watcher terminal with its last timestamp (e.g. "stopped at 21:14").
+Show the stopped watcher terminal with its last timestamp.
 
-> "I stopped the watcher about ten minutes ago: that's its last line. Its Arkiv records were
-> written with a ten-minute expiry, so they're gone now."
+> "I stopped the watcher six minutes ago — that's its last line."
 
-Action: **Monitored contracts** → **Refresh**.
+Browser: **Overview** → refresh.
 
-> "Every contract now shows **Not verified**, with the reason: no live watcher record. Not a stale
-> green. If the watcher dies, gets censored or runs out of gas, users see that, instead of a green
-> badge nobody is backing. The baselines and the registry mirror are still on Arkiv; only the
-> liveness expired."
+> "Every contract now reads **Not verified**, with the reason: no live watcher record. Not a stale
+> green. A reading older than five minutes stops counting, so if the watcher dies, gets censored,
+> or runs out of gas, you see that instead of a badge nobody is backing. The baselines, the change
+> history and the registry mirror are all still there — only the liveness went."
 
-### 2:25–2:40 · Close (screen: How it works → "Check it yourself")
+Optional, 5 s, terminal — this is the strongest Arkiv-track line if you have room:
 
-> "Argos is for wallets that render ERC-7730, registry maintainers and auditors deciding what to
-> re-review, and anyone checking a transaction before they sign. Everything is public on Arkiv and
-> Swarm — including this app itself, which is published to Swarm so it outlives our host — the
-> trusted writers are published, and it's MIT-licensed. Argos: it watches, verifies and warns."
+```bash
+node scripts/show-arkiv.ts
+```
+
+> "And you don't need our UI to check any of it. This is keyless, reads the same Arkiv rows, and
+> derives the same verdicts — including the heartbeat saying how long it's been since anyone
+> watched."
+
+### 2:35–2:45 · Close (screen: How It Works)
+
+> "The whole ERC-7730 registry is mirrored to Arkiv — 771 descriptors, 2,678 deployments,
+> filterable; importing it turned up three auditor attestations that no longer match their files.
+> Descriptor content is on Swarm, the app itself is published to Swarm so it outlives our host,
+> the trusted writers are public, and it's MIT. Argos watches, verifies, and warns — and never
+> tells you something is safe."
 
 ---
 
 ## Before recording (exact commands)
 
-Run from the repo root (`C:\Users\samya\OneDrive\Desktop\Argos`), Git Bash unless noted.
+Run from the repo root, one terminal per numbered block.
 
-1. **Up to date and built**
+1. **Up to date and green**
    ```bash
    git pull && npm ci && npm run typecheck && npm test
    ```
-2. **One watcher, in a visible terminal.** The live watcher currently runs in the background
-   (started by Claude Code). Stop it, then start it in its own terminal tab so Ctrl+C works on
-   camera. PowerShell, to find it (also lists a leftover test watcher, PID 25700, file sink only):
-   ```powershell
-   Get-CimInstance Win32_Process -Filter "name='node.exe'" | Where-Object CommandLine -like '*watcher/src/main.ts*' | Select-Object ProcessId,CommandLine
-   ```
-   Stop each listed PID (`Stop-Process -Id <pid>`), then in a new terminal tab:
+2. **One watcher, in a visible terminal** so Ctrl+C works on camera. Kill any stray one first —
+   **two watchers at once previously created duplicate Arkiv rows and a false green**:
    ```bash
-   node --env-file=.env watcher/src/main.ts
+   pkill -f 'watcher/src/main.ts' ; node --env-file=.env watcher/src/main.ts
    ```
-   Within ~2 min it prints `"cycle"` lines for chain 1 and 11155111 with `"failed":0`. (No `| tee`:
-   Ctrl+C would kill tee first and hide the watcher's last line.)
-3. **Proxy at ImplA and a clean baseline** (removes the "previously changed" note from rehearsals):
+   Within ~2 min it prints `"cycle"` lines for chain 1 and 11155111 with `"failed":0`. No `| tee`:
+   Ctrl+C would kill tee first and hide the watcher's last line.
+3. **Proxy at ImplA with a clean baseline** (removes any "previously changed" note):
    ```bash
    bash scripts/demo-upgrade.sh A        # only if the slot isn't already 0xcea0…910f
    npm run rebaseline -w watcher -- --chain 11155111 --address 0xb8E5525eF80cEEC29Bf8598e303F71077361BFF5 --kind eip1967 --reason "clean state before demo video"
    ```
-4. **All 32 fresh:**
+4. **Everything fresh and verified:**
    ```bash
-   node scripts/show-arkiv.ts | grep -c '"matches_baseline": true'    # → 32
+   node scripts/show-arkiv.ts | grep -c 'VERIFIED (no change'      # → 32
+   node scripts/query-mirror.ts stale                              # → 3 rows
    ```
+   **Known state, decide before you record:** of 33 baselines, **32 read VERIFIED** and one
+   Sepolia contract — `0x319480a00314b03453d1f43b96ecc9f1c4f6ef1d`, an old test proxy — reads
+   **CHANGE DETECTED**, because it genuinely was upgraded and never rebaselined. It also holds the
+   one leftover duplicate `dg_current_state` row from the two-watcher incident, which
+   `show-arkiv.ts` now reports in its header. Nothing here is wrong, but if you'd rather the
+   Overview read clean on camera, rebaseline it first:
+   ```bash
+   npm run rebaseline -w watcher -- --chain 11155111 --address 0x319480a00314b03453d1f43b96ecc9f1c4f6ef1d --kind eip1967 --reason "clean state before demo video"
+   ```
+   Leaving it is also a fair demo — it shows a real change the watcher caught, with its upgrade
+   transaction.
 5. **Dev server:**
    ```bash
    npm run dev     # http://localhost:5180
    ```
-   Open it in Chrome. The header pill reads **Live reads: Anon-RPC / Nym · booting…** and then
-   **· ready (booted in N s)** after ~10–20 s — the worker starts on page load, so wait for
-   "ready" before recording. If it says **failed**, click **Retry Nym**; if it still fails, click
-   **Use direct RPC** and say on camera that you're switching, rather than re-shooting.
-   Then click **Check transaction** once off camera so the mirror is cached (first load reads
-   ~3,400 rows, ~8 s) — this also warms the Nym tunnel, whose first request costs ~15 s.
-6. **Sepolia gas:** the deployer needs ~0.001 ETH per upgrade (it had 0.013 ETH on Nov 6).
+   Open in Chrome. Then **off camera**, open the Aave contract's Evidence tab once and press
+   **Verify now**, so the mirror is cached (the first read pulls ~3,450 rows, ~10 s) and the Swarm
+   fetch is warm. Confirm the row reads **SWARM**, not REGISTRY — if it says REGISTRY, Swarm is
+   unreachable from your network and moment (a) loses its point.
+6. **Sepolia gas:** the deployer needs ~0.001 ETH per upgrade.
 
 ## Recording checklist
 
-- [ ] Screen recorder at **1920×1080** (Windows: Xbox Game Bar Win+Alt+R records one window; OBS for
-      browser + terminal). Mic tested, no music.
-- [ ] Browser zoom **110–125%**, bookmarks bar hidden, other tabs closed, notifications off (Focus).
-- [ ] Terminal font ≥ 16 pt, two tabs: watcher, and one for `demo-upgrade.sh`. **No `.env` on screen**,
-      no `cat .env`, no key in any command line (the helper reads it from `.env`).
-- [ ] Clip 1 under 1:55, clip 2 under 0:45, total **≤ 2:55**. No speed-up anywhere.
-- [ ] Say "cut" points out loud only if you'll edit them out; otherwise narrate the wait honestly.
-- [ ] After export: watch once at 1×, check the hashes and the "Not verified" reason are legible at 720p.
-- [ ] Put the timestamps of (a)–(d) into `arkiv/swarm.md` (Swarm moment = (a)) and `docs/SUBMISSION.md`.
+- [ ] Recorder at **1920×1080**. Mic tested. No music under speech.
+- [ ] Browser zoom **110–125%**, bookmarks hidden, other tabs closed, notifications off.
+- [ ] Terminal font ≥ 16 pt. **No `.env` on screen**, no `cat .env`, no key in any command line.
+- [ ] Clip 1 ≤ 2:05, clip 2 ≤ 0:40, total **≤ 2:55**. No speed-up anywhere.
+- [ ] Hashes, the 0G request id, and the "Not verified" reason are legible at 720p.
+- [ ] Put the (a)–(d) timestamps into `docs/SUBMISSION.md` and `arkiv/swarm.md`.
 
 ## After recording
 
 ```bash
-# restart the watcher (new terminal tab) and wait for "cycle" lines
-node --env-file=.env watcher/src/main.ts
-# clean baseline again so judges see a plain green row
+node --env-file=.env watcher/src/main.ts          # restart, wait for "cycle" lines
 npm run rebaseline -w watcher -- --chain 11155111 --address 0xb8E5525eF80cEEC29Bf8598e303F71077361BFF5 --kind eip1967 --reason "clean state after demo video"
-node scripts/show-arkiv.ts | grep -c '"matches_baseline": true'    # → 32 within ~3 min
+node scripts/show-arkiv.ts | grep -c 'VERIFIED (no change'    # → 33 within ~3 min
 ```
+
+## If something fails on the day
+
+| Problem | Do this |
+| --- | --- |
+| Swarm gateway down (Evidence row says REGISTRY) | Still record (a)/(b) — the hash check is the point and the fallback is also hash-checked. Say "Swarm is unreachable right now, so this came from the pinned registry commit and was checked the same way." |
+| No `dg_change_note` on the demo proxy (0G failed) | Backfill before recording: `node --env-file=.env scripts/explain-change.ts --chain 11155111 --address 0xb8E5… --write`. Check the watcher log for a `0G answered` line. |
+| 0G returns `no_provider_for_trust_mode` | The API key's Trust mode is **Verified**; most models need **Standard**. Switch it in the 0G dashboard and retry. |
+| Upgrade tx stuck | `bash scripts/demo-upgrade.sh B` again (idempotent), or record (c) against the guard demo proxy `0x3c93…D669`. |
