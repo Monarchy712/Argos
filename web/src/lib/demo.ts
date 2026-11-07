@@ -59,6 +59,12 @@ export const DEMO_CONTRACTS: readonly DemoContract[] = [
     label: "Argos test proxy",
     why: "Deployed for the watcher's end-to-end run (contracts/deployments/11155111-e2e.json); upgrade it to see a change detected.",
   },
+  {
+    chainId: 11155111,
+    address: "0xc6e91d0eD463B848677553d958aF2060D431aB29",
+    label: "Argos factory proxy",
+    why: "Created by the demo factory 0xe4Bcb0215442dA24bce6A74b0061a3FB3157fF7B on implementation A; upgraded A→B live in the demo video.",
+  },
 ];
 
 const DEMO_IDS = new Set(DEMO_CONTRACTS.map((d) => `${d.chainId}:${d.address.toLowerCase()}`));

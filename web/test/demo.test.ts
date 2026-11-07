@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { DEMO_CONTRACTS, DEMO_PROXY, GUARD_DEMO, demoContractInfo, isDemoContract } from "../src/lib/demo.ts";
 
 test("both documented demo proxies are in the registry", () => {
-  assert.equal(DEMO_CONTRACTS.length, 3);
+  assert.equal(DEMO_CONTRACTS.length, 4);
   assert.ok(isDemoContract(11155111, "0xb8E5525eF80cEEC29Bf8598e303F71077361BFF5"));
   assert.ok(isDemoContract(11155111, "0x3c93e603bbeD9Dc2Af817BC2D98Bc1D35CF1D669"));
   assert.ok(isDemoContract(11155111, "0x319480a00314B03453d1f43b96eCc9F1C4f6EF1d"));
