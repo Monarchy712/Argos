@@ -266,12 +266,26 @@ Submitted for **EF Best CROPS App**. Lead property: **Security**, i.e. *verify, 
 claim Argos shows can be checked independently, and when evidence is missing it fails closed
 (**Not verified**) instead of showing a stale green.
 
-- **S (security, the lead):** a descriptor renders only if `keccak256(bytes)` equals the ERC-8176 hash our writer published on Arkiv. You can watch that check fail: the **Evidence** tab has a toggle that corrupts the bytes after download, and Argos renders nothing from them rather than trying another source. Status comes from rows by two published `$creator` keys, goes stale after 5 minutes, and must agree with the user's own live slot read. The browser holds no keys; operator keys stay in a gitignored `.env`. Trust assumptions: our two keys, and RPC answers (cross-checked by the live read). Status is "as of block N" ([TOCTOU](docs/ARCHITECTURE.md#6-toctou-and-other-limitations-stated-plainly-in-the-readme)).
-- **C (censorship resistance):** you depend on our watcher process and writer key, the Arkiv Rabdi testnet, a public Ethereum RPC, and the Swarm gateway. If the watcher stops or refuses you, every contract turns **Not verified** within 5 minutes with the reason shown — censorship of us can't manufacture a false green, only a visible absence, and `dg_watcher_health` records when we stopped. Baselines, the mirror and descriptor content stay readable without us, keylessly, and `node scripts/show-arkiv.ts` derives the same verdicts the UI shows without running the UI. **The app itself is on Swarm** (`node scripts/publish-site.ts`; reference and limits in [arkiv/swarm.md](arkiv/swarm.md)), so the frontend survives our host disappearing — though the public gateways are default-deny for websites, so serving the HTML needs a Bee node or moderator approval. A forked watcher with its own keys can replace ours, but note the honest gap: the trusted writer addresses are compiled in (`packages/core/src/trust.ts`), so switching to a different operator means rebuilding, not a setting.
-- **O (open source):** MIT ([LICENSE](LICENSE)); descriptors are CC0. Builds and runs from this repo alone: `npm ci && npm run dev`, no keys needed to use the app or run the read-only queries. Exact-pinned npm deps; Foundry deps as pinned submodules.
-- **P (privacy):** no trackers, no analytics, no third-party assets — fonts and icons come from this origin, so the page contacts nobody but the endpoints it needs. Arkiv is read keyless as one bulk, contract-independent query, identical for every visitor, so Arkiv sees an IP and not the contract. Live chain reads and Swarm descriptor downloads go direct, so those providers do see your IP and the contract — every result is labelled `direct RPC, not anonymized` rather than implying a protection the app does not provide (table below).
+- **C:** you depend on our watcher and writer key, Arkiv Rabdi, a public Ethereum RPC and the Swarm gateway. If the watcher stops or refuses you, every contract turns **Not verified** within 5 minutes with the reason — never a false green — while baselines, the mirror and descriptors stay readable keylessly, and the app itself is on Swarm.
+- **O:** MIT ([LICENSE](LICENSE)), descriptors CC0. Builds and runs from this repo alone with `npm ci && npm run dev`, no keys.
+- **P:** no trackers, analytics or third-party assets. Arkiv sees your IP but not which contract (one identical bulk query for everyone); the Ethereum RPC and Swarm gateway see your IP and the contract, and every live result says `direct RPC, not anonymized` ([table](#what-each-third-party-can-learn)).
+- **S (lead):** a descriptor renders only if `keccak256(bytes)` equals the ERC-8176 hash published on Arkiv (tampered bytes are rejected on screen), and status needs fresh rows from two published `$creator` keys plus your own live slot read. The browser holds no keys; trust assumptions are our two keys and RPC answers.
 
 ### Details and trade-offs
+
+- **Security, in full.** You can watch the hash check fail: the **Evidence** tab has a toggle that
+  corrupts the bytes after download, and Argos renders nothing from them rather than trying another
+  source. Status comes from rows by two published `$creator` keys, goes stale after 5 minutes, and
+  must agree with the user's own live slot read. Operator keys stay in a gitignored `.env`. Status
+  is "as of block N" ([TOCTOU](docs/ARCHITECTURE.md#6-toctou-and-other-limitations-stated-plainly-in-the-readme)).
+- **Censorship resistance, in full.** Censorship of us can't manufacture a false green, only a
+  visible absence, and `dg_watcher_health` records when we stopped. `node scripts/show-arkiv.ts`
+  derives the same verdicts the UI shows without running the UI. The built app is published to
+  Swarm (`node scripts/publish-site.ts`, reference in [arkiv/swarm.md](arkiv/swarm.md)), so the
+  frontend survives our host disappearing. A forked watcher with its own keys can replace ours, but
+  the trusted writer addresses are compiled in (`packages/core/src/trust.ts`), so switching operator
+  means a rebuild, not a setting.
+- **Open source, in full.** Exact-pinned npm deps; Foundry deps as pinned submodules.
 
 - **Two hashes, two layers.** At import each ERC-8176 hash is computed twice (our JCS and the
   reference library) and compared with auditors' attestations in `sigs/`. That found **3 stale
