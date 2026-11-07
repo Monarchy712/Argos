@@ -1,0 +1,14 @@
+{
+  "chainId": 11155111,
+  "note": "Throwaway fixture for the end-to-end audit run. Not referenced by the app.",
+  "implA": "0x1511e14868422510F32AA1bF91c95138DA51b295",
+  "implB": "0x749e7099AebC06D0c87893E3F86bC83f05E2F1C9",
+  "proxy": "0x319480a00314B03453d1f43b96eCc9F1C4f6EF1d",
+  "proxyAdmin": "0x19B65f1d94575353A6cB2f182249b7141E2F280B",
+  "owner": "0x060762aa5D602d1A6E9a5AecC3301cf804b7E42C",
+  "txs": {
+    "implA": "(deployed earlier)",
+    "implB": "(deployed earlier)",
+    "proxy": "0x5f8293dbb600b2cde8474b8f2add8143e9cf45d65e761c7c175fd6e31f92a1de"
+  }
+}

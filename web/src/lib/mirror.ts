@@ -15,8 +15,13 @@ import { addr, u64 } from "@arkiv-network/sdk/schema";
 import { DeploymentSchema, DescriptorSchema, TRUSTED_CREATORS } from "@driftguard/core";
 import { http } from "viem";
 import type { RegistryManifest } from "./descriptors.ts";
+import { PAGE_SIZE, pageAll } from "./paging.ts";
 
-const client = createPublicClient({ chain: rabdi({ accessKey: "" }), transport: http(undefined, { retryCount: 0, timeout: 20_000 }) });
+/** Same optional rate-limit key as lib/arkiv.ts; see the note there. Empty means keyless. */
+const client = createPublicClient({
+  chain: rabdi({ accessKey: (import.meta.env.VITE_ARKIV_ACCESS_KEY as string | undefined) ?? "" }),
+  transport: http(undefined, { retryCount: 0, timeout: 20_000 }),
+});
 
 export interface MirrorDescriptor {
   key: string;
@@ -75,17 +80,6 @@ export const toDeployment = (r: DepRow): MirrorDeployment => ({
   commit: r.registry_commit.value,
 });
 
-async function pageAll<T>(fetchPage: (offset: number) => Promise<{ entities: readonly T[]; skipped: number }>): Promise<T[]> {
-  const out: T[] = [];
-  for (let offset = 0; ; ) {
-    const page = await fetchPage(offset);
-    out.push(...page.entities);
-    const covered = page.entities.length + page.skipped;
-    if (covered < 100) return out;
-    offset += covered;
-  }
-}
-
 export interface Mirror {
   descriptors: MirrorDescriptor[];
   deployments: MirrorDeployment[];
@@ -104,13 +98,13 @@ export function loadMirror(): Promise<Mirror> {
     const descriptors = (
       await pageAll((o) => {
         queries++;
-        return client.select(descSelect).from(DescriptorSchema).createdBy(TRUSTED_CREATORS.writer).orderBy(asc("$key")).limit(100).offset(o).fetch();
+        return client.select(descSelect).from(DescriptorSchema).createdBy(TRUSTED_CREATORS.writer).orderBy(asc("$key")).limit(PAGE_SIZE).offset(o).fetch();
       })
     ).map((r) => toDescriptor(r as unknown as DescRow));
     const deployments = (
       await pageAll((o) => {
         queries++;
-        return client.select(depSelect).from(DeploymentSchema).createdBy(TRUSTED_CREATORS.writer).orderBy(asc("$key")).limit(100).offset(o).fetch();
+        return client.select(depSelect).from(DeploymentSchema).createdBy(TRUSTED_CREATORS.writer).orderBy(asc("$key")).limit(PAGE_SIZE).offset(o).fetch();
       })
     ).map((r) => toDeployment(r as unknown as DepRow));
     return { descriptors, deployments, commit: newestCommit(descriptors), ms: Math.round(performance.now() - t0), queries };

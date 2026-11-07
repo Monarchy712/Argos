@@ -3,7 +3,7 @@
  * and chain reads go direct unless the viewer explicitly opts in to Anon-RPC (Nym); see
  * lib/transport.ts for why direct is the default.
  */
-export { TRUSTED_CREATORS } from "@driftguard/core";
+export { ARKIV_BLOCK_SECONDS, TRUSTED_CREATORS } from "@driftguard/core";
 
 /** Nym anon-client specifier (IWorkerSpecifier) on Ethereum mainnet, from ethereum/anon-rpc adopters.json5. */
 export const NYM_SPECIFIER = "0x3aCD9742C68F6d993066Ae25533e09b9e1f60eD0";
@@ -29,16 +29,7 @@ export const CHAINS: Record<number, ChainInfo> = {
 /** Used only by the harness to read the Nym specifier contract (bootstrap; reveals only "loads the Nym worker"). */
 export const BOOTSTRAP_RPC_URL = CHAINS[1]!.rpcUrl;
 
-/** The Sepolia demo proxy we upgrade A→B→A in the demo (contracts/deployments/11155111.json). */
-export const DEMO_PROXY = {
-  chainId: 11155111,
-  address: "0xb8E5525eF80cEEC29Bf8598e303F71077361BFF5",
-  label: "Argos demo proxy",
-} as const;
-
 export const ARKIV_EXPLORER = "https://rabdi.explorer.arkiv.network";
-/** Arkiv block time in seconds (SDK BLOCK_TIME), to turn $expiresAt blocks into wall time. */
-export const ARKIV_BLOCK_SECONDS = 2;
 /**
  * Keyless Arkiv reads have a cost budget (Test 2), so the table's bulk read refreshes every 90 s.
  * Worst-case record age shown = watcher write interval (120 s) + poll (60 s) + this, which keeps
@@ -54,14 +45,7 @@ export const ARKIV_REFRESH_MS = 90_000;
 export const SWARM_GATEWAY = (import.meta.env.VITE_SWARM_GATEWAY as string | undefined) ?? "https://api.gateway.ethswarm.org";
 
 /**
- * CONTROLLED DEMO: a second Sepolia proxy whose own (non-upgradeable) code reports its
- * implementation, plus ArgosGuard, which checks that implementation and makes the call in one
- * transaction (contracts/src/ArgosGuardableProxy.sol, ArgosGuard.sol;
- * contracts/deployments/11155111-guard.json). No registry contract has this getter.
+ * Argos's own demonstration contracts. Re-exported from lib/demo.ts, which has no Vite-only
+ * imports so its identity test runs under plain `node --test`.
  */
-export const GUARD_DEMO = {
-  chainId: 11155111,
-  proxy: "0x3c93e603bbeD9Dc2Af817BC2D98Bc1D35CF1D669",
-  guard: "0xBf9cAA1F914b76c87143183B9E82Ed574179E281",
-  label: "Argos guard demo proxy",
-} as const;
+export { DEMO_CONTRACTS, DEMO_PROXY, GUARD_DEMO, demoContractInfo, isDemoContract, type DemoContract } from "./demo.ts";

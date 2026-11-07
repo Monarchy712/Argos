@@ -10,6 +10,7 @@ import { asc } from "@arkiv-network/sdk/query";
 import { BaselineSchema, ChangeNoteSchema, CurrentStateSchema, LatestChangeSchema, TRUSTED_CREATORS } from "@driftguard/core";
 import { http, type Address, type Hex } from "viem";
 import { ARKIV_BLOCK_SECONDS } from "./config.ts";
+import { PAGE_SIZE, pageAll } from "./paging.ts";
 
 export interface BaselineRow {
   key: Hex;
@@ -84,7 +85,20 @@ export interface ArkivSnapshot {
   ms: number;
 }
 
-const client = createPublicClient({ chain: rabdi({ accessKey: "" }), transport: http(undefined, { retryCount: 0, timeout: 20_000 }) });
+/**
+ * Optional, and empty by default: the app works keyless, which is why it can be served as a
+ * static bundle with no backend. The public endpoint is "heavily rate limited" in Arkiv's own
+ * words, and this read is four queries that each expand per entity, so a busy deployment does hit
+ * it — when it does, every screen says so rather than rendering an empty portfolio.
+ *
+ * Setting this puts the key in the published bundle, where anyone can read it and spend the
+ * quota. It is a read/rate-limit token, not a signing key — the Arkiv keys that can *write*
+ * (ARKIV_WRITER_PRIVATE_KEY, ARKIV_WATCHER_PRIVATE_KEY) stay on the server and are never
+ * referenced here. Supplying it is an operator's trade of quota-anonymity for throughput.
+ */
+const ACCESS_KEY = (import.meta.env.VITE_ARKIV_ACCESS_KEY as string | undefined) ?? "";
+
+const client = createPublicClient({ chain: rabdi({ accessKey: ACCESS_KEY }), transport: http(undefined, { retryCount: 0, timeout: 20_000 }) });
 
 export class ArkivRateLimitedError extends Error {}
 
@@ -100,14 +114,31 @@ export const idOf = (chainId: number, address: string) => `${chainId}:${address.
 export async function readArkiv(): Promise<ArkivSnapshot> {
   const t0 = performance.now();
   try {
-    const [b, c, l, n] = await Promise.all([
-      client.select().from(BaselineSchema).createdBy(TRUSTED_CREATORS.writer).orderBy(asc("$key")).limit(100).fetch(),
-      client.select().from(CurrentStateSchema).createdBy(TRUSTED_CREATORS.watcher).orderBy(asc("$key")).limit(100).fetch(),
-      client.select().from(LatestChangeSchema).createdBy(TRUSTED_CREATORS.watcher).orderBy(asc("$key")).limit(100).fetch(),
-      client.select().from(ChangeNoteSchema).createdBy(TRUSTED_CREATORS.writer).orderBy(asc("$key")).limit(100).fetch(),
+    // Each page is its own request, so there is no single block the whole snapshot is atomic at.
+    // Two different blocks are captured from the *first* page of the query that needs them:
+    //   baselineBlock  what the UI displays as "read at Arkiv block N"
+    //   currentBlock   the reference `$expiresAt` is measured against for current_state rows,
+    //                  which must come from that same query or the arithmetic is comparing a
+    //                  block height to an unrelated one.
+    let baselineBlock = 0n;
+    let currentBlock = 0n;
+    /** Captures `blockNumber` off page 0 and otherwise passes the page straight through. */
+    const onFirstPage = <P extends { blockNumber: bigint }>(o: number, set: (b: bigint) => void) =>
+      (p: P) => { if (o === 0) set(p.blockNumber); return p; };
+
+    const [bRows, cRows, lRows, nRows] = await Promise.all([
+      pageAll((o) =>
+        client.select().from(BaselineSchema).createdBy(TRUSTED_CREATORS.writer).orderBy(asc("$key")).limit(PAGE_SIZE).offset(o).fetch()
+          .then(onFirstPage(o, (v) => { baselineBlock = v; }))),
+      pageAll((o) =>
+        client.select().from(CurrentStateSchema).createdBy(TRUSTED_CREATORS.watcher).orderBy(asc("$key")).limit(PAGE_SIZE).offset(o).fetch()
+          .then(onFirstPage(o, (v) => { currentBlock = v; }))),
+      pageAll((o) => client.select().from(LatestChangeSchema).createdBy(TRUSTED_CREATORS.watcher).orderBy(asc("$key")).limit(PAGE_SIZE).offset(o).fetch()),
+      pageAll((o) => client.select().from(ChangeNoteSchema).createdBy(TRUSTED_CREATORS.writer).orderBy(asc("$key")).limit(PAGE_SIZE).offset(o).fetch()),
     ]);
     const now = Math.floor(Date.now() / 1000);
-    const arkivBlock = b.blockNumber;
+    const arkivBlock = baselineBlock;
+    const b = { entities: bRows }, c = { entities: cRows }, l = { entities: lRows }, n = { entities: nRows };
     return {
       baselines: b.entities.map((r) => ({
         key: r.$key,
@@ -133,7 +164,7 @@ export async function readArkiv(): Promise<ArkivSnapshot> {
         checkedBlock: r.checked_block.value,
         checkedAt: Number(r.checked_at.value),
         detection: r.detection.value,
-        expiresAt: now + Number(r.$expiresAt - c.blockNumber) * ARKIV_BLOCK_SECONDS,
+        expiresAt: now + Number(r.$expiresAt - currentBlock) * ARKIV_BLOCK_SECONDS,
       })),
       changes: l.entities.map((r) => ({
         key: r.$key,

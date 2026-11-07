@@ -2,13 +2,15 @@ import { encodeAbiParameters, keccak256, zeroAddress, zeroHash, type Address, ty
 
 /**
  * How a monitored contract decides which code runs.
- * - eip1967: transparent or UUPS proxy (implementation + admin slots)
- * - beacon:  EIP-1967 beacon proxy (beacon slot, then beacon.implementation())
- * - diamond: EIP-2535 (loupe facets())
- * - safe:    Safe proxy (singleton in slot 0)
- * - none:    not a proxy; we still track its own codehash
+ * - eip1967:    transparent or UUPS proxy (implementation + admin slots)
+ * - zeppelinos: pre-EIP-1967 OpenZeppelin AdminUpgradeabilityProxy (keccak256(label), no -1).
+ *               Same `Upgraded(address)` event, so it is watched exactly like eip1967.
+ * - beacon:     EIP-1967 beacon proxy (beacon slot, then beacon.implementation())
+ * - diamond:    EIP-2535 (loupe facets())
+ * - safe:       Safe proxy (singleton in slot 0)
+ * - none:       not a proxy, or an immutable EIP-1167 clone; we track its own codehash
  */
-export const PROXY_KINDS = ["eip1967", "beacon", "diamond", "safe", "none"] as const;
+export const PROXY_KINDS = ["eip1967", "zeppelinos", "beacon", "diamond", "safe", "none"] as const;
 export type ProxyKind = (typeof PROXY_KINDS)[number];
 
 /** Everything that decides what code runs at an address. Equal identities = same code path. */

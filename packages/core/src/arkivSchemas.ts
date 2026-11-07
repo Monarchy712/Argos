@@ -124,12 +124,99 @@ export const ChangeNoteSchema = defineSchema("dg_change_note", {
   generated_at: u64(),
 });
 
-/** Expiry policy in seconds (ARCHITECTURE §2.4). */
+/**
+ * Liveness of the watcher itself, independent of any one contract. Watcher wallet.
+ *
+ * This exists because entity expiry, a watcher heartbeat, the last block actually scanned and
+ * "is the data fresh" are four different things, and the system used to conflate the first two:
+ * `dg_current_state` expired after ten minutes, so a dead watcher was inferred from rows
+ * *disappearing*. That worked, but it threw away the history and said nothing about why. A
+ * heartbeat says it directly, and survives long enough to be read after the fact.
+ */
+export const WatcherHealthSchema = defineSchema("dg_watcher_health", {
+  chain_id: u64().indexed(),
+  /** Last block whose change events were fully scanned — the replay checkpoint. */
+  last_scanned_block: u64(),
+  /** unix seconds of the last completed cycle. Monitoring freshness is measured from this. */
+  last_cycle_at: u64().indexed(),
+  /** Cycles completed since this process started. */
+  cycles: u64(),
+  /** Blocks that were behind head when the process started, i.e. the downtime gap it replayed. */
+  startup_gap_blocks: u64(),
+  /** Seconds between the previous cycle and this process starting. 0 on a first run. */
+  downtime_seconds: u64().indexed(),
+  /** "normal" | "recovering" | "disaster" — see watcher/src/health.ts for what decides. */
+  mode: str().indexed(),
+  /** How many contracts this chain's last cycle covered. */
+  monitored: u64(),
+  /** Contracts whose slot read failed in the last cycle. */
+  failed_reads: u64(),
+});
+
+/**
+ * An Arkiv entity reconstructed from historical blocks after the original expired.
+ *
+ * The recreated entity necessarily has a new key, so this row is the bridge: it records which key
+ * was lost, which key replaced it, and where the payload was recovered from, so provenance
+ * survives the gap. Writer wallet. See watcher/src/recover.ts.
+ */
+export const RecoverySchema = defineSchema("dg_recovery", {
+  /** The key the expired entity had. */
+  old_entity_key: str().indexed(),
+  /** The key of the entity created to replace it, or "" when reconstruction produced no entity. */
+  new_entity_key: str().indexed(),
+  /** The schema the original carried, e.g. "dg_baseline". */
+  entity_schema: str().indexed(),
+  /** Arkiv block and transaction the original payload was recovered from. */
+  source_block: u64(),
+  source_tx: str(),
+  /** Arkiv block the original was created at, as the historical event recorded it. */
+  original_created_block: u64(),
+  /** keccak256 over the recovered attribute set, so a reader can check the reconstruction. */
+  payload_hash: str().indexed(),
+  /** "reconstructed" | "verified" | "failed" — never "verified" until the new row has been read back. */
+  status: str().indexed(),
+  /** How many attributes were recovered. */
+  attributes: u64(),
+  detail: str(),
+  recovered_at: u64(),
+});
+
+/**
+ * Arkiv block time in seconds (the SDK's BLOCK_TIME). Needed wherever an `$expiresAt` block has
+ * to be turned into wall-clock time, or a duration into blocks.
+ */
+export const ARKIV_BLOCK_SECONDS = 2;
+
+/**
+ * Expiry and renewal policy, in seconds.
+ *
+ * WHY EVERYTHING IS NOW LONG-LIVED. The installed SDK caps an entity at `MAX_LIFETIME` =
+ * 7,884,000 blocks ≈ 182.5 days from the block the create or extension lands in
+ * (node_modules/@arkiv-network/sdk/src/consts.ts), and an extension resets that window. So the
+ * longest retention available is about six months per extension, renewed on a sliding window —
+ * not one month, which was the working assumption.
+ *
+ * `dg_current_state` used to expire after ten minutes, deliberately: a vanished row meant a dead
+ * watcher. That coupled two unrelated things. Monitoring freshness is a property of
+ * `checked_at` — which `computeStatus` already measures, and which is what turns a contract
+ * NOT VERIFIED — while expiry decides how long the record survives to be *read*. Tying them
+ * together threw away every observation older than ten minutes, which is exactly the history
+ * disaster recovery needs. Current state is now long-lived too, and staleness still comes from
+ * `checked_at`, so a stopped watcher reads NOT VERIFIED just as before while the trail survives.
+ */
 export const EXPIRY = {
-  /** ≈ 180 days, under the 182.5-day max lifetime. */
-  longSeconds: 180 * 24 * 3600,
-  /** current_state: a dead watcher shows as NOT VERIFIED once this lapses. */
+  /** Every Argos entity is created with ExpirationTime.max(); this is what that comes to. */
+  maxSeconds: 7_884_000 * 2,
+  /** Renew when fewer than this many seconds remain — a third of the window. */
+  renewBelowSeconds: 60 * 24 * 3600,
+  /**
+   * A watcher record older than this is stale, and its contract reads NOT VERIFIED. This is the
+   * freshness line; it has nothing to do with when the entity expires.
+   */
+  freshnessSeconds: 300,
+  /** @deprecated Kept so an older row's expiry still parses. Nothing writes a 10-minute expiry now. */
   currentStateSeconds: 10 * 60,
-  /** Renew long-lived entities when fewer than this many seconds remain. */
-  renewBelowSeconds: 30 * 24 * 3600,
+  /** @deprecated Superseded by `maxSeconds`; ExpirationTime.max() is what writes actually use. */
+  longSeconds: 180 * 24 * 3600,
 } as const;

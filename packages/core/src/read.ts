@@ -8,7 +8,14 @@ import {
   type Hex,
   type PublicClient,
 } from "viem";
-import { ADMIN_SLOT, BEACON_SLOT, IMPLEMENTATION_SLOT, SAFE_SINGLETON_SLOT } from "./slots.ts";
+import {
+  ADMIN_SLOT,
+  BEACON_SLOT,
+  IMPLEMENTATION_SLOT,
+  SAFE_SINGLETON_SLOT,
+  ZEPPELINOS_ADMIN_SLOT,
+  ZEPPELINOS_IMPLEMENTATION_SLOT,
+} from "./slots.ts";
 import { emptyIdentity, type CodeIdentity, type ProxyKind } from "./identity.ts";
 
 const beaconAbi = parseAbi(["function implementation() view returns (address)"]);
@@ -16,15 +23,38 @@ const loupeAbi = parseAbi([
   "function facets() view returns ((address facetAddress, bytes4[] functionSelectors)[])",
 ]);
 
-/** Reads the low 20 bytes of a storage slot as an address. */
+/**
+ * Raised when a node does not answer a slot read. Separated from "the slot is zero" because the
+ * two mean opposite things: an empty implementation slot says "not this kind of proxy", a missing
+ * answer says "we don't know yet". Conflating them is how an RPC gap becomes a confident
+ * "not a proxy" (or, in the watcher, a phantom change away from a zero address).
+ */
+export class SlotReadError extends Error {
+  readonly address: Address;
+  readonly slot: Hex;
+  constructor(address: Address, slot: Hex) {
+    super(`the node returned no value for slot ${slot} of ${address}`);
+    this.name = "SlotReadError";
+    this.address = address;
+    this.slot = slot;
+  }
+}
+
+/**
+ * Reads the low 20 bytes of a storage slot as an address.
+ *
+ * A slot that genuinely holds zero comes back as 0x000…0, so an absent result means the node
+ * declined to answer rather than that the slot is empty — and that throws {@link SlotReadError}.
+ */
 export async function readAddressSlot(
   client: PublicClient,
   address: Address,
   slot: Hex,
   blockNumber: bigint,
 ): Promise<Address> {
-  const raw = (await client.getStorageAt({ address, slot, blockNumber })) ?? zeroHash;
-  return getAddress(`0x${raw.slice(-40)}`);
+  const raw = await client.getStorageAt({ address, slot, blockNumber });
+  if (raw === undefined || raw === null || raw === "0x") throw new SlotReadError(address, slot);
+  return getAddress(`0x${raw.slice(-40).padStart(40, "0")}`);
 }
 
 /** keccak256 of the deployed bytecode (zero hash when there is no code). */
@@ -74,6 +104,12 @@ export async function readIdentity(
     case "eip1967": {
       id.implementation = await readAddressSlot(client, address, IMPLEMENTATION_SLOT, blockNumber);
       id.admin = await readAddressSlot(client, address, ADMIN_SLOT, blockNumber);
+      id.implementationCodehash = await readCodehash(client, id.implementation, blockNumber);
+      break;
+    }
+    case "zeppelinos": {
+      id.implementation = await readAddressSlot(client, address, ZEPPELINOS_IMPLEMENTATION_SLOT, blockNumber);
+      id.admin = await readAddressSlot(client, address, ZEPPELINOS_ADMIN_SLOT, blockNumber);
       id.implementationCodehash = await readCodehash(client, id.implementation, blockNumber);
       break;
     }

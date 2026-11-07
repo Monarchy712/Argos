@@ -12,8 +12,10 @@ import {
   readArkiv, idOf, ArkivRateLimitedError,
   type ArkivSnapshot, type BaselineRow, type ChangeRow, type ChangeNoteRow, type CurrentRow,
 } from "./arkiv.ts";
-import { ARKIV_REFRESH_MS, DEMO_PROXY, GUARD_DEMO } from "./config.ts";
+import { ARKIV_REFRESH_MS, DEMO_PROXY, GUARD_DEMO, isDemoContract } from "./config.ts";
 import { descriptorFor, loadManifest, type RegistryManifest } from "./descriptors.ts";
+import { localStatus, type LiveCheck } from "./watchlist.ts";
+import type { PendingBaseline } from "./pending.ts";
 
 export interface MonitoredRow {
   id: string;
@@ -34,6 +36,12 @@ export interface MonitoredRow {
   isDemo: boolean;
   /** only the guard-demo proxy exposes the getter ArgosGuard needs */
   guardable: boolean;
+  /**
+   * Where the baseline and the observation came from. Never blended in the UI:
+   *   arkiv — published by the Argos writer, observed continuously by the watcher.
+   *   local — recorded in this browser, observed by this browser while the page is open.
+   */
+  source: "arkiv" | "local";
 }
 
 const ORDER: Record<Status, number> = { RED: 0, NOT_VERIFIED: 1, GREEN: 2 };
@@ -56,6 +64,7 @@ export function buildRows(snap: ArkivSnapshot, manifest: RegistryManifest | null
       const desc = manifest ? descriptorFor(manifest, b.chainId, b.address) : null;
       const isDemoProxy = id === idOf(DEMO_PROXY.chainId, DEMO_PROXY.address);
       const isGuardDemo = id === idOf(GUARD_DEMO.chainId, GUARD_DEMO.proxy);
+      const demo = isDemoContract(b.chainId, b.address);
       const supported = (PROXY_KINDS as readonly string[]).includes(b.proxyKind);
 
       const status = computeStatus({
@@ -90,14 +99,100 @@ export function buildRows(snap: ArkivSnapshot, manifest: RegistryManifest | null
         descriptorHash: b.descriptorHash || desc?.descriptorHash || null,
         descriptorPath: desc?.path ?? null,
         status,
-        isDemo: isDemoProxy || isGuardDemo,
+        isDemo: demo,
         guardable: isGuardDemo,
+        source: "arkiv" as const,
       };
     })
-    .sort((a, b) => {
-      const demo = (r: MonitoredRow) => (r.protocol === DEMO_PROXY.label ? 0 : r.protocol === GUARD_DEMO.label ? 1 : 2);
-      return demo(a) - demo(b) || ORDER[a.status.status] - ORDER[b.status.status] || a.protocol.localeCompare(b.protocol);
-    });
+    // Demos last, not first: they are kept out of My Contracts entirely (see userRows), and
+    // wherever they are deliberately shown they belong below real monitored contracts.
+    .sort(
+      (a, b) =>
+        Number(a.isDemo) - Number(b.isDemo) ||
+        ORDER[a.status.status] - ORDER[b.status.status] ||
+        a.protocol.localeCompare(b.protocol),
+    );
+}
+
+/**
+ * The contracts a person is monitoring: everything except the proxies Argos deployed to
+ * demonstrate itself.
+ *
+ * Every user-facing list and count goes through this. The demo rows still exist in the array
+ * `buildRows` returns, because the Transaction Guard demonstration and a direct link to a demo
+ * contract's workspace both need them — they are simply never counted as somebody's holdings.
+ */
+export const userRows = (rows: MonitoredRow[]) => rows.filter((r) => !r.isDemo);
+
+/** The demo rows, for the places that deliberately show them. */
+export const demoRows = (rows: MonitoredRow[]) => rows.filter((r) => r.isDemo);
+
+/**
+ * Your own contracts, in the same shape as the Arkiv-monitored ones, so one table and one
+ * workspace serve both. The Arkiv-specific fields that genuinely do not exist for a local
+ * baseline (entity keys, Swarm refs, watcher expiry) are empty rather than invented, and the
+ * Evidence tab reads `source` to say so instead of showing blanks.
+ */
+export function buildLocalRows(entries: PendingBaseline[], checks: Record<string, LiveCheck>, now: number): MonitoredRow[] {
+  void now;
+  return entries
+    .map((e) => {
+      const id = idOf(e.chainId, e.address);
+      const live = checks[id] ?? { state: "pending" as const };
+      const status = localStatus(e, live);
+      const ok = live.state === "ok";
+
+      const baseline: BaselineRow = {
+        key: "" as `0x${string}`,
+        chainId: e.chainId,
+        address: e.address as BaselineRow["address"],
+        proxyKind: e.proxyKind,
+        implementation: e.implementation as BaselineRow["implementation"],
+        codeIdentity: e.codeIdentity as `0x${string}`,
+        descriptorHash: e.descriptorHash ?? "",
+        swarmRef: "",
+        block: BigInt(e.observedBlock),
+        baselinedAt: e.observedAt,
+        reason: "baseline you set in this browser",
+      };
+
+      const current: CurrentRow | null = ok
+        ? {
+            key: "" as `0x${string}`,
+            chainId: e.chainId,
+            address: e.address as CurrentRow["address"],
+            implementation: live.implementation,
+            codeIdentity: live.codeIdentity,
+            matchesBaseline: live.codeIdentity.toLowerCase() === e.codeIdentity.toLowerCase(),
+            everChanged: false,
+            checkedBlock: live.block,
+            checkedAt: live.at,
+            detection: "your live read",
+            expiresAt: Number.MAX_SAFE_INTEGER,
+          }
+        : null;
+
+      return {
+        id,
+        chainId: e.chainId,
+        address: e.address,
+        protocol: e.label,
+        attested: false,
+        proxyKind: e.proxyKind,
+        detection: "your live read",
+        baseline,
+        current,
+        change: null,
+        changeNote: null,
+        descriptorHash: e.descriptorHash,
+        descriptorPath: e.descriptorPath,
+        status,
+        isDemo: false,
+        guardable: false,
+        source: "local" as const,
+      } satisfies MonitoredRow;
+    })
+    .sort((a, b) => ORDER[a.status.status] - ORDER[b.status.status] || a.protocol.localeCompare(b.protocol));
 }
 
 export const findRow = (rows: MonitoredRow[], chainId: number, address: string) =>
@@ -165,16 +260,21 @@ export function contractEvents(r: MonitoredRow, now: number): ContractEvent[] {
     });
   }
 
-  // A monitoring gap is not a record on Arkiv; it is the absence of a fresh one. Say which.
+  // A monitoring gap is not a record on Arkiv; it is the absence of a fresh one. Say which — and
+  // for a contract you baselined yourself there is no watcher involved at all, so the reason is
+  // that your own read has not returned, not that a record expired.
   if (!r.current) {
     out.push({
       id: "monitoring-gap",
       kind: "monitoring",
-      title: "Monitoring unavailable",
-      detail: "No unexpired watcher record for this contract. Its current_state row expired (the watcher stopped) or was never written.",
+      title: r.source === "local" ? "Not checked yet" : "Monitoring unavailable",
+      detail:
+        r.source === "local"
+          ? "Your browser has not completed a read of this contract, so there is nothing to compare against the baseline yet."
+          : "No watcher record for this contract on Arkiv: it was never written, or it expired. Either way Argos has no observation to compare against the baseline.",
       at: null, block: null, txHash: null, tone: "warn", investigable: false,
     });
-  } else if (now - r.current.checkedAt > 300) {
+  } else if (r.source === "arkiv" && now - r.current.checkedAt > 300) {
     out.push({
       id: "monitoring-stale",
       kind: "monitoring",

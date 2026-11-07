@@ -8,7 +8,8 @@
   "scripts": {
     "import": "node --env-file=../.env src/import.ts",
     "verify": "node --env-file=../.env src/verify.ts",
-    "swarm": "node --env-file=../.env src/swarm.ts"
+    "swarm": "node --env-file=../.env src/swarm.ts",
+    "sync": "node --env-file=../.env src/sync.ts"
   },
   "dependencies": {
     "@arkiv-network/sdk": "1.0.1",

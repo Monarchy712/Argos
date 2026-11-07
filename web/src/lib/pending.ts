@@ -1,17 +1,36 @@
 /**
- * Baselines the viewer has asked for but that are not on Arkiv yet.
+ * Contract-onboarding attempts this browser has made, and what became of each one.
  *
- * Why this exists: the browser holds no key. A `dg_baseline` row is written with
- * ARKIV_WRITER_PRIVATE_KEY by the watcher/importer (watcher/src/arkivSink.ts), never by this app,
- * so "Add contract" cannot make monitoring start by itself and must not pretend otherwise. What
- * it can do is the real work — read the proxy's slots live, pull the registry evidence, and record
- * the viewer's reviewed decision — then show exactly which record the Argos writer has to publish.
+ * WHAT CHANGED AND WHY. This used to be a list of locally saved wishes, all shown as "Awaiting
+ * baseline publication" — which read like a queue somebody was working through, when in fact
+ * nothing was queued anywhere and no baseline was ever going to appear. There is now a real
+ * server-side publisher (lib/publish.ts → watcher/src/server.ts), so an entry records the actual
+ * outcome instead:
  *
- * These rows live in this browser only. They are kept strictly separate from Arkiv rows
- * everywhere they surface, and they never produce a VERIFIED status: a requested baseline is a
- * request, not an observation.
+ *   needs-publisher  this build has no publisher configured; the request exists only here
+ *   publishing       a request is in flight
+ *   published        a dg_baseline row exists on Arkiv and the server read it back
+ *   refused          the server declined, with a reason
+ *   blocked          the publisher is disabled or misconfigured server-side
+ *   unconfirmed      the write may have landed; it has not been confirmed
+ *   failed           the request did not complete
+ *
+ * A `published` entry is dropped as soon as the contract shows up in the Arkiv snapshot, because
+ * at that point the real row is the source of truth and this is just a stale copy of it. Nothing
+ * here ever produces a VERIFIED status: these are requests and receipts, not observations.
  */
-const KEY = "argos.pendingBaselines.v1";
+const KEY = "argos.pendingBaselines.v2";
+/** The v1 key held rows with no outcome field. Read once, migrated, then left alone. */
+const LEGACY_KEY = "argos.pendingBaselines.v1";
+
+export type PendingStatus =
+  | "needs-publisher"
+  | "publishing"
+  | "published"
+  | "refused"
+  | "blocked"
+  | "unconfirmed"
+  | "failed";
 
 export interface PendingBaseline {
   chainId: number;
@@ -19,21 +38,45 @@ export interface PendingBaseline {
   proxyKind: string;
   implementation: string;
   codeIdentity: string;
-  /** block the inspection read, not a baseline block: the writer sets that when it publishes */
+  /** block the inspection read, not a baseline block: the server sets that when it publishes */
   observedBlock: string;
   observedAt: number;
   descriptorPath: string | null;
   descriptorHash: string | null;
   label: string;
+  status: PendingStatus;
+  /** The server's own words, when it had any. Shown verbatim rather than paraphrased. */
+  detail: string;
+  /** Arkiv entity key, set only for `published`. */
+  entityKey?: string;
+  /** unix seconds of the last status change */
+  updatedAt: number;
 }
+
+/** Statuses that mean "nothing is going to happen without someone doing something". */
+export const TERMINAL_STATUSES: readonly PendingStatus[] = ["published", "refused", "blocked", "failed"];
 
 const idOf = (chainId: number, address: string) => `${chainId}:${address.toLowerCase()}`;
 
 function read(): PendingBaseline[] {
   try {
     const raw = localStorage.getItem(KEY);
-    const parsed: unknown = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? (parsed as PendingBaseline[]) : [];
+    if (raw) {
+      const parsed: unknown = JSON.parse(raw);
+      return Array.isArray(parsed) ? (parsed as PendingBaseline[]) : [];
+    }
+    // Migrate v1 rows. They had no outcome, and the only honest reading of one is "this request
+    // was never published", so they come across as needs-publisher rather than as pending.
+    const legacy = localStorage.getItem(LEGACY_KEY);
+    if (!legacy) return [];
+    const old: unknown = JSON.parse(legacy);
+    if (!Array.isArray(old)) return [];
+    return (old as Omit<PendingBaseline, "status" | "detail" | "updatedAt">[]).map((r) => ({
+      ...r,
+      status: "needs-publisher" as PendingStatus,
+      detail: "Recorded before Argos had a baseline publisher. It was never published; publish it again to start monitoring.",
+      updatedAt: r.observedAt,
+    }));
   } catch {
     return [];
   }
@@ -62,8 +105,18 @@ export const pendingStore = {
     cache ??= read();
     return cache;
   },
-  add(row: PendingBaseline) {
-    const rows = [...read().filter((r) => idOf(r.chainId, r.address) !== idOf(row.chainId, row.address)), row];
+  /** Adds or replaces the entry for this contract. */
+  upsert(row: PendingBaseline) {
+    const rows = [...read().filter((r) => idOf(r.chainId, r.address) !== idOf(row.chainId, row.address)), { ...row, updatedAt: Math.floor(Date.now() / 1000) }];
+    cache = rows;
+    write(rows);
+  },
+  setStatus(chainId: number, address: string, status: PendingStatus, detail: string, entityKey?: string) {
+    const rows = read().map((r) =>
+      idOf(r.chainId, r.address) === idOf(chainId, address)
+        ? { ...r, status, detail, entityKey: entityKey ?? r.entityKey, updatedAt: Math.floor(Date.now() / 1000) }
+        : r,
+    );
     cache = rows;
     write(rows);
   },
@@ -71,6 +124,19 @@ export const pendingStore = {
     const rows = read().filter((r) => idOf(r.chainId, r.address) !== idOf(chainId, address));
     cache = rows;
     write(rows);
+  },
+  /**
+   * Drops entries for contracts that are now in the Arkiv snapshot. Once the real row is visible
+   * there is nothing useful left in a local receipt, and keeping it would show the same contract
+   * twice with two different stories.
+   */
+  reconcile(monitored: readonly { chainId: number; address: string }[]) {
+    const live = new Set(monitored.map((m) => idOf(m.chainId, m.address)));
+    const rows = read();
+    const kept = rows.filter((r) => !live.has(idOf(r.chainId, r.address)));
+    if (kept.length === rows.length) return;
+    cache = kept;
+    write(kept);
   },
   has(chainId: number, address: string) {
     return read().some((r) => idOf(r.chainId, r.address) === idOf(chainId, address));

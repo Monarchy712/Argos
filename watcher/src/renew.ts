@@ -1,71 +1,49 @@
 /**
- * Extends long-lived Argos entities that will expire within EXPIRY.renewBelowSeconds
- * (30 days) back to the maximum lifetime (~182 days). Safe to run any time; does nothing when
- * nothing is close to expiry. current_state is never renewed here: its short expiry is the point.
+ * Manual sliding-window renewal: extends every Argos entity whose window is running down.
  *
  *   npm run renew -w watcher            # renews whatever this .env has keys for
  *   npm run renew -w watcher -- --dry   # report only
  *
- * Writer key → dg_baseline, dg_descriptor, dg_deployment. Watcher key → dg_latest_change.
+ * The policy itself lives in renewAll.ts, which the watcher also runs hourly, so there is one
+ * list of entity classes rather than two that can drift apart. This command stays because a dry
+ * run is useful, and because after a long outage an operator wants to renew *now* rather than
+ * wait for the next sweep.
+ *
+ * Writer key → dg_baseline, dg_descriptor, dg_deployment, dg_change_note, dg_recovery.
+ * Watcher key → dg_latest_change, dg_current_state, dg_watcher_health.
+ * A class whose key is absent is reported as a failure, not skipped silently: rows that cannot be
+ * renewed are rows that will expire.
  */
-import { createPublicClient, createWalletClient, ExpirationTime } from "@arkiv-network/sdk";
-import { rabdi } from "@arkiv-network/sdk/chains";
-import { asc, lt } from "@arkiv-network/sdk/query";
-import { u64 } from "@arkiv-network/sdk/schema";
-import { http, isHex, type Hex } from "viem";
-import { privateKeyToAccount } from "viem/accounts";
-import {
-  BaselineSchema,
-  DeploymentSchema,
-  DescriptorSchema,
-  EXPIRY,
-  LatestChangeSchema,
-  TRUSTED_CREATORS,
-} from "@driftguard/core";
+import { EXPIRY } from "@driftguard/core";
+import { renewAll, renewalFailed, RENEWAL_PLAN } from "./renewAll.ts";
 
-const BLOCK_SECONDS = 2; // Arkiv block time (SDK BLOCK_TIME)
 const dry = process.argv.includes("--dry");
-const chain = rabdi({ accessKey: process.env.ARKIV_ACCESS_KEY ?? "" });
-const pub = createPublicClient({ chain, transport: http() });
-const head = await pub.getBlockNumber();
-const threshold = head + BigInt(EXPIRY.renewBelowSeconds / BLOCK_SECONDS);
+const log = (msg: string, data: Record<string, unknown> = {}) =>
+  console.log(JSON.stringify({ t: new Date().toISOString(), msg, ...data }));
 
-type RenewSchema = typeof BaselineSchema | typeof DescriptorSchema | typeof DeploymentSchema | typeof LatestChangeSchema;
-const plan: { role: "writer" | "watcher"; keyName: string; schemas: [string, RenewSchema][] }[] = [
-  { role: "writer", keyName: "ARKIV_WRITER_PRIVATE_KEY", schemas: [["dg_baseline", BaselineSchema], ["dg_descriptor", DescriptorSchema], ["dg_deployment", DeploymentSchema]] },
-  { role: "watcher", keyName: "ARKIV_WATCHER_PRIVATE_KEY", schemas: [["dg_latest_change", LatestChangeSchema]] },
-];
+console.log(
+  `Renewing entities expiring within ${EXPIRY.renewBelowSeconds / 86400} days, ` +
+    `back out to the chain maximum (~${Math.round(EXPIRY.maxSeconds / 86400)} days).${dry ? " DRY RUN." : ""}\n`,
+);
+for (const p of RENEWAL_PLAN) {
+  console.log(`${p.role} (${p.keyName}): ${p.schemas.map((s) => s.name).join(", ")}`);
+}
+console.log();
 
-for (const { role, keyName, schemas } of plan) {
-  const key = process.env[keyName];
-  if (!key || !isHex(key)) {
-    console.log(`${role}: ${keyName} not set, skipping`);
-    continue;
-  }
-  const wallet = createWalletClient({ chain, transport: http(), account: privateKeyToAccount(key as Hex) });
-  for (const [name, schema] of schemas) {
-    const due: Hex[] = [];
-    for (let offset = 0; ; ) {
-      const page = await pub
-        .select({ $key: true })
-        .from(schema)
-        .where(lt("$expiresAt", u64(threshold)))
-        .createdBy(TRUSTED_CREATORS[role])
-        .orderBy(asc("$key"))
-        .limit(100)
-        .offset(offset)
-        .fetch();
-      due.push(...page.entities.map((e) => e.$key));
-      const covered = page.entities.length + page.skipped;
-      if (covered < 100) break;
-      offset += covered;
-    }
-    console.log(`${name}: ${due.length} expiring within ${EXPIRY.renewBelowSeconds / 86400} days`);
-    if (dry) continue;
-    for (let i = 0; i < due.length; i += 50) {
-      const extensions = due.slice(i, i + 50).map((entityKey) => ({ entityKey, expiration: ExpirationTime.max() }));
-      const res = await wallet.executeBatch({ extensions });
-      console.log(`  extended ${res.extendedEntities.length} (tx ${res.txHash})`);
-    }
-  }
+const summary = await renewAll({ dry, log });
+
+console.log();
+for (const [name, c] of Object.entries(summary.byClass)) {
+  console.log(`${name.padEnd(18)} due ${String(c.due).padStart(5)}   extended ${String(c.extended).padStart(5)}`);
+}
+console.log(`\ntotal: ${summary.due} due, ${summary.extended} extended across ${summary.checked} classes`);
+for (const f of summary.failures) console.log(`FAILURE ${f.schema}: ${f.error}`);
+
+// Non-zero on failure so a cron entry or a CI job notices. A renewal that silently did not happen
+// is exactly how an entity expires.
+if (renewalFailed(summary)) {
+  console.log("\nRENEWAL FAILED — some entities may expire. See the failures above.");
+  process.exitCode = 1;
+} else {
+  console.log(dry ? "\nDry run complete." : "\nRenewal complete.");
 }

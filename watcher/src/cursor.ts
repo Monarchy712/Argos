@@ -7,6 +7,15 @@ export interface CursorFile {
   version: 1;
   /** chainId → last block whose events were fully scanned. */
   chains: Record<string, string>;
+  /**
+   * unix ms of the last completed cycle. This is the checkpoint the 24-hour recovery policy is
+   * measured against (watcher/src/health.ts) — a real "last successfully processed" timestamp,
+   * not process uptime and not an inference from which entities still exist. Absent in files
+   * written by an older build, which classifyDowntime handles.
+   */
+  lastCycleAt?: number;
+  /** Restarts observed, so a log gap can be matched to a process that came back. */
+  restarts?: number;
   /** contractId → per-contract memory. */
   contracts: Record<string, ContractCursor>;
   /**

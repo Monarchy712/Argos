@@ -110,7 +110,7 @@ export function TabOverview({ row, now }: TabProps) {
             body: (
               <div className="stack-s">
                 {!row.current ? (
-                  <div className="big-addr" style={{ color: "var(--warn-ink)" }}>No unexpired observation</div>
+                  <div className="big-addr" style={{ color: "var(--warn-ink)" }}>No observation</div>
                 ) : isDiamond ? (
                   <div className="big-addr dim">facets hash (diamond)</div>
                 ) : (

@@ -41,3 +41,8 @@ contracts/broadcast/
 importer/state/
 .vercel
 .env*
+# ...but the committed templates carry no values and are the only record of what an operator has
+# to set. Re-included after the blanket rule above, which would otherwise swallow them (the root
+# .env.example survived only because it was already tracked).
+!.env.example
+!**/.env.example

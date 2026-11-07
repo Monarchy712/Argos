@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
-  server: { port: 5180, strictPort: true },
+  // PORT is set by the harness when it assigns a port; 5180 is the default otherwise.
+  server: { port: Number(process.env.PORT ?? 5180), strictPort: false },
   build: { target: "es2022", sourcemap: true },
 });

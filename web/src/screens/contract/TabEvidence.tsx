@@ -78,7 +78,7 @@ export function TabEvidence({ row, manifest, now }: TabProps) {
           <Row k="Baseline block" v={row.baseline.block.toString()}>
             {explorer && <a className="addr" href={`${explorer}/block/${row.baseline.block}`} target="_blank" rel="noreferrer"><span className="val">View block</span><Icon name="external" size={11} /></a>}
           </Row>
-          <Row k="Last checked block" v={row.current ? row.current.checkedBlock.toString() : "no unexpired record"}>
+          <Row k="Last checked block" v={row.current ? row.current.checkedBlock.toString() : "no watcher record"}>
             {row.current && explorer && <a className="addr" href={`${explorer}/block/${row.current.checkedBlock}`} target="_blank" rel="noreferrer"><span className="val">View block</span><Icon name="external" size={11} /></a>}
           </Row>
           {row.change && (
@@ -96,7 +96,7 @@ export function TabEvidence({ row, manifest, now }: TabProps) {
           <Row k="Baseline" v={row.baseline.key}>
             <ArkivLink entityKey={row.baseline.key} label="dg_baseline" />
           </Row>
-          <Row k="Current state" v={row.current?.key ?? "expired or never written"}>
+          <Row k="Current state" v={row.current?.key ?? "never written, or expired"}>
             {row.current ? <ArkivLink entityKey={row.current.key} label="dg_current_state" /> : <Badge tone="warn" icon="question">Not verified</Badge>}
           </Row>
           <Row k="Latest change" v={row.change?.key ?? "no change recorded since baseline"}>
@@ -114,7 +114,8 @@ export function TabEvidence({ row, manifest, now }: TabProps) {
         </div>
         <div className="card-foot">
           Rows created by any other address are ignored by this app. <span className="mono">dg_current_state</span> rows carry
-          a 10-minute expiry, which is why a stopped watcher turns a contract to Not verified instead of leaving a stale green.
+          kept for months, while a contract turns to Not verified as soon as its newest reading is over five minutes old —
+          so a stopped watcher cannot leave a stale green, and the trail of when it stopped survives to be read.
         </div>
       </Card>
 
@@ -209,9 +210,15 @@ export function TabEvidence({ row, manifest, now }: TabProps) {
             <dt>Baseline established</dt>
             <dd className="mono">{new Date(row.baseline.baselinedAt * 1000).toISOString().replace("T", " ").slice(0, 19)}Z · {ago(row.baseline.baselinedAt, now)}</dd>
             <dt>Last observation</dt>
-            <dd className="mono">{row.current ? `${new Date(row.current.checkedAt * 1000).toISOString().replace("T", " ").slice(0, 19)}Z · ${ago(row.current.checkedAt, now)}` : "none unexpired"}</dd>
-            <dt>Observation expires</dt>
-            <dd className="mono">{row.current ? (row.current.expiresAt > now ? `in ${Math.round((row.current.expiresAt - now) / 60)} min` : "expired") : "—"}</dd>
+            <dd className="mono">{row.current ? `${new Date(row.current.checkedAt * 1000).toISOString().replace("T", " ").slice(0, 19)}Z · ${ago(row.current.checkedAt, now)}` : "no record"}</dd>
+            <dt>Record kept until</dt>
+            <dd className="mono">
+              {row.current
+                ? row.current.expiresAt > now
+                  ? `${Math.round((row.current.expiresAt - now) / 86400)} days from now`
+                  : "expired"
+                : "—"}
+            </dd>
             <dt>Ever changed since baseline</dt>
             <dd>{row.current ? (row.current.everChanged ? <Badge tone="warn" icon="alert">Yes</Badge> : <Badge tone="ok" icon="check">No</Badge>) : <span className="dimmer">unknown</span>}</dd>
           </dl>

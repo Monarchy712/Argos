@@ -8,17 +8,19 @@
  * publishes the record and what it will contain. No step claims an audit, a score, or a
  * certification, because Argos has none to give.
  */
-import { useState } from "react";
-import { classifyContract, codeIdentityHash, readIdentity, PROXY_KINDS, type Classification, type CodeIdentity, type ProxyKind } from "@driftguard/core";
+import { Fragment, useState } from "react";
+import { codeIdentityHash, inspectContract, readIdentity, type CodeIdentity, type Inspection } from "@driftguard/core";
 import { getAddress, isAddress, type Address } from "viem";
 import { clientFor } from "../lib/chain.ts";
-import { CHAINS } from "../lib/config.ts";
+import { ARKIV_EXPLORER, CHAINS } from "../lib/config.ts";
+import { architectureLabel, failureOutcome, outcomeOf, type Outcome } from "../lib/inspection.ts";
 import { lookupContract, type ContractLookup } from "../lib/mirror.ts";
 import { RegistryFallbackSource, SwarmFirstSource, type FetchRecord, type RegistryManifest } from "../lib/descriptors.ts";
-import { pendingStore } from "../lib/pending.ts";
+import { pendingStore, type PendingStatus } from "../lib/pending.ts";
+import { publishBaseline as publish, publishHeadline, type PublishState } from "../lib/publish.ts";
 import { contractHref, navigate } from "../lib/router.ts";
 import { routeLabel } from "../lib/transport.ts";
-import type { MonitoredRow } from "../lib/rows.ts";
+import type { ArkivState, MonitoredRow } from "../lib/rows.ts";
 import { PageHead } from "../components/Shell.tsx";
 import {
   AddressLink, Badge, Callout, Card, CardHead, Skeleton, SwarmLink, Tip,
@@ -28,13 +30,16 @@ import { Icon } from "../components/icons.tsx";
 
 type Step = 1 | 2 | 3 | 4;
 
-interface Inspection {
+interface Inspected {
   chainId: number;
   address: Address;
   block: bigint;
-  kind: Classification;
-  identity: CodeIdentity;
-  identityHash: `0x${string}`;
+  /** What the slot probes concluded, and why. */
+  result: Inspection;
+  outcome: Outcome;
+  /** Null when the architecture has no identity Argos can read (unsupported, delegated, no code). */
+  identity: CodeIdentity | null;
+  identityHash: `0x${string}` | null;
   lookup: ContractLookup | null;
   lookupError: string | null;
   descriptorCheck: { state: "none" } | { state: "ok"; log: FetchRecord[] } | { state: "failed"; error: string; log: FetchRecord[] };
@@ -49,15 +54,18 @@ const STEPS: { n: Step; k: string; v: string }[] = [
   { n: 4, k: "Step 4", v: "Monitoring" },
 ];
 
-export function AddContractScreen({ rows, manifest }: { rows: MonitoredRow[]; manifest: RegistryManifest | null }) {
+export function AddContractScreen({ rows, manifest, arkiv }: { rows: MonitoredRow[]; manifest: RegistryManifest | null; arkiv: ArkivState }) {
   const transport = useTransport();
   const [step, setStep] = useState<Step>(1);
   const [chainId, setChainId] = useState<number>(1);
   const [address, setAddress] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [ins, setIns] = useState<Inspection | null>(null);
+  /** An inspection that did not complete. Kept apart from a completed one so it can never read as a verdict. */
+  const [failure, setFailure] = useState<Outcome | null>(null);
+  const [ins, setIns] = useState<Inspected | null>(null);
   const [confirmed, setConfirmed] = useState(false);
+  /** What the server actually did with the request. Null until step 4 begins. */
+  const [published, setPublished] = useState<PublishState | null>(null);
 
   const trimmed = address.trim();
   const validAddress = isAddress(trimmed);
@@ -65,7 +73,7 @@ export function AddContractScreen({ rows, manifest }: { rows: MonitoredRow[]; ma
 
   async function inspect() {
     if (!validAddress) return;
-    setError(null);
+    setFailure(null);
     setBusy(true);
     const t0 = performance.now();
     const route = routeLabel(transport.mode);
@@ -73,12 +81,15 @@ export function AddContractScreen({ rows, manifest }: { rows: MonitoredRow[]; ma
     try {
       const client = clientFor(chainId);
       const block = (await client.getBlockNumber()) - 2n;
-      const { kind } = await classifyContract(client, addr, block);
+      // Throws InspectionError if a probe could not be run, so an RPC failure is never reported
+      // as "not a proxy" — see lib/inspection.ts.
+      const result = await inspectContract(client, addr, block);
+      const outcome = outcomeOf(result);
 
-      if (kind === "no-code") throw new Error("There is no contract code at this address on the selected network.");
-
-      const proxyKind = ((PROXY_KINDS as readonly string[]).includes(kind) ? kind : "none") as ProxyKind;
-      const identity = await readIdentity(client, addr, proxyKind, block);
+      // Only read a code identity for architectures the watcher can actually monitor. For the
+      // rest there is nothing to baseline, and inventing a zero identity would make every later
+      // read look like a change.
+      const identity = result.monitorAs ? await readIdentity(client, addr, result.monitorAs, block) : null;
 
       // Registry evidence (bulk mirror read, contract-independent where the budget allows it).
       let lookup: ContractLookup | null = null;
@@ -90,7 +101,7 @@ export function AddContractScreen({ rows, manifest }: { rows: MonitoredRow[]; ma
       }
 
       // If a descriptor exists, actually fetch and hash-check it rather than claiming it is fine.
-      let descriptorCheck: Inspection["descriptorCheck"] = { state: "none" };
+      let descriptorCheck: Inspected["descriptorCheck"] = { state: "none" };
       const index = lookup?.manifest ?? manifest;
       const path = lookup?.descriptor?.path ?? null;
       if (index && path) {
@@ -104,22 +115,44 @@ export function AddContractScreen({ rows, manifest }: { rows: MonitoredRow[]; ma
       }
 
       setIns({
-        chainId, address: addr, block, kind, identity,
-        identityHash: codeIdentityHash(identity),
+        chainId, address: addr, block, result, outcome, identity,
+        identityHash: identity ? codeIdentityHash(identity) : null,
         lookup, lookupError, descriptorCheck, route,
         ms: Math.round(performance.now() - t0),
       });
       setStep(2);
     } catch (err) {
-      setError(err instanceof Error ? err.message.split("\n")[0]! : String(err));
+      setFailure(failureOutcome(err));
     } finally {
       setBusy(false);
     }
   }
 
-  function establish() {
-    if (!ins || !confirmed) return;
-    pendingStore.add({
+  /** Maps a publish outcome onto the local receipt's status. */
+  const PENDING_STATUS: Record<PublishState["state"], PendingStatus> = {
+    "no-publisher": "needs-publisher",
+    publishing: "publishing",
+    published: "published",
+    "already-monitored": "published",
+    rejected: "refused",
+    blocked: "blocked",
+    unverified: "unconfirmed",
+    failed: "failed",
+  };
+
+  /**
+   * Asks the server to publish the baseline, then shows what actually happened.
+   *
+   * The browser cannot sign a `dg_baseline` row — the writer key is server-side and stays there —
+   * so this posts the person's decision and waits for the server to publish and read the row
+   * back. Only a `published` answer means the contract is monitored, and step 4 says which of the
+   * outcomes it was rather than one catch-all "awaiting publication".
+   */
+  async function establish() {
+    // No readable identity means there is nothing to compare future reads against, so there is
+    // no baseline to request. The UI does not offer the button in that case; this is the guard.
+    if (!ins || !confirmed || !ins.identity || !ins.identityHash) return;
+    const receipt = {
       chainId: ins.chainId,
       address: ins.address,
       proxyKind: ins.identity.proxyKind,
@@ -130,13 +163,33 @@ export function AddContractScreen({ rows, manifest }: { rows: MonitoredRow[]; ma
       descriptorPath: ins.lookup?.descriptor?.path ?? null,
       descriptorHash: ins.lookup?.descriptor?.descriptorHash ?? null,
       label: ins.lookup?.descriptor?.owner || ins.lookup?.descriptor?.entity || short(ins.address, 8, 6),
-    });
-    toast("Baseline request recorded");
+      updatedAt: Math.floor(Date.now() / 1000),
+    };
+
+    setPublished({ state: "publishing" });
     setStep(4);
+    pendingStore.upsert({ ...receipt, status: "publishing", detail: "Asking the Argos publisher to write the baseline." });
+
+    const result = await publish({ chainId: ins.chainId, address: ins.address, reason: "baselined by a reviewer in the Argos web app" });
+    setPublished(result);
+    const detail =
+      result.state === "published" ? `Published as Arkiv entity ${result.entityKey} and read back.`
+      : result.state === "already-monitored" ? `A baseline already existed (${result.entityKey}); this request changed nothing.`
+      : result.state === "no-publisher" ? "This build has no publisher configured, so the request was not sent anywhere."
+      : "message" in result ? result.message
+      : "";
+    pendingStore.setStatus(ins.chainId, ins.address, PENDING_STATUS[result.state], detail, "entityKey" in result ? result.entityKey : undefined);
+
+    if (result.state === "published" || result.state === "already-monitored") {
+      toast(result.state === "published" ? "Baseline published on Arkiv" : "Already monitored");
+      // The watcher reads baselines at the top of each cycle, so the Arkiv snapshot will carry
+      // this contract shortly. Refreshing makes it appear in My Contracts without a reload.
+      void arkiv.refresh();
+    }
   }
 
   function restart() {
-    setStep(1); setIns(null); setConfirmed(false); setError(null); setAddress("");
+    setStep(1); setIns(null); setConfirmed(false); setFailure(null); setAddress(""); setPublished(null);
   }
 
   return (
@@ -197,7 +250,11 @@ export function AddContractScreen({ rows, manifest }: { rows: MonitoredRow[]; ma
                 current status instead of establishing a new one.
               </Callout>
             )}
-            {error && <Callout tone="bad">{error}</Callout>}
+            {failure && (
+              <Callout tone={failure.tone === "neutral" ? "info" : failure.tone}>
+                <b>{failure.label}.</b> {failure.detail}
+              </Callout>
+            )}
 
             <div className="row">
               <button className="btn primary" onClick={() => void inspect()} disabled={!validAddress || busy}>
@@ -215,7 +272,7 @@ export function AddContractScreen({ rows, manifest }: { rows: MonitoredRow[]; ma
       )}
 
       {step >= 2 && ins && (
-        <Card stripe={ins.kind === "none" ? "warn" : "info"}>
+        <Card stripe={ins.outcome.monitorable ? "info" : "warn"}>
           <CardHead
             title="Contract inspection"
             sub={`Read at block ${ins.block} in ${ins.ms} ms, ${ins.route}.`}
@@ -225,33 +282,31 @@ export function AddContractScreen({ rows, manifest }: { rows: MonitoredRow[]; ma
           <div className="card-body stack">
             <dl className="facts wide">
               <dt>
-                Detected proxy type
-                <Tip text="Argos reads the EIP-1967 implementation and beacon slots, the diamond loupe, and the Safe singleton slot. Anything else is reported as unsupported rather than guessed at." />
+                Inspection result
+                <Tip text="Argos probes, in order: the EIP-1967 implementation and beacon slots, the pre-EIP-1967 OpenZeppelin slot, the EIP-2535 diamond loupe, the canonical EIP-1167 clone runtime, and the Safe singleton slot. A pattern it cannot read is reported as an unsupported proxy, and a probe that fails is reported as an error — never as 'not a proxy'." />
               </dt>
               <dd>
-                {ins.kind !== "none" && (PROXY_KINDS as readonly string[]).includes(ins.kind) ? (
-                  <Badge tone="info" icon="layers">{ins.kind}</Badge>
-                ) : ins.kind === "none" ? (
-                  // Not a proxy. Still monitorable: the code identity falls back to the codehash,
-                  // which changes if the address is ever redeployed to.
-                  <Badge icon="layers">not a proxy &middot; tracked by codehash</Badge>
-                ) : (
-                  <Badge tone="warn" icon="question">not a pattern Argos can read</Badge>
-                )}
+                <Badge tone={ins.outcome.tone} icon="layers">{ins.outcome.label}</Badge>{" "}
+                <span className="dim t-12">{architectureLabel(ins.result.architecture)}</span>
               </dd>
 
               <dt>Current implementation</dt>
               <dd>
-                {/^0x0{40}$/i.test(ins.identity.implementation)
-                  ? <span className="dim">{ins.kind === "diamond" ? "diamond — identity is a hash over facets" : "none readable"}</span>
-                  : <AddressLink chainId={ins.chainId} address={ins.identity.implementation} full />}
+                {/^0x0{40}$/i.test(ins.result.implementation)
+                  ? <span className="dim">{ins.result.architecture === "diamond" ? "diamond — identity is a hash over facets" : "none readable"}</span>
+                  : <AddressLink chainId={ins.chainId} address={ins.result.implementation} full />}
               </dd>
 
               <dt>Code identity</dt>
-              <dd className="mono" title={ins.identityHash}>{short(ins.identityHash, 18, 12)}</dd>
+              <dd className="mono" title={ins.identityHash ?? undefined}>
+                {ins.identityHash ? short(ins.identityHash, 18, 12) : <span className="dim">none — Argos cannot read what code runs here</span>}
+              </dd>
 
               <dt>Latest observed block</dt>
               <dd className="mono">{ins.block.toString()}</dd>
+
+              <dt>Deployed code</dt>
+              <dd className="mono">{ins.result.codeSize.toLocaleString()} bytes</dd>
 
               <dt>In the ERC-7730 registry</dt>
               <dd>
@@ -298,26 +353,48 @@ export function AddContractScreen({ rows, manifest }: { rows: MonitoredRow[]; ma
             {ins.lookupError && (
               <Callout tone="warn">The Arkiv registry mirror could not be read ({ins.lookupError}), so descriptor evidence is missing rather than assumed absent.</Callout>
             )}
-            {!(PROXY_KINDS as readonly string[]).includes(ins.kind) && (
-              <Callout tone="warn">
-                Argos could not identify an upgrade mechanism it knows how to read at this address. If you establish a
-                baseline anyway, monitoring will report <b>Not verified</b> rather than claiming the code is unchanged.
+            {/* Why Argos reached this conclusion, in the order it probed. Shown for everything
+                except a plainly detected proxy, where the badge already says it. */}
+            {ins.result.reason && (
+              <Callout tone={ins.outcome.monitorable ? "info" : "warn"} icon={ins.outcome.monitorable ? "info" : "question"}>
+                {ins.result.reason}
               </Callout>
             )}
 
+            <details className="t-12">
+              <summary className="dim" style={{ cursor: "pointer" }}>What Argos probed ({ins.result.probes.length} reads)</summary>
+              <dl className="facts" style={{ marginTop: "var(--s-3)" }}>
+                {ins.result.probes.map((p) => (
+                  <Fragment key={p.name}>
+                    <dt className="mono t-12">{p.name}</dt>
+                    <dd className="t-12">
+                      {p.result}
+                      {p.decisive && <span className="dim"> — decisive</span>}
+                    </dd>
+                  </Fragment>
+                ))}
+              </dl>
+            </details>
+
             {step === 2 && (
               <div className="row">
-                <button className="btn primary" onClick={() => setStep(3)}>
-                  Review the evidence <Icon name="arrowRight" size={14} />
-                </button>
-                <button className="btn" onClick={restart}>Cancel</button>
+                {ins.outcome.monitorable ? (
+                  <button className="btn primary" onClick={() => setStep(3)}>
+                    Review the evidence <Icon name="arrowRight" size={14} />
+                  </button>
+                ) : (
+                  // No identity to baseline. Offering the button would produce a baseline that
+                  // can never be compared against anything, which reads as monitoring and is not.
+                  <Badge tone="warn" icon="alert">Argos cannot monitor this address</Badge>
+                )}
+                <button className="btn" onClick={restart}>{ins.outcome.monitorable ? "Cancel" : "Try another address"}</button>
               </div>
             )}
           </div>
         </Card>
       )}
 
-      {step === 3 && ins && (
+      {step === 3 && ins?.identity && ins.identityHash && (
         <Card stripe="warn">
           <CardHead title="Establish the trust baseline" sub="This is your decision, and it is the only part of Argos that depends on judgement rather than observation." icon="shield" />
           <div className="card-body stack">
@@ -373,7 +450,7 @@ export function AddContractScreen({ rows, manifest }: { rows: MonitoredRow[]; ma
             </label>
 
             <div className="row">
-              <button className="btn primary" onClick={establish} disabled={!confirmed}>
+              <button className="btn primary" onClick={() => void establish()} disabled={!confirmed}>
                 <Icon name="shieldCheck" size={15} /> Establish baseline
               </button>
               <button className="btn" onClick={restart}>Cancel and investigate further</button>
@@ -382,9 +459,21 @@ export function AddContractScreen({ rows, manifest }: { rows: MonitoredRow[]; ma
         </Card>
       )}
 
-      {step === 4 && ins && (
-        <Card stripe="ok">
-          <CardHead title="Baseline recorded" sub="Your decision is saved. Monitoring begins when the record is published." icon="shieldCheck" />
+      {step === 4 && ins?.identity && ins.identityHash && (
+        <Card stripe={published?.state === "published" || published?.state === "already-monitored" ? "ok" : published?.state === "publishing" ? "info" : "warn"}>
+          <CardHead
+            title={published ? publishHeadline(published).label : "Publishing"}
+            sub={
+              published?.state === "published"
+                ? "The baseline is on Arkiv and the server read it back. The watcher monitors this contract from its next cycle."
+                : published?.state === "already-monitored"
+                  ? "A baseline already existed for this contract, so nothing was written."
+                  : published?.state === "publishing"
+                    ? "Waiting for the Argos publisher to write the row and read it back."
+                    : "Nothing is monitoring this contract. What follows is exactly why."
+            }
+            icon={published?.state === "published" ? "shieldCheck" : published?.state === "publishing" ? "clock" : "alert"}
+          />
           <div className="card-body stack">
             <dl className="facts wide">
               <dt>Baseline implementation</dt>
@@ -393,27 +482,104 @@ export function AddContractScreen({ rows, manifest }: { rows: MonitoredRow[]; ma
                   ? <span className="dim">—</span>
                   : <AddressLink chainId={ins.chainId} address={ins.identity.implementation} full />}
               </dd>
-              <dt>Baseline block</dt>
+              <dt>Observed at block</dt>
               <dd className="mono">{ins.block.toString()}</dd>
-              <dt>Baseline timestamp</dt>
-              <dd className="mono">{new Date().toISOString().replace("T", " ").slice(0, 19)}Z</dd>
               <dt>Code identity</dt>
               <dd className="mono" title={ins.identityHash}>{short(ins.identityHash, 18, 12)}</dd>
               <dt>Monitoring status</dt>
-              <dd><Badge tone="warn" icon="clock">Awaiting baseline publication</Badge></dd>
+              <dd>
+                {published ? (
+                  <Badge tone={publishHeadline(published).tone} icon={published.state === "published" ? "shieldCheck" : published.state === "publishing" ? "clock" : "alert"}>
+                    {publishHeadline(published).label}
+                  </Badge>
+                ) : (
+                  <Badge tone="info" icon="clock">Publishing…</Badge>
+                )}
+              </dd>
+              {(published?.state === "published" || published?.state === "already-monitored") && (
+                <>
+                  <dt>Arkiv entity</dt>
+                  <dd>
+                    <a className="mono t-12" href={`${ARKIV_EXPLORER}/entity/${published.entityKey}`} target="_blank" rel="noreferrer">
+                      {short(published.entityKey, 14, 10)}
+                    </a>
+                  </dd>
+                  <dt>Baseline block on Arkiv</dt>
+                  <dd className="mono">{published.block}</dd>
+                </>
+              )}
             </dl>
 
-            <Callout tone="info" icon="lock">
-              <b>Your browser holds no key, so it cannot publish this record.</b> A{" "}
-              <span className="mono">dg_baseline</span> row is written on Arkiv by the Argos writer. Until it is published,
-              this contract has no status — and Argos deliberately shows it as awaiting publication rather than as verified.
-              You will find it under <a href="#/contracts">My Contracts</a>.
-            </Callout>
+            {/* Each outcome gets its own words. The old screen showed one "awaiting publication"
+                badge for every case, including the ones where nothing was ever going to happen. */}
+            {published?.state === "published" && (
+              <Callout tone="ok" icon="shieldCheck">
+                A <span className="mono">dg_baseline</span> row was published by the Argos writer and then read back from
+                Arkiv to confirm it carries the code identity above. Monitoring starts on the watcher's next cycle, and the
+                contract's status will read <b>Not verified</b> until the first watcher record lands — that is the absence
+                of an observation, not a problem with the contract.
+              </Callout>
+            )}
+            {published?.state === "already-monitored" && (
+              <Callout tone="info" icon="info">
+                Argos already had a baseline for this contract, so this request wrote nothing. Open it from{" "}
+                <a href={contractHref(ins.chainId, ins.address)}>My Contracts</a> to see its current status. To move the
+                trust anchor to the implementation deployed now, use the contract's own rebaseline flow — Argos never
+                replaces a baseline silently.
+              </Callout>
+            )}
+            {published?.state === "no-publisher" && (
+              <Callout tone="warn" icon="lock">
+                <b>This Argos build has no publisher configured, so nothing was written to Arkiv.</b> A{" "}
+                <span className="mono">dg_baseline</span> row has to be signed with the Argos writer key, which lives on
+                the server and never in a browser; without <span className="mono">VITE_ARGOS_API_URL</span> there is no
+                server to ask. An operator can publish it with <span className="mono">npm run rebaseline -w watcher</span>.
+                <br />
+                <br />
+                It is still checked. The baseline above is kept in this browser, and Argos compares the contract against
+                it on every visit using its own reads — you will find it under{" "}
+                <a href="#/contracts">My Contracts</a> with a real status. That check is weaker than the watcher&rsquo;s:
+                it only runs while this page is open, so a change that is made and reverted in between would be missed.
+              </Callout>
+            )}
+            {published?.state === "blocked" && (
+              <Callout tone="warn" icon="lock">
+                <b>The Argos publisher is reachable but disabled.</b> {published.message} Nothing was written, and this
+                contract is not monitored. This needs an operator, not a retry.
+              </Callout>
+            )}
+            {published?.state === "rejected" && (
+              <Callout tone="bad" icon="alert">
+                <b>The publisher refused this baseline.</b> {published.message} Nothing was written. Retrying the same
+                request will get the same answer.
+              </Callout>
+            )}
+            {published?.state === "unverified" && (
+              <Callout tone="warn" icon="question">
+                <b>The write was accepted but could not be confirmed.</b> {published.message} Argos will not call this
+                contract monitored until a baseline row can be read back, so treat it as unknown rather than as either
+                done or failed.
+              </Callout>
+            )}
+            {published?.state === "failed" && (
+              <Callout tone="bad" icon="alert">
+                <b>The publication did not complete.</b> {published.message} Nothing here claims the contract is
+                monitored. You can try again.
+              </Callout>
+            )}
+            {published?.state === "publishing" && <Skeleton lines={2} />}
 
             <div className="row">
-              <a className="btn primary" href="#/contracts">
-                <Icon name="contracts" size={15} /> View in My Contracts
-              </a>
+              {published?.state === "published" || published?.state === "already-monitored" ? (
+                <a className="btn primary" href={contractHref(ins.chainId, ins.address)}>
+                  <Icon name="contracts" size={15} /> Open this contract
+                </a>
+              ) : (
+                <a className="btn" href="#/contracts"><Icon name="contracts" size={15} /> View in My Contracts</a>
+              )}
+              {(published?.state === "failed" || published?.state === "unverified") && (
+                <button className="btn primary" onClick={() => void establish()}>Try publishing again</button>
+              )}
               <button className="btn" onClick={restart}>Add another contract</button>
             </div>
           </div>

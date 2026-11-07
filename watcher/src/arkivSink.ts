@@ -4,7 +4,7 @@
  * (Test 2) — one executeBatch carries creates + patches + extensions, and a patch never moves
  * expiry, so every current_state rewrite pairs a patch with an extension.
  */
-import { createPublicClient, createWalletClient, ExpirationTime } from "@arkiv-network/sdk";
+import { createPublicClient, createWalletClient, ExpirationTime, MAX_LIFETIME } from "@arkiv-network/sdk";
 import { rabdi } from "@arkiv-network/sdk/chains";
 import { and, asc, eq } from "@arkiv-network/sdk/query";
 import { addr, u64 } from "@arkiv-network/sdk/schema";
@@ -12,6 +12,7 @@ import { getAddress, http, isHex, type Address, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import {
   BaselineSchema,
+  ARKIV_BLOCK_SECONDS,
   CurrentStateSchema,
   EXPIRY,
   LatestChangeSchema,
@@ -73,9 +74,11 @@ export class ArkivSink implements Sink {
   private readonly watcher: AnyWallet | null;
   private readonly writerAddress: Address;
   private readonly watcherAddress: Address;
-  /** contractId → entity key of our current_state / latest_change row (null = unknown, look up). */
-  private stateKeys: Map<string, Hex> | null = null;
-  private changeKeys: Map<string, Hex> | null = null;
+  /** contractId → key + expiry of our current_state / latest_change row (null = unknown, look up). */
+  private stateKeys: Map<string, { key: Hex; expiresAt: bigint }> | null = null;
+  private changeKeys: Map<string, { key: Hex; expiresAt: bigint }> | null = null;
+  /** Arkiv head as of the last loadKeys, to turn an `$expiresAt` block into "how long left". */
+  private arkivBlock = 0n;
 
   constructor(opts: { pub: AnyPublic; writer: AnyWallet | null; watcher: AnyWallet | null; writerAddress: Address; watcherAddress: Address }) {
     this.pub = opts.pub;
@@ -118,6 +121,15 @@ export class ArkivSink implements Sink {
     return w;
   }
 
+  /**
+   * Whether this process can sign a `dg_baseline` row. Reported by /api/health so an operator can
+   * see a misconfiguration without the endpoint having to attempt a write — and deliberately a
+   * boolean, so nothing about the key itself can leak.
+   */
+  get canWriteBaselines(): boolean {
+    return this.writer !== null;
+  }
+
   async loadBaselines(): Promise<Baseline[]> {
     const out: Baseline[] = [];
     for (let offset = 0; ; ) {
@@ -149,6 +161,37 @@ export class ArkivSink implements Sink {
       offset += covered;
     }
     return out;
+  }
+
+  /**
+   * The baseline for one contract, read back from Arkiv by (chain, address).
+   *
+   * Used by the publisher to answer "does this already exist?" before writing and "is it really
+   * there?" after, so a publication is only ever reported as done once the row has been read.
+   */
+  async readBaseline(chainId: number, address: Address): Promise<Baseline | null> {
+    const page = await this.pub
+      .select()
+      .from(BaselineSchema)
+      .where(and(eq("chain_id", u64(BigInt(chainId))), eq("address", addr(address))))
+      .createdBy(this.writerAddress)
+      .limit(10)
+      .fetch();
+    const r = page.entities[0];
+    if (!r) return null;
+    return {
+      key: r.$key,
+      chainId: Number(r.chain_id.value),
+      address: getAddress(r.address.value),
+      identity: identityFromRow(r),
+      identityHash: r.code_identity.value as Hex,
+      block: r.baseline_block.value,
+      baselinedAt: Number(r.baselined_at.value),
+      descriptorHash: r.descriptor_hash.value as Hex | "",
+      swarmRef: r.swarm_ref.value,
+      reason: r.rebaseline_reason.value,
+      previousKey: r.previous_baseline_key.value,
+    };
   }
 
   /** Creates the new baseline and deletes the previous one for the same contract in ONE tx. */
@@ -184,20 +227,28 @@ export class ArkivSink implements Sink {
     return res.createdEntities[0]!;
   }
 
-  /** Finds our existing rows (by creator) so updates patch them instead of creating duplicates. */
+  /**
+   * Finds our existing rows (by creator) so updates patch them instead of creating duplicates.
+   *
+   * `$expiresAt` comes back too, so `writeCycle` can extend a row only when its window is
+   * actually running down. Extending on every write would mean an extra operation per contract
+   * per cycle — thousands a day — to move an expiry that is months away.
+   */
   private async loadKeys(): Promise<void> {
     const load = async (schema: typeof CurrentStateSchema | typeof LatestChangeSchema) => {
-      const m = new Map<string, Hex>();
+      const m = new Map<string, { key: Hex; expiresAt: bigint }>();
       for (let offset = 0; ; ) {
         const page = await this.pub
-          .select({ $key: true, chain_id: true, address: true })
+          .select({ $key: true, $expiresAt: true, chain_id: true, address: true })
           .from(schema)
           .createdBy(this.watcherAddress)
           .orderBy(asc("$key"))
           .limit(100)
           .offset(offset)
           .fetch();
-        for (const r of page.entities) m.set(contractId(Number(r.chain_id.value), getAddress(r.address.value)), r.$key);
+        for (const r of page.entities) {
+          m.set(contractId(Number(r.chain_id.value), getAddress(r.address.value)), { key: r.$key, expiresAt: r.$expiresAt });
+        }
         const covered = page.entities.length + page.skipped;
         if (covered < 100) break;
         offset += covered;
@@ -206,6 +257,7 @@ export class ArkivSink implements Sink {
     };
     this.stateKeys = await load(CurrentStateSchema);
     this.changeKeys = await load(LatestChangeSchema);
+    this.arkivBlock = await this.pub.getBlockNumber();
   }
 
   /**
@@ -240,12 +292,20 @@ export class ArkivSink implements Sink {
       detected_at: u64(BigInt(r.detectedAt > 1e12 ? Math.floor(r.detectedAt / 1000) : r.detectedAt)),
       detected_by: r.detectedBy,
     });
-    const shortLived = ExpirationTime.fromSeconds(EXPIRY.currentStateSeconds);
+    /**
+     * Whether a row's window has run down far enough to be worth an extension operation.
+     * Everything is created with the chain maximum (~182 days), so this is false almost always —
+     * which is the point: a sliding renewal should cost one operation every few months per row,
+     * not one per write.
+     */
+    const dueForRenewal = (expiresAt: bigint) =>
+      this.arkivBlock === 0n || expiresAt - this.arkivBlock < BigInt(Math.floor(EXPIRY.renewBelowSeconds / ARKIV_BLOCK_SECONDS));
 
     // Group by contract so a contract's two rows always share a transaction.
     const ids = [...new Set([...states, ...changes].map((r) => contractId(r.chainId, r.address)))];
     const stateById = new Map(states.map((r) => [contractId(r.chainId, r.address), r]));
     const changeById = new Map(changes.map((r) => [contractId(r.chainId, r.address), r]));
+    let renewed = 0;
 
     for (const group of chunks(ids, BATCH)) {
       const send = async () => {
@@ -256,27 +316,45 @@ export class ArkivSink implements Sink {
         for (const id of group) {
           const st = stateById.get(id);
           if (st) {
-            const key = this.stateKeys!.get(id);
-            if (key) {
-              patches.push({ schema: CurrentStateSchema, entityKey: key, set: stateValues(st) });
-              extensions.push({ entityKey: key, expiration: shortLived });
+            const row = this.stateKeys!.get(id);
+            if (row) {
+              patches.push({ schema: CurrentStateSchema, entityKey: row.key, set: stateValues(st) });
+              // A patch never moves expiry, so renewal is its own operation — added only when the
+              // window is short. Freshness is carried by `checked_at`, not by the expiry.
+              if (dueForRenewal(row.expiresAt)) {
+                extensions.push({ entityKey: row.key, expiration: ExpirationTime.max() });
+                renewed++;
+              }
             } else {
-              creates.push({ schema: CurrentStateSchema, values: stateValues(st), expiration: shortLived });
+              creates.push({ schema: CurrentStateSchema, values: stateValues(st), expiration: ExpirationTime.max() });
               createdFor.push({ kind: "state", id });
             }
           }
           const ch = changeById.get(id);
           if (ch) {
-            const key = this.changeKeys!.get(id);
-            if (key) patches.push({ schema: LatestChangeSchema, entityKey: key, set: changeValues(ch) });
-            else {
+            const row = this.changeKeys!.get(id);
+            if (row) {
+              patches.push({ schema: LatestChangeSchema, entityKey: row.key, set: changeValues(ch) });
+              if (dueForRenewal(row.expiresAt)) {
+                extensions.push({ entityKey: row.key, expiration: ExpirationTime.max() });
+                renewed++;
+              }
+            } else {
               creates.push({ schema: LatestChangeSchema, values: changeValues(ch), expiration: ExpirationTime.max() });
               createdFor.push({ kind: "change", id });
             }
           }
         }
         const res = await watcher.executeBatch({ creates, patches, extensions });
-        createdFor.forEach((c, i) => (c.kind === "state" ? this.stateKeys! : this.changeKeys!).set(c.id, res.createdEntities[i]!));
+        // Creates lead the batch and arrive in order, so index i belongs to createdFor[i].
+        // executeBatch returns keys but not expiries, and a create resolves to
+        // `currentBlock + MAX_LIFETIME`, so that is what is recorded here. It is only used to
+        // decide whether a renewal is due; the next loadKeys replaces it with the node's value.
+        const assumedExpiry = this.arkivBlock === 0n ? 0n : this.arkivBlock + MAX_LIFETIME;
+        createdFor.forEach((c, i) => {
+          const map = c.kind === "state" ? this.stateKeys! : this.changeKeys!;
+          map.set(c.id, { key: res.createdEntities[i]! as Hex, expiresAt: assumedExpiry });
+        });
       };
       try {
         await send();
